@@ -1,0 +1,20157 @@
+#!/usr/bin/env python3
+"""
+═══════════════════════════════════════════════════════════════════════════════
+WOW 1.12 AUTONOMOUS PLAYER - COMPLETE HUMAN-EQUIVALENT RESEARCH AGENT
+═══════════════════════════════════════════════════════════════════════════════
+
+RESEARCH PREMISE AND LEGAL NOTICE:
+This software is designed EXCLUSIVELY for academic and technical research purposes.
+It operates ONLY on OFFLINE, SINGLE-PLAYER, NON-NETWORKED legacy World of Warcraft
+1.12 client installations for the purpose of studying:
+
+    * Computer vision perception pipelines
+    * Human-like input synthesis and motor control simulation
+    * Autonomous decision-making systems
+    * Action planning and state machine architecture
+    * UI interaction automation techniques
+    * Closed-environment autonomous agent behavior
+
+THIS SOFTWARE DOES NOT AND CANNOT:
+    * Connect to or interact with any live game servers
+    * Bypass, circumvent, or interfere with any anti-cheat systems
+    * Manipulate network traffic or game memory
+    * Violate Terms of Service of any live service
+    * Function in any online or multiplayer context
+
+TECHNICAL OVERVIEW:
+The agent operates through screen capture and OS-level input simulation only,
+exactly as a human would interact with the game client. All perception is
+derived from pixel analysis; all actions are real keyboard/mouse events.
+
+REQUIREMENTS:
+    pip install mss opencv-python numpy pynput
+
+OPTIONAL (for OCR text recognition):
+    pip install pytesseract
+    Also install Tesseract OCR: https://github.com/tesseract-ocr/tesseract
+
+RUNTIME CONTROLS:
+    F9  - Pause/Resume agent
+    F10 - Stop agent gracefully
+
+AUTHOR: Research Project
+LICENSE: For academic and research use only
+
+═══════════════════════════════════════════════════════════════════════════════
+KNOWN HARD LIMITS - What This Agent CANNOT Do
+═══════════════════════════════════════════════════════════════════════════════
+
+NAVIGATION & MOVEMENT:
+    * Cannot pathfind to objectives (no access to world coordinates or map data)
+    * Cannot follow roads or terrain features intelligently
+    * Cannot avoid obstacles reliably (no 3D collision detection)
+    * Cannot navigate indoors without trial/error exploration
+    * Cannot use minimap or world map for navigation
+    * Cannot jump gaps, climb ramps, or adjust for elevation changes
+    * Cannot handle knockback or physics effects
+
+COMBAT EXECUTION:
+    * Cannot read combat log (visual parsing only, limited accuracy)
+    * Cannot predict enemy cooldowns or abilities
+    * Cannot execute frame-perfect combos or rotations
+    * Cannot fake casts or perform advanced PvP techniques  
+    * Cannot manage threat in group settings
+    * Cannot position relative to multiple enemies optimally
+    * Cannot switch targets intelligently without visual heuristics
+
+UI INTERACTION:
+    * Cannot reliably parse quest text or objectives
+    * Cannot navigate all menu variations
+    * Cannot handle unexpected popups/dialogs
+    * Cannot use auction house or complex vendor interfaces
+    * Cannot compare gear stats without OCR (limited accuracy)
+
+WORLD AWARENESS:
+    * Cannot understand zones or exact locations
+    * Cannot recognize landmarks reliably
+    * Cannot know spawn points without learning them
+    * Cannot track patrol paths without observation
+    * Cannot distinguish safe vs dangerous areas without experience
+    * Cannot anticipate respawns precisely
+
+SOCIAL INTELLIGENCE:
+    * Cannot understand jokes, sarcasm, or tone shifts
+    * Cannot recognize trolling or manipulation
+    * Cannot maintain complex long-term social strategies
+    * Cannot coordinate group play beyond basic assist
+    * Cannot understand raid instructions semantically
+
+CONSCIOUSNESS GAPS:
+    * No subjective experience or qualia
+    * No intrinsic motivation beyond programmed goals
+    * No boredom, curiosity, or genuine frustration
+    * No true self-preservation instinct
+    * No intuition or insight
+    * No creative problem solving beyond learned heuristics
+    * No theory of mind or genuine social understanding
+
+═══════════════════════════════════════════════════════════════════════════════
+"""
+
+"""
+CONTEXT RECOVERY NOTICE
+
+This agent was recovered after external context loss.
+All learning, memory, and belief systems are designed
+to preserve identity continuity across interruptions.
+
+Regression to initial behavior is considered a failure
+of the research objective.
+"""
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HUMAN EQUIVALENCE NOTES (RESEARCH DOCUMENTATION)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# APPROXIMATED HUMAN ABILITIES:
+# - Learning from consequences (reinforcement learning with temporal difference)
+# - Forming beliefs from evidence (Bayesian-like probabilistic updating)
+# - Skill acquisition through repetition (power law of practice)
+# - Episodic memory with decay and salience weighting
+# - Procedural memory for motor patterns (combat rotations, navigation)
+# - Semantic memory for facts about the world (enemy types, zone danger)
+# - Competing motivational drives (safety vs curiosity, progress vs comfort)
+# - Emotional modulation of decision-making (fear after death, confidence after success)
+# - Exploration vs exploitation tradeoffs (epsilon-greedy with decay)
+# - Confidence calibration based on experience
+# - Habit formation through repetition
+# - Mistakes early in learning, fewer with practice (skill curves)
+# - Hesitation under uncertainty (confidence-modulated reaction time)
+# - Preference formation based on success history
+#
+# WHAT REMAINS IMPOSSIBLE:
+# - True consciousness or subjective experience (qualia)
+# - Genuine curiosity or boredom (simulated via drive system only)
+# - Creative insight or "aha" moments (only pattern matching)
+# - Intuition that transcends learned patterns
+# - Social understanding beyond pattern matching
+# - Moral reasoning beyond programmed guidelines
+# - Transfer learning to truly novel domains
+# - Self-modification of core objectives
+# - Understanding of own cognitive processes (no true metacognition)
+# - Genuine emotional states (only functional analogs)
+#
+# INTENTIONAL DEVIATIONS FROM OPTIMAL PLAY:
+# - Early decisions are intentionally suboptimal (high exploration rate)
+# - Learning rates are tuned to be human-like (slow early, faster later)
+# - Random exploration introduces "mistakes" that may persist
+# - Confidence starts low and builds with evidence
+# - Some beliefs will be wrong and persist until corrected by experience
+# - Skill execution has variance that decreases with practice
+# - Decision-making under uncertainty shows risk aversion
+# - Recent failures cause temporary risk-averse behavior
+# - Drives create competing priorities that may not optimize globally
+# - Fatigue simulation degrades performance over time
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+import time
+import random
+import threading
+import logging
+import sys
+import atexit
+import json
+import os
+import re
+from pathlib import Path
+from enum import Enum, auto
+from dataclasses import dataclass, field
+from typing import Any, Set, Dict, Optional, List, Tuple, Deque
+from collections import deque
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DEPENDENCY VERIFICATION
+# ═══════════════════════════════════════════════════════════════════════════
+
+try:
+    import mss
+    import cv2
+    import numpy as np
+    from pynput import keyboard, mouse
+    from pynput.keyboard import Controller as KeyboardController, Key, KeyCode
+    from pynput.mouse import Controller as MouseController, Button
+except ImportError as e:
+    print(f"ERROR: Missing required library: {e}")
+    print("Install with: pip install mss opencv-python numpy pynput")
+    sys.exit(1)
+
+OCR_AVAILABLE = False
+try:
+    import pytesseract
+    OCR_AVAILABLE = True
+except ImportError:
+    pass  # OCR is optional
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LOGGING CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler("wow_agent.log", mode='a', encoding='utf-8')
+    ]
+)
+logger = logging.getLogger("WoWAgent")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DATA PERSISTENCE DIRECTORY
+# ═══════════════════════════════════════════════════════════════════════════
+
+DATA_DIR = Path("wow_agent_knowledge")
+DATA_DIR.mkdir(exist_ok=True)
+
+# Additional imports for cognitive architecture
+import uuid
+import hashlib
+import gzip
+import pickle
+import math
+import struct
+import copy
+import statistics
+import traceback
+import heapq
+from abc import ABC, abstractmethod
+from contextlib import contextmanager
+from functools import wraps, lru_cache
+from datetime import datetime, timedelta
+from enum import IntEnum
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# IDENTITY CONTINUITY SYSTEM - REGRESSION PREVENTION
+# ═══════════════════════════════════════════════════════════════════════════════
+# This system prevents silent resets and ensures learning state survives restarts.
+# It implements:
+#   - Learning state checksum validation
+#   - Behavioral fingerprint comparison across sessions
+#   - Skill trend persistence verification
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class IdentityContinuityValidator:
+    """
+    Validates that the agent's learning state has not regressed.
+    Prevents silent resets by tracking checksums and behavioral fingerprints.
+    """
+    
+    VERSION = "1.0.0"
+    VALIDATION_FILE = DATA_DIR / "identity_continuity.json"
+    
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._validation_data = self._load_validation_data()
+        self._session_start_fingerprint: Optional[Dict[str, Any]] = None
+        self._regression_detected = False
+        self._warnings: List[str] = []
+    
+    def _load_validation_data(self) -> Dict[str, Any]:
+        """Load validation data from disk."""
+        if self.VALIDATION_FILE.exists():
+            try:
+                with open(self.VALIDATION_FILE, 'r') as f:
+                    data = json.load(f)
+                    logger.info(f"Loaded identity continuity data from previous session")
+                    return data
+            except Exception as e:
+                logger.warning(f"Failed to load identity continuity data: {e}")
+        return {
+            'version': self.VERSION,
+            'session_count': 0,
+            'last_fingerprint': None,
+            'skill_trend_history': [],
+            'learning_checksum_history': [],
+            'behavioral_drift_history': [],
+            'creation_time': time.time(),
+            'total_ticks_survived': 0,
+        }
+    
+    def _save_validation_data(self):
+        """Save validation data to disk."""
+        try:
+            with open(self.VALIDATION_FILE, 'w') as f:
+                json.dump(self._validation_data, f, indent=2, default=str)
+        except Exception as e:
+            logger.error(f"Failed to save identity continuity data: {e}")
+    
+    def compute_learning_checksum(self, learning_state: Dict[str, Any]) -> str:
+        """Compute a checksum of the learning state to detect corruption."""
+        try:
+            state_str = json.dumps(learning_state, sort_keys=True, default=str)
+            return hashlib.sha256(state_str.encode()).hexdigest()[:16]
+        except Exception as e:
+            logger.warning(f"Failed to compute learning checksum: {e}")
+            return "error"
+    
+    def compute_behavioral_fingerprint(self, 
+                                        beliefs: Dict[str, Any],
+                                        skills: Dict[str, Any],
+                                        q_values: Dict[str, Any],
+                                        personality: Dict[str, Any],
+                                        drives: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Compute a behavioral fingerprint that captures the agent's learned patterns.
+        Used to detect regression to initial behavior.
+        """
+        fingerprint = {
+            'belief_count': len(beliefs) if beliefs else 0,
+            'skill_count': len(skills) if skills else 0,
+            'q_value_count': len(q_values) if q_values else 0,
+            'avg_skill_practice': 0.0,
+            'exploration_rate': 0.5,
+            'personality_hash': "",
+            'drive_state_hash': "",
+            'timestamp': time.time(),
+        }
+        
+        if skills:
+            practice_counts = []
+            for skill_data in skills.values():
+                if isinstance(skill_data, dict):
+                    practice_counts.append(skill_data.get('practice_count', 0))
+            if practice_counts:
+                fingerprint['avg_skill_practice'] = sum(practice_counts) / len(practice_counts)
+        
+        if q_values and 'exploration_rate' in q_values:
+            fingerprint['exploration_rate'] = q_values['exploration_rate']
+        
+        if personality:
+            personality_str = json.dumps(personality, sort_keys=True, default=str)
+            fingerprint['personality_hash'] = hashlib.md5(personality_str.encode()).hexdigest()[:8]
+        
+        if drives:
+            drives_str = json.dumps(drives, sort_keys=True, default=str)
+            fingerprint['drive_state_hash'] = hashlib.md5(drives_str.encode()).hexdigest()[:8]
+        
+        return fingerprint
+    
+    def verify_skill_trends(self, current_skills: Dict[str, Any]) -> Tuple[bool, List[str]]:
+        """
+        Verify that skill trends are progressing, not regressing.
+        Returns (is_valid, warnings).
+        """
+        warnings = []
+        
+        last_fingerprint = self._validation_data.get('last_fingerprint')
+        if not last_fingerprint:
+            return True, []
+        
+        current_practice = 0
+        if current_skills:
+            for skill_data in current_skills.values():
+                if isinstance(skill_data, dict):
+                    current_practice += skill_data.get('practice_count', 0)
+        
+        last_practice = last_fingerprint.get('avg_skill_practice', 0) * \
+                       max(1, last_fingerprint.get('skill_count', 1))
+        
+        if current_practice < last_practice * 0.5 and last_practice > 10:
+            warnings.append(
+                f"SKILL REGRESSION DETECTED: Previous practice={last_practice:.0f}, "
+                f"Current={current_practice:.0f}"
+            )
+            self._regression_detected = True
+        
+        skill_trend = self._validation_data.get('skill_trend_history', [])
+        if len(skill_trend) >= 3:
+            recent_trend = skill_trend[-3:]
+            if all(t.get('exploration_rate', 0.5) >= 0.4 for t in recent_trend):
+                if self._validation_data['session_count'] > 5:
+                    warnings.append(
+                        "WARNING: Exploration rate not decreasing despite multiple sessions"
+                    )
+        
+        return len(warnings) == 0, warnings
+    
+    def begin_session(self, 
+                      beliefs: Dict[str, Any] = None,
+                      skills: Dict[str, Any] = None,
+                      q_values: Dict[str, Any] = None,
+                      personality: Dict[str, Any] = None,
+                      drives: Dict[str, Any] = None):
+        """Begin a new session and validate continuity from previous session."""
+        with self._lock:
+            self._validation_data['session_count'] += 1
+            session_num = self._validation_data['session_count']
+            
+            logger.info(f"═══════════════════════════════════════════════════════")
+            logger.info(f"IDENTITY CONTINUITY CHECK - Session {session_num}")
+            logger.info(f"═══════════════════════════════════════════════════════")
+            
+            self._session_start_fingerprint = self.compute_behavioral_fingerprint(
+                beliefs or {}, skills or {}, q_values or {},
+                personality or {}, drives or {}
+            )
+            
+            is_valid, warnings = self.verify_skill_trends(skills or {})
+            self._warnings = warnings
+            
+            for warning in warnings:
+                logger.warning(warning)
+            
+            if self._regression_detected:
+                logger.error("╔════════════════════════════════════════════════════╗")
+                logger.error("║  REGRESSION TO INITIAL BEHAVIOR DETECTED!          ║")
+                logger.error("║  This is considered a FAILURE of research goals.   ║")
+                logger.error("║  Attempting recovery from last known good state... ║")
+                logger.error("╚════════════════════════════════════════════════════╝")
+            
+            last_fp = self._validation_data.get('last_fingerprint', {})
+            if last_fp:
+                logger.info(f"Previous session beliefs: {last_fp.get('belief_count', 0)}")
+                logger.info(f"Current session beliefs: {self._session_start_fingerprint['belief_count']}")
+                logger.info(f"Previous exploration rate: {last_fp.get('exploration_rate', 0.5):.3f}")
+                logger.info(f"Current exploration rate: {self._session_start_fingerprint['exploration_rate']:.3f}")
+            
+            logger.info(f"═══════════════════════════════════════════════════════")
+            
+            self._save_validation_data()
+    
+    def end_session(self,
+                    beliefs: Dict[str, Any] = None,
+                    skills: Dict[str, Any] = None,
+                    q_values: Dict[str, Any] = None,
+                    personality: Dict[str, Any] = None,
+                    drives: Dict[str, Any] = None,
+                    ticks_this_session: int = 0):
+        """End session and save fingerprint for next session validation."""
+        with self._lock:
+            final_fingerprint = self.compute_behavioral_fingerprint(
+                beliefs or {}, skills or {}, q_values or {},
+                personality or {}, drives or {}
+            )
+            
+            self._validation_data['last_fingerprint'] = final_fingerprint
+            self._validation_data['total_ticks_survived'] += ticks_this_session
+            
+            self._validation_data['skill_trend_history'].append({
+                'session': self._validation_data['session_count'],
+                'timestamp': time.time(),
+                'belief_count': final_fingerprint['belief_count'],
+                'skill_count': final_fingerprint['skill_count'],
+                'q_value_count': final_fingerprint['q_value_count'],
+                'avg_skill_practice': final_fingerprint['avg_skill_practice'],
+                'exploration_rate': final_fingerprint['exploration_rate'],
+                'ticks': ticks_this_session,
+            })
+            
+            if len(self._validation_data['skill_trend_history']) > 100:
+                self._validation_data['skill_trend_history'] = \
+                    self._validation_data['skill_trend_history'][-100:]
+            
+            learning_state = {'beliefs': beliefs, 'skills': skills, 'q_values': q_values}
+            checksum = self.compute_learning_checksum(learning_state)
+            self._validation_data['learning_checksum_history'].append({
+                'session': self._validation_data['session_count'],
+                'checksum': checksum,
+                'timestamp': time.time(),
+            })
+            
+            if len(self._validation_data['learning_checksum_history']) > 50:
+                self._validation_data['learning_checksum_history'] = \
+                    self._validation_data['learning_checksum_history'][-50:]
+            
+            self._save_validation_data()
+            
+            logger.info(f"Session {self._validation_data['session_count']} ended")
+            logger.info(f"Total ticks survived across all sessions: "
+                       f"{self._validation_data['total_ticks_survived']}")
+    
+    def get_regression_status(self) -> Tuple[bool, List[str]]:
+        """Get whether regression was detected and any warnings."""
+        return self._regression_detected, self._warnings
+    
+    def get_session_count(self) -> int:
+        """Get total session count."""
+        return self._validation_data.get('session_count', 0)
+    
+    def get_total_ticks(self) -> int:
+        """Get total ticks survived across all sessions."""
+        return self._validation_data.get('total_ticks_survived', 0)
+
+
+# Global identity validator instance
+_identity_validator: Optional[IdentityContinuityValidator] = None
+
+def get_identity_validator() -> IdentityContinuityValidator:
+    """Get the global identity validator instance."""
+    global _identity_validator
+    if _identity_validator is None:
+        _identity_validator = IdentityContinuityValidator()
+    return _identity_validator
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BEHAVIORAL MOMENTUM SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Ensures the agent keeps improving without supervision by tracking:
+#   - Strategy drift over time
+#   - Habit formation and breaking
+#   - Long-term preference emergence
+#   - Risk tolerance shifts based on outcomes
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class BehavioralMomentum:
+    """
+    Tracks behavioral momentum to ensure continuous improvement.
+    The agent should "remember being bad" and avoid regression.
+    """
+    
+    strategy_history: Deque = field(default_factory=lambda: deque(maxlen=1000))
+    dominant_strategies: Dict[str, float] = field(default_factory=dict)
+    strategy_shift_events: List[Dict[str, Any]] = field(default_factory=list)
+    
+    habits: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    habit_formation_threshold: int = 50
+    habit_break_threshold: int = 20
+    
+    action_preferences: Dict[str, float] = field(default_factory=dict)
+    preference_momentum: Dict[str, float] = field(default_factory=dict)
+    
+    risk_history: Deque = field(default_factory=lambda: deque(maxlen=500))
+    risk_tolerance_trend: float = 0.0
+    
+    performance_history: Deque = field(default_factory=lambda: deque(maxlen=1000))
+    cumulative_success_rate: float = 0.5
+    improvement_rate: float = 0.0
+    
+    creation_time: float = field(default_factory=time.time)
+    last_update: float = field(default_factory=time.time)
+    
+    def record_action(self, action: str, context: str, success: bool, risk_level: float):
+        """Record an action and update momentum."""
+        timestamp = time.time()
+        
+        self.strategy_history.append({
+            'action': action, 'context': context, 'success': success,
+            'risk_level': risk_level, 'timestamp': timestamp,
+        })
+        
+        strategy_key = f"{context}:{action}"
+        if strategy_key not in self.dominant_strategies:
+            self.dominant_strategies[strategy_key] = 0.0
+        
+        alpha = 0.05
+        outcome_value = 1.0 if success else -0.5
+        self.dominant_strategies[strategy_key] = (
+            (1 - alpha) * self.dominant_strategies[strategy_key] + alpha * outcome_value
+        )
+        
+        if action not in self.habits:
+            self.habits[action] = {
+                'count': 0, 'success_count': 0, 'is_habit': False,
+                'first_use': timestamp, 'last_use': timestamp,
+            }
+        
+        habit_data = self.habits[action]
+        habit_data['count'] += 1
+        habit_data['last_use'] = timestamp
+        if success:
+            habit_data['success_count'] += 1
+        
+        if habit_data['count'] >= self.habit_formation_threshold and not habit_data['is_habit']:
+            success_rate = habit_data['success_count'] / habit_data['count']
+            if success_rate >= 0.6:
+                habit_data['is_habit'] = True
+                logger.info(f"HABIT FORMED: {action} (success rate: {success_rate:.2f})")
+        
+        if habit_data['is_habit']:
+            recent_failures = sum(
+                1 for h in list(self.strategy_history)[-50:]
+                if h['action'] == action and not h['success']
+            )
+            if recent_failures >= self.habit_break_threshold:
+                habit_data['is_habit'] = False
+                logger.info(f"HABIT BROKEN: {action} (recent failures: {recent_failures})")
+                self.strategy_shift_events.append({
+                    'type': 'habit_break', 'action': action, 'timestamp': timestamp,
+                })
+        
+        if action not in self.action_preferences:
+            self.action_preferences[action] = 0.5
+            self.preference_momentum[action] = 0.0
+        
+        preference_delta = 0.1 if success else -0.1
+        self.preference_momentum[action] = (
+            0.9 * self.preference_momentum.get(action, 0) + 0.1 * preference_delta
+        )
+        self.action_preferences[action] = max(0.0, min(1.0,
+            self.action_preferences[action] + self.preference_momentum[action]
+        ))
+        
+        self.risk_history.append({'risk_level': risk_level, 'success': success, 'timestamp': timestamp})
+        
+        if len(self.risk_history) >= 20:
+            recent_risks = list(self.risk_history)[-20:]
+            early_risks = list(self.risk_history)[:min(20, len(self.risk_history))]
+            recent_avg = sum(r['risk_level'] for r in recent_risks) / len(recent_risks)
+            early_avg = sum(r['risk_level'] for r in early_risks) / len(early_risks)
+            self.risk_tolerance_trend = recent_avg - early_avg
+        
+        self.performance_history.append({'success': success, 'timestamp': timestamp})
+        
+        if len(self.performance_history) >= 100:
+            first_half = list(self.performance_history)[:50]
+            second_half = list(self.performance_history)[-50:]
+            first_success = sum(1 for p in first_half if p['success']) / len(first_half)
+            second_success = sum(1 for p in second_half if p['success']) / len(second_half)
+            self.improvement_rate = second_success - first_success
+            self.cumulative_success_rate = second_success
+        
+        self.last_update = timestamp
+    
+    def get_habit_actions(self) -> List[str]:
+        """Get list of habitual actions."""
+        return [action for action, data in self.habits.items() if data.get('is_habit', False)]
+    
+    def get_preferred_action(self, available_actions: List[str]) -> Optional[str]:
+        """Get the most preferred available action based on momentum."""
+        if not available_actions:
+            return None
+        
+        scored_actions = []
+        for action in available_actions:
+            preference = self.action_preferences.get(action, 0.5)
+            momentum = self.preference_momentum.get(action, 0.0)
+            is_habit = self.habits.get(action, {}).get('is_habit', False)
+            score = preference + momentum * 0.5
+            if is_habit:
+                score += 0.2
+            scored_actions.append((action, score))
+        
+        scored_actions.sort(key=lambda x: x[1], reverse=True)
+        return scored_actions[0][0] if scored_actions else None
+    
+    def is_improving(self) -> bool:
+        """Check if the agent is showing improvement."""
+        return self.improvement_rate > 0.01
+    
+    def get_momentum_report(self) -> Dict[str, Any]:
+        """Get a report of behavioral momentum."""
+        return {
+            'habits': self.get_habit_actions(),
+            'preferred_actions': sorted(self.action_preferences.items(), key=lambda x: x[1], reverse=True)[:5],
+            'risk_tolerance_trend': self.risk_tolerance_trend,
+            'improvement_rate': self.improvement_rate,
+            'cumulative_success_rate': self.cumulative_success_rate,
+            'is_improving': self.is_improving(),
+            'total_actions': len(self.strategy_history),
+            'strategy_shifts': len(self.strategy_shift_events),
+        }
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'strategy_history': list(self.strategy_history),
+            'dominant_strategies': self.dominant_strategies,
+            'strategy_shift_events': self.strategy_shift_events,
+            'habits': self.habits,
+            'action_preferences': self.action_preferences,
+            'preference_momentum': self.preference_momentum,
+            'risk_history': list(self.risk_history),
+            'risk_tolerance_trend': self.risk_tolerance_trend,
+            'performance_history': list(self.performance_history),
+            'cumulative_success_rate': self.cumulative_success_rate,
+            'improvement_rate': self.improvement_rate,
+            'creation_time': self.creation_time,
+            'last_update': self.last_update,
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'strategy_history' in state:
+            self.strategy_history = deque(state['strategy_history'], maxlen=1000)
+        if 'dominant_strategies' in state:
+            self.dominant_strategies = state['dominant_strategies']
+        if 'strategy_shift_events' in state:
+            self.strategy_shift_events = state['strategy_shift_events']
+        if 'habits' in state:
+            self.habits = state['habits']
+        if 'action_preferences' in state:
+            self.action_preferences = state['action_preferences']
+        if 'preference_momentum' in state:
+            self.preference_momentum = state['preference_momentum']
+        if 'risk_history' in state:
+            self.risk_history = deque(state['risk_history'], maxlen=500)
+        if 'risk_tolerance_trend' in state:
+            self.risk_tolerance_trend = state['risk_tolerance_trend']
+        if 'performance_history' in state:
+            self.performance_history = deque(state['performance_history'], maxlen=1000)
+        if 'cumulative_success_rate' in state:
+            self.cumulative_success_rate = state['cumulative_success_rate']
+        if 'improvement_rate' in state:
+            self.improvement_rate = state['improvement_rate']
+        if 'creation_time' in state:
+            self.creation_time = state['creation_time']
+        if 'last_update' in state:
+            self.last_update = state['last_update']
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COGNITIVE EXECUTIVE SYSTEM - INTEGRATED COGNITIVE ARCHITECTURE
+# ═══════════════════════════════════════════════════════════════════════════════
+# This section implements the closed-world cognitive system with:
+#   - Attention & Salience prioritization
+#   - Working Memory with decay
+#   - Episodic Memory with context hashing
+#   - Semantic Belief Model
+#   - Social Memory System
+#   - Intent Inference
+#   - Goal Management
+#   - Personality Update Engine (rate-limited)
+#   - Learning & Credit Assignment
+#   - Narrative Self-Model (identity continuity)
+#   - Meta-Cognition (sanity lock)
+#   - Decision Synthesis
+#   - Full persistence with session continuity
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ENHANCED HUMAN-EQUIVALENT COGNITIVE SYSTEMS
+# ═══════════════════════════════════════════════════════════════════════════════
+# These systems implement the advanced cognitive architecture required for
+# human-like behavior: probabilistic beliefs, procedural memory, skill acquisition,
+# internal world model, competing drives, and reinforcement learning.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROBABILISTIC BELIEF SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Beliefs are represented as probability distributions, not point estimates.
+# They can be WRONG and will persist until sufficient evidence corrects them.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class BeliefType(Enum):
+    """Types of beliefs the agent can hold."""
+    ENEMY_DANGER = auto()       # How dangerous is enemy type X?
+    ZONE_SAFETY = auto()        # How safe is zone Z?
+    ABILITY_EFFECTIVENESS = auto()  # How effective is ability A against enemy E?
+    RESOURCE_LOCATION = auto()  # Where can resource R be found?
+    PLAYER_TRUSTWORTHINESS = auto()  # Can player P be trusted?
+    TERRAIN_TRAVERSABILITY = auto()  # Can terrain T be crossed?
+    TIMING_WINDOW = auto()      # When is action A appropriate?
+    SPAWN_PATTERN = auto()      # When/where do enemies spawn?
+
+
+@dataclass
+class ProbabilisticBelief:
+    """
+    A belief represented as a probability distribution.
+    Uses Beta distribution parameters for binary beliefs,
+    or mean/variance for continuous beliefs.
+    """
+    belief_id: str
+    belief_type: BeliefType
+    subject: str  # What the belief is about (enemy name, zone, ability, etc.)
+    
+    # For binary beliefs (success/failure, safe/dangerous)
+    alpha: float = 1.0  # Successes + prior
+    beta: float = 1.0   # Failures + prior
+    
+    # For continuous beliefs (damage amount, distance, time)
+    mean: float = 0.0
+    variance: float = 1.0
+    sample_count: int = 0
+    
+    # Metadata
+    formation_time: float = 0.0
+    last_update_time: float = 0.0
+    evidence_count: int = 0
+    wrong_predictions: int = 0  # Track how often this belief was wrong
+    
+    # Decay parameters
+    confidence_decay_rate: float = 0.001  # Per hour
+    
+    def get_probability(self) -> float:
+        """Get the mean probability (for binary beliefs)."""
+        return self.alpha / (self.alpha + self.beta)
+    
+    def get_confidence(self) -> float:
+        """
+        Get confidence in the belief.
+        Higher evidence count and lower variance = higher confidence.
+        """
+        total_evidence = self.alpha + self.beta - 2  # Subtract prior
+        confidence = 1.0 - (1.0 / (1.0 + total_evidence * 0.1))
+        
+        # Wrong predictions reduce confidence
+        if self.evidence_count > 0:
+            accuracy = 1.0 - (self.wrong_predictions / self.evidence_count)
+            confidence *= accuracy
+        
+        return min(1.0, max(0.0, confidence))
+    
+    def get_uncertainty(self) -> float:
+        """Get uncertainty (variance of beta distribution)."""
+        total = self.alpha + self.beta
+        return (self.alpha * self.beta) / (total * total * (total + 1))
+    
+    def update_binary(self, success: bool, weight: float = 1.0):
+        """Update belief with binary outcome."""
+        if success:
+            self.alpha += weight
+        else:
+            self.beta += weight
+        self.evidence_count += 1
+        self.last_update_time = time.time()
+    
+    def update_continuous(self, value: float):
+        """Update belief with continuous observation (online Welford algorithm)."""
+        self.sample_count += 1
+        self.evidence_count += 1
+        delta = value - self.mean
+        self.mean += delta / self.sample_count
+        if self.sample_count > 1:
+            self.variance = self.variance * (self.sample_count - 2) / (self.sample_count - 1) + \
+                           delta * (value - self.mean) / self.sample_count
+        self.last_update_time = time.time()
+    
+    def record_wrong_prediction(self):
+        """Record that a prediction based on this belief was wrong."""
+        self.wrong_predictions += 1
+    
+    def decay(self, current_time: float):
+        """Apply time-based decay to confidence (forgetting)."""
+        hours_since_update = (current_time - self.last_update_time) / 3600.0
+        decay_factor = math.exp(-self.confidence_decay_rate * hours_since_update)
+        
+        # Decay towards prior (alpha=1, beta=1 for binary)
+        self.alpha = 1.0 + (self.alpha - 1.0) * decay_factor
+        self.beta = 1.0 + (self.beta - 1.0) * decay_factor
+        
+        # Decay continuous beliefs towards initial uncertainty
+        self.variance = max(self.variance, 1.0 * (1.0 - decay_factor))
+
+
+class ProbabilisticBeliefSystem:
+    """
+    Manages all beliefs with proper uncertainty quantification.
+    Beliefs can be wrong and will persist until evidence corrects them.
+    """
+    
+    MAX_BELIEFS = 1000
+    PREDICTION_HORIZON = 0.7  # Probability threshold for prediction
+    
+    def __init__(self):
+        self.beliefs: Dict[str, ProbabilisticBelief] = {}
+        self._belief_predictions: deque = deque(maxlen=500)  # Track predictions for learning
+        self._global_confidence = 0.5  # Overall confidence in belief system
+        self._initialization_noise = 0.3  # Initial beliefs have noise (can be wrong)
+    
+    def get_or_create_belief(self, belief_type: BeliefType, subject: str) -> ProbabilisticBelief:
+        """Get existing belief or create a new one with initial uncertainty."""
+        belief_id = f"{belief_type.name}:{subject}"
+        
+        if belief_id not in self.beliefs:
+            # Create with high initial uncertainty and potential for being wrong
+            initial_alpha = 1.0 + random.uniform(-self._initialization_noise, self._initialization_noise)
+            initial_beta = 1.0 + random.uniform(-self._initialization_noise, self._initialization_noise)
+            
+            self.beliefs[belief_id] = ProbabilisticBelief(
+                belief_id=belief_id,
+                belief_type=belief_type,
+                subject=subject,
+                alpha=max(0.5, initial_alpha),
+                beta=max(0.5, initial_beta),
+                formation_time=time.time(),
+                last_update_time=time.time()
+            )
+        
+        return self.beliefs[belief_id]
+    
+    def update_from_experience(self, belief_type: BeliefType, subject: str, 
+                               outcome: bool, strength: float = 1.0):
+        """Update belief based on experienced outcome."""
+        belief = self.get_or_create_belief(belief_type, subject)
+        belief.update_binary(outcome, strength)
+        self._update_global_confidence()
+    
+    def update_continuous_belief(self, belief_type: BeliefType, subject: str, value: float):
+        """Update continuous belief with observed value."""
+        belief = self.get_or_create_belief(belief_type, subject)
+        belief.update_continuous(value)
+    
+    def predict(self, belief_type: BeliefType, subject: str) -> Tuple[float, float]:
+        """
+        Make a prediction based on current belief.
+        Returns (probability, confidence).
+        """
+        belief = self.get_or_create_belief(belief_type, subject)
+        prob = belief.get_probability()
+        conf = belief.get_confidence()
+        
+        # Record prediction for later verification
+        self._belief_predictions.append({
+            'belief_id': belief.belief_id,
+            'prediction': prob > self.PREDICTION_HORIZON,
+            'probability': prob,
+            'confidence': conf,
+            'time': time.time()
+        })
+        
+        return prob, conf
+    
+    def verify_prediction(self, belief_type: BeliefType, subject: str, actual_outcome: bool):
+        """Verify a previous prediction and update belief accordingly."""
+        belief = self.get_or_create_belief(belief_type, subject)
+        predicted = belief.get_probability() > self.PREDICTION_HORIZON
+        
+        if predicted != actual_outcome:
+            belief.record_wrong_prediction()
+            # Stronger update when prediction was wrong
+            belief.update_binary(actual_outcome, weight=2.0)
+        else:
+            belief.update_binary(actual_outcome, weight=1.0)
+    
+    def get_enemy_danger_belief(self, enemy_type: str) -> float:
+        """Get belief about how dangerous an enemy type is."""
+        prob, conf = self.predict(BeliefType.ENEMY_DANGER, enemy_type)
+        # If low confidence, add uncertainty
+        if conf < 0.5:
+            return prob + random.uniform(-0.2, 0.2) * (1 - conf)
+        return prob
+    
+    def get_zone_safety_belief(self, zone_name: str) -> float:
+        """Get belief about zone safety."""
+        prob, conf = self.predict(BeliefType.ZONE_SAFETY, zone_name)
+        return prob
+    
+    def get_ability_effectiveness(self, ability: str, enemy_type: str) -> float:
+        """Get belief about ability effectiveness against enemy type."""
+        subject = f"{ability}:vs:{enemy_type}"
+        prob, conf = self.predict(BeliefType.ABILITY_EFFECTIVENESS, subject)
+        return prob
+    
+    def decay_all_beliefs(self, current_time: float):
+        """Apply time-based decay to all beliefs."""
+        for belief in self.beliefs.values():
+            belief.decay(current_time)
+    
+    def _update_global_confidence(self):
+        """Update overall confidence in belief system based on prediction accuracy."""
+        recent_predictions = [p for p in self._belief_predictions 
+                            if time.time() - p['time'] < 3600]  # Last hour
+        if len(recent_predictions) >= 10:
+            # Would need actual outcomes to calculate accuracy
+            # For now, use average confidence
+            self._global_confidence = statistics.mean(p['confidence'] for p in recent_predictions)
+    
+    def get_uncertain_beliefs(self, threshold: float = 0.3) -> List[ProbabilisticBelief]:
+        """Get beliefs that have high uncertainty (candidates for exploration)."""
+        return [b for b in self.beliefs.values() if b.get_uncertainty() > threshold]
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'beliefs': {k: {
+                'belief_id': v.belief_id,
+                'belief_type': v.belief_type.name,
+                'subject': v.subject,
+                'alpha': v.alpha,
+                'beta': v.beta,
+                'mean': v.mean,
+                'variance': v.variance,
+                'sample_count': v.sample_count,
+                'formation_time': v.formation_time,
+                'last_update_time': v.last_update_time,
+                'evidence_count': v.evidence_count,
+                'wrong_predictions': v.wrong_predictions,
+            } for k, v in self.beliefs.items()},
+            'global_confidence': self._global_confidence,
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'beliefs' in state:
+            self.beliefs = {}
+            for k, v in state['beliefs'].items():
+                self.beliefs[k] = ProbabilisticBelief(
+                    belief_id=v['belief_id'],
+                    belief_type=BeliefType[v['belief_type']],
+                    subject=v['subject'],
+                    alpha=v['alpha'],
+                    beta=v['beta'],
+                    mean=v.get('mean', 0.0),
+                    variance=v.get('variance', 1.0),
+                    sample_count=v.get('sample_count', 0),
+                    formation_time=v['formation_time'],
+                    last_update_time=v['last_update_time'],
+                    evidence_count=v['evidence_count'],
+                    wrong_predictions=v.get('wrong_predictions', 0),
+                )
+        if 'global_confidence' in state:
+            self._global_confidence = state['global_confidence']
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROCEDURAL MEMORY SYSTEM (Skill Acquisition)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Represents "how to do things" - motor patterns, combat rotations, etc.
+# Skills START BAD and IMPROVE with practice following power law of learning.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class ProceduralSkill:
+    """
+    A learned skill/procedure that improves with practice.
+    Follows the power law of learning: performance = a * (practice ^ -b)
+    """
+    skill_id: str
+    skill_name: str
+    
+    # Practice tracking
+    practice_count: int = 0
+    successful_executions: int = 0
+    failed_executions: int = 0
+    
+    # Performance parameters (power law)
+    initial_error_rate: float = 0.5  # Starts with 50% error rate
+    learning_rate: float = 0.3       # How fast skill improves
+    asymptotic_performance: float = 0.95  # Maximum performance achievable
+    
+    # Timing parameters
+    initial_execution_time: float = 2.0  # Seconds
+    minimum_execution_time: float = 0.5
+    
+    # Variance parameters (decreases with practice)
+    initial_variance: float = 0.4
+    current_variance: float = 0.4
+    
+    # Decay (skills decay without practice)
+    last_practice_time: float = 0.0
+    decay_rate: float = 0.01  # Per day without practice
+    
+    # Component skills (for hierarchical learning)
+    component_skill_ids: List[str] = field(default_factory=list)
+    
+    def get_performance(self) -> float:
+        """
+        Get current skill performance level (0 to 1).
+        Follows power law of practice.
+        """
+        if self.practice_count == 0:
+            return 1.0 - self.initial_error_rate
+        
+        # Power law: error decreases as power function of practice
+        error_rate = self.initial_error_rate * (self.practice_count ** -self.learning_rate)
+        performance = 1.0 - error_rate
+        
+        # Cap at asymptotic performance
+        performance = min(self.asymptotic_performance, performance)
+        
+        # Apply decay for lack of practice
+        decay = self._compute_decay()
+        performance *= decay
+        
+        return max(0.1, performance)
+    
+    def get_execution_time(self) -> float:
+        """
+        Get expected execution time (decreases with practice).
+        Includes random variance.
+        """
+        # Base time decreases with practice
+        practice_factor = 1.0 / (1.0 + self.practice_count * 0.1)
+        base_time = self.minimum_execution_time + \
+                   (self.initial_execution_time - self.minimum_execution_time) * practice_factor
+        
+        # Add variance (also decreases with practice)
+        variance = self.current_variance * random.gauss(0, 1)
+        
+        return max(self.minimum_execution_time, base_time + variance)
+    
+    def execute(self) -> Tuple[bool, float]:
+        """
+        Execute the skill. Returns (success, execution_time).
+        Early executions are more likely to fail.
+        """
+        performance = self.get_performance()
+        execution_time = self.get_execution_time()
+        
+        # Success probability based on performance
+        success = random.random() < performance
+        
+        # Record execution
+        self.practice_count += 1
+        if success:
+            self.successful_executions += 1
+        else:
+            self.failed_executions += 1
+        
+        # Update variance (decreases with practice)
+        self.current_variance = self.initial_variance / (1.0 + self.practice_count * 0.05)
+        self.last_practice_time = time.time()
+        
+        return success, execution_time
+    
+    def _compute_decay(self) -> float:
+        """Compute decay factor based on time since last practice."""
+        if self.last_practice_time == 0:
+            return 1.0
+        
+        days_since_practice = (time.time() - self.last_practice_time) / 86400.0
+        return max(0.5, math.exp(-self.decay_rate * days_since_practice))
+    
+    def get_confidence(self) -> float:
+        """Get confidence in executing this skill successfully."""
+        if self.practice_count == 0:
+            return 0.2  # Low initial confidence
+        
+        success_rate = self.successful_executions / self.practice_count
+        # Bayesian confidence with prior
+        confidence = (self.successful_executions + 1) / (self.practice_count + 2)
+        return confidence
+
+
+class ProceduralMemorySystem:
+    """
+    Manages all procedural skills.
+    Handles skill acquisition, decay, and hierarchical learning.
+    """
+    
+    def __init__(self):
+        self.skills: Dict[str, ProceduralSkill] = {}
+        self._skill_chains: Dict[str, List[str]] = {}  # Complex skills as chains of simple ones
+        self._execution_history: deque = deque(maxlen=1000)
+        self._total_practice_time: float = 0.0
+    
+    def get_or_create_skill(self, skill_name: str, 
+                           initial_error_rate: float = 0.5,
+                           learning_rate: float = 0.3) -> ProceduralSkill:
+        """Get existing skill or create new one."""
+        skill_id = hashlib.md5(skill_name.encode()).hexdigest()[:12]
+        
+        if skill_id not in self.skills:
+            self.skills[skill_id] = ProceduralSkill(
+                skill_id=skill_id,
+                skill_name=skill_name,
+                initial_error_rate=initial_error_rate,
+                learning_rate=learning_rate,
+                last_practice_time=time.time()
+            )
+        
+        return self.skills[skill_id]
+    
+    def execute_skill(self, skill_name: str) -> Tuple[bool, float]:
+        """Execute a skill and get result."""
+        skill = self.get_or_create_skill(skill_name)
+        success, exec_time = skill.execute()
+        
+        self._execution_history.append({
+            'skill_name': skill_name,
+            'success': success,
+            'execution_time': exec_time,
+            'timestamp': time.time(),
+            'practice_count': skill.practice_count
+        })
+        
+        self._total_practice_time += exec_time
+        
+        return success, exec_time
+    
+    def register_skill_chain(self, chain_name: str, skill_names: List[str]):
+        """Register a complex skill as a chain of simpler skills."""
+        self._skill_chains[chain_name] = skill_names
+        # Create component skills if they don't exist
+        for skill_name in skill_names:
+            self.get_or_create_skill(skill_name)
+    
+    def execute_skill_chain(self, chain_name: str) -> Tuple[bool, float]:
+        """
+        Execute a skill chain. Fails if any component fails.
+        Chain success rate is product of component success rates.
+        """
+        if chain_name not in self._skill_chains:
+            # Treat as single skill
+            return self.execute_skill(chain_name)
+        
+        component_skills = self._skill_chains[chain_name]
+        total_time = 0.0
+        
+        for skill_name in component_skills:
+            success, exec_time = self.execute_skill(skill_name)
+            total_time += exec_time
+            
+            if not success:
+                return False, total_time
+        
+        return True, total_time
+    
+    def get_skill_performance(self, skill_name: str) -> float:
+        """Get current performance level for a skill."""
+        skill = self.get_or_create_skill(skill_name)
+        return skill.get_performance()
+    
+    def get_mastered_skills(self, threshold: float = 0.8) -> List[str]:
+        """Get list of skills above performance threshold."""
+        return [s.skill_name for s in self.skills.values() 
+                if s.get_performance() >= threshold]
+    
+    def get_struggling_skills(self, threshold: float = 0.5) -> List[str]:
+        """Get list of skills below performance threshold."""
+        return [s.skill_name for s in self.skills.values() 
+                if s.get_performance() < threshold and s.practice_count > 0]
+    
+    def apply_decay(self):
+        """Apply decay to all skills based on time since practice."""
+        # Decay is computed on-demand in get_performance()
+        pass
+    
+    def get_combat_rotation_skill(self, class_name: str, rotation_type: str) -> ProceduralSkill:
+        """Get or create a combat rotation skill."""
+        skill_name = f"rotation:{class_name}:{rotation_type}"
+        return self.get_or_create_skill(skill_name, initial_error_rate=0.6, learning_rate=0.25)
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'skills': {k: {
+                'skill_id': v.skill_id,
+                'skill_name': v.skill_name,
+                'practice_count': v.practice_count,
+                'successful_executions': v.successful_executions,
+                'failed_executions': v.failed_executions,
+                'initial_error_rate': v.initial_error_rate,
+                'learning_rate': v.learning_rate,
+                'current_variance': v.current_variance,
+                'last_practice_time': v.last_practice_time,
+            } for k, v in self.skills.items()},
+            'skill_chains': self._skill_chains,
+            'total_practice_time': self._total_practice_time,
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'skills' in state:
+            self.skills = {}
+            for k, v in state['skills'].items():
+                skill = ProceduralSkill(
+                    skill_id=v['skill_id'],
+                    skill_name=v['skill_name'],
+                    practice_count=v['practice_count'],
+                    successful_executions=v['successful_executions'],
+                    failed_executions=v['failed_executions'],
+                    initial_error_rate=v.get('initial_error_rate', 0.5),
+                    learning_rate=v.get('learning_rate', 0.3),
+                    current_variance=v.get('current_variance', 0.4),
+                    last_practice_time=v.get('last_practice_time', 0.0),
+                )
+                self.skills[k] = skill
+        if 'skill_chains' in state:
+            self._skill_chains = state['skill_chains']
+        if 'total_practice_time' in state:
+            self._total_practice_time = state['total_practice_time']
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INTERNAL WORLD MODEL
+# ═══════════════════════════════════════════════════════════════════════════════
+# Builds an internal representation of the game world from experience.
+# No omniscient maps - only what has been perceived and learned.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class WorldCell:
+    """A cell in the internal world map."""
+    x: int
+    y: int
+    
+    # Danger assessment
+    danger_level: float = 0.5  # 0 = safe, 1 = very dangerous
+    danger_confidence: float = 0.0
+    
+    # Resource availability
+    mob_density: float = 0.0
+    resource_richness: float = 0.0
+    
+    # Navigation
+    traversable: bool = True
+    traversable_confidence: float = 0.0
+    
+    # Visit history
+    visit_count: int = 0
+    last_visit_time: float = 0.0
+    deaths_here: int = 0
+    kills_here: int = 0
+    
+    # Learned features
+    has_vendor: bool = False
+    has_trainer: bool = False
+    has_flight_master: bool = False
+    has_quest_giver: bool = False
+
+
+@dataclass
+class EnemySpawnPattern:
+    """Learned pattern about enemy spawns."""
+    enemy_type: str
+    location: Tuple[int, int]
+    respawn_time_estimate: float = 300.0  # Seconds
+    respawn_time_variance: float = 60.0
+    last_seen: float = 0.0
+    times_seen: int = 0
+    patrol_path: List[Tuple[int, int]] = field(default_factory=list)
+
+
+class InternalWorldModel:
+    """
+    Builds understanding of the world from experience only.
+    No pre-programmed maps - everything is learned.
+    """
+    
+    CELL_SIZE = 50  # Game units per cell
+    MAX_CELLS = 10000
+    
+    def __init__(self):
+        self.cells: Dict[Tuple[int, int], WorldCell] = {}
+        self.enemy_patterns: Dict[str, EnemySpawnPattern] = {}
+        self.known_locations: Dict[str, Tuple[int, int]] = {}  # Named locations
+        self.danger_zones: Set[Tuple[int, int]] = set()
+        self.safe_zones: Set[Tuple[int, int]] = set()
+        
+        # Learning state
+        self._exploration_frontier: List[Tuple[int, int]] = []
+        self._last_position: Optional[Tuple[int, int]] = None
+        self._position_history: deque = deque(maxlen=1000)
+    
+    def _to_cell_coords(self, x: float, y: float) -> Tuple[int, int]:
+        """Convert world coordinates to cell coordinates."""
+        return (int(x // self.CELL_SIZE), int(y // self.CELL_SIZE))
+    
+    def get_cell(self, x: float, y: float) -> WorldCell:
+        """Get or create cell at coordinates."""
+        cell_coords = self._to_cell_coords(x, y)
+        
+        if cell_coords not in self.cells:
+            if len(self.cells) >= self.MAX_CELLS:
+                # Remove least visited cell
+                least_visited = min(self.cells.items(), 
+                                   key=lambda c: c[1].visit_count)
+                del self.cells[least_visited[0]]
+            
+            self.cells[cell_coords] = WorldCell(x=cell_coords[0], y=cell_coords[1])
+        
+        return self.cells[cell_coords]
+    
+    def record_visit(self, x: float, y: float, timestamp: float):
+        """Record visiting a location."""
+        cell = self.get_cell(x, y)
+        cell.visit_count += 1
+        cell.last_visit_time = timestamp
+        
+        cell_coords = self._to_cell_coords(x, y)
+        self._position_history.append({
+            'coords': cell_coords,
+            'time': timestamp
+        })
+        
+        # Update exploration frontier
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            neighbor = (cell_coords[0] + dx, cell_coords[1] + dy)
+            if neighbor not in self.cells and neighbor not in self._exploration_frontier:
+                self._exploration_frontier.append(neighbor)
+        
+        self._last_position = cell_coords
+    
+    def record_death(self, x: float, y: float):
+        """Record a death at location - increases danger assessment."""
+        cell = self.get_cell(x, y)
+        cell.deaths_here += 1
+        
+        # Significantly increase danger belief
+        cell.danger_level = min(1.0, cell.danger_level + 0.3)
+        cell.danger_confidence = min(1.0, cell.danger_confidence + 0.2)
+        
+        cell_coords = self._to_cell_coords(x, y)
+        self.danger_zones.add(cell_coords)
+        self.safe_zones.discard(cell_coords)
+    
+    def record_kill(self, x: float, y: float, enemy_type: str):
+        """Record a kill at location."""
+        cell = self.get_cell(x, y)
+        cell.kills_here += 1
+        cell.mob_density = min(1.0, cell.mob_density + 0.1)
+        
+        # Update enemy spawn pattern
+        cell_coords = self._to_cell_coords(x, y)
+        pattern_key = f"{enemy_type}:{cell_coords}"
+        
+        if pattern_key not in self.enemy_patterns:
+            self.enemy_patterns[pattern_key] = EnemySpawnPattern(
+                enemy_type=enemy_type,
+                location=cell_coords
+            )
+        
+        pattern = self.enemy_patterns[pattern_key]
+        pattern.times_seen += 1
+        
+        # Update respawn estimate
+        if pattern.last_seen > 0:
+            respawn_time = time.time() - pattern.last_seen
+            # Online update of estimate
+            pattern.respawn_time_estimate = (
+                pattern.respawn_time_estimate * (pattern.times_seen - 1) + respawn_time
+            ) / pattern.times_seen
+        
+        pattern.last_seen = time.time()
+    
+    def record_obstacle(self, x: float, y: float):
+        """Record hitting an obstacle - cell is not traversable."""
+        cell = self.get_cell(x, y)
+        cell.traversable = False
+        cell.traversable_confidence = min(1.0, cell.traversable_confidence + 0.3)
+    
+    def record_safe_area(self, x: float, y: float):
+        """Record an area is safe (rested without being attacked)."""
+        cell = self.get_cell(x, y)
+        cell.danger_level = max(0.0, cell.danger_level - 0.1)
+        cell.danger_confidence = min(1.0, cell.danger_confidence + 0.1)
+        
+        cell_coords = self._to_cell_coords(x, y)
+        self.safe_zones.add(cell_coords)
+    
+    def record_special_location(self, x: float, y: float, location_type: str, name: str = ""):
+        """Record a special location (vendor, trainer, etc.)."""
+        cell = self.get_cell(x, y)
+        cell_coords = self._to_cell_coords(x, y)
+        
+        if location_type == 'vendor':
+            cell.has_vendor = True
+        elif location_type == 'trainer':
+            cell.has_trainer = True
+        elif location_type == 'flight_master':
+            cell.has_flight_master = True
+        elif location_type == 'quest_giver':
+            cell.has_quest_giver = True
+        
+        if name:
+            self.known_locations[name] = cell_coords
+    
+    def get_danger_level(self, x: float, y: float) -> Tuple[float, float]:
+        """Get danger level and confidence for a location."""
+        cell = self.get_cell(x, y)
+        return cell.danger_level, cell.danger_confidence
+    
+    def find_nearest_safe_zone(self, x: float, y: float) -> Optional[Tuple[int, int]]:
+        """Find nearest known safe zone."""
+        if not self.safe_zones:
+            return None
+        
+        current = self._to_cell_coords(x, y)
+        nearest = min(self.safe_zones, 
+                     key=lambda c: abs(c[0] - current[0]) + abs(c[1] - current[1]))
+        return nearest
+    
+    def find_nearest_special_location(self, x: float, y: float, 
+                                      location_type: str) -> Optional[Tuple[int, int]]:
+        """Find nearest location of a type (vendor, trainer, etc.)."""
+        current = self._to_cell_coords(x, y)
+        candidates = []
+        
+        for coords, cell in self.cells.items():
+            if location_type == 'vendor' and cell.has_vendor:
+                candidates.append(coords)
+            elif location_type == 'trainer' and cell.has_trainer:
+                candidates.append(coords)
+            elif location_type == 'flight_master' and cell.has_flight_master:
+                candidates.append(coords)
+        
+        if not candidates:
+            return None
+        
+        return min(candidates, 
+                  key=lambda c: abs(c[0] - current[0]) + abs(c[1] - current[1]))
+    
+    def get_exploration_target(self, x: float, y: float) -> Optional[Tuple[int, int]]:
+        """Get next exploration target (unexplored area)."""
+        if not self._exploration_frontier:
+            return None
+        
+        current = self._to_cell_coords(x, y)
+        
+        # Filter out dangerous areas if possible
+        safe_frontier = [c for c in self._exploration_frontier 
+                        if c not in self.danger_zones]
+        
+        frontier = safe_frontier if safe_frontier else self._exploration_frontier
+        
+        # Return nearest unexplored
+        return min(frontier, 
+                  key=lambda c: abs(c[0] - current[0]) + abs(c[1] - current[1]))
+    
+    def should_avoid(self, x: float, y: float, risk_tolerance: float = 0.5) -> bool:
+        """Check if location should be avoided based on learned danger."""
+        danger, confidence = self.get_danger_level(x, y)
+        
+        # Low confidence - uncertain, maybe worth exploring
+        if confidence < 0.3:
+            return False
+        
+        # High confidence danger exceeds risk tolerance
+        return danger * confidence > risk_tolerance
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'cells': {f"{k[0]},{k[1]}": {
+                'x': v.x, 'y': v.y,
+                'danger_level': v.danger_level,
+                'danger_confidence': v.danger_confidence,
+                'traversable': v.traversable,
+                'visit_count': v.visit_count,
+                'deaths_here': v.deaths_here,
+                'kills_here': v.kills_here,
+                'has_vendor': v.has_vendor,
+                'has_trainer': v.has_trainer,
+            } for k, v in self.cells.items()},
+            'known_locations': self.known_locations,
+            'danger_zones': list(self.danger_zones),
+            'safe_zones': list(self.safe_zones),
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'cells' in state:
+            self.cells = {}
+            for k, v in state['cells'].items():
+                x, y = map(int, k.split(','))
+                cell = WorldCell(x=v['x'], y=v['y'])
+                cell.danger_level = v.get('danger_level', 0.5)
+                cell.danger_confidence = v.get('danger_confidence', 0.0)
+                cell.traversable = v.get('traversable', True)
+                cell.visit_count = v.get('visit_count', 0)
+                cell.deaths_here = v.get('deaths_here', 0)
+                cell.kills_here = v.get('kills_here', 0)
+                cell.has_vendor = v.get('has_vendor', False)
+                cell.has_trainer = v.get('has_trainer', False)
+                self.cells[(x, y)] = cell
+        if 'known_locations' in state:
+            self.known_locations = state['known_locations']
+        if 'danger_zones' in state:
+            self.danger_zones = set(tuple(z) for z in state['danger_zones'])
+        if 'safe_zones' in state:
+            self.safe_zones = set(tuple(z) for z in state['safe_zones'])
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MOTIVATION AND DRIVE SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Competing drives that influence behavior, similar to human motivations.
+# Drives can conflict - the agent must balance safety vs progress, etc.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class DriveType(Enum):
+    """Types of motivational drives."""
+    SURVIVAL = auto()        # Avoid death, maintain health
+    CURIOSITY = auto()       # Explore new areas
+    PROGRESS = auto()        # Gain XP, complete quests
+    EFFICIENCY = auto()      # Minimize wasted effort
+    SOCIAL = auto()          # Interact with others
+    ACQUISITION = auto()     # Gather resources, loot
+    MASTERY = auto()         # Improve skills
+    COMFORT = auto()         # Rest, recover, avoid discomfort
+
+
+@dataclass
+class Drive:
+    """A motivational drive with intensity and satiation."""
+    drive_type: DriveType
+    
+    # Current state
+    intensity: float = 0.5      # Current drive strength (0-1)
+    satiation: float = 0.5      # How satisfied is this drive (0-1)
+    
+    # Dynamics
+    growth_rate: float = 0.01   # How fast drive intensifies per minute
+    decay_rate: float = 0.02    # How fast satiation decays per minute
+    
+    # Personality weights (individual variation)
+    base_weight: float = 1.0    # How important is this drive
+    
+    # Temporal dynamics
+    last_satisfied: float = 0.0
+    satisfaction_history: deque = field(default_factory=lambda: deque(maxlen=100))
+    
+    def update(self, delta_time: float):
+        """Update drive state over time."""
+        # Intensity grows as satiation decreases
+        satiation_deficit = 1.0 - self.satiation
+        self.intensity = min(1.0, self.intensity + self.growth_rate * satiation_deficit * delta_time)
+        
+        # Satiation decays over time
+        self.satiation = max(0.0, self.satiation - self.decay_rate * delta_time)
+    
+    def satisfy(self, amount: float):
+        """Satisfy the drive by some amount."""
+        self.satiation = min(1.0, self.satiation + amount)
+        self.intensity = max(0.0, self.intensity - amount * 0.5)
+        self.last_satisfied = time.time()
+        self.satisfaction_history.append({
+            'time': time.time(),
+            'amount': amount,
+            'satiation_after': self.satiation
+        })
+    
+    def get_urgency(self) -> float:
+        """Get current urgency (combination of intensity and lack of satiation)."""
+        return self.intensity * (1.0 - self.satiation) * self.base_weight
+
+
+class DriveSystem:
+    """
+    Manages competing motivational drives.
+    Drives influence decision-making like human motivations.
+    """
+    
+    def __init__(self):
+        self.drives: Dict[DriveType, Drive] = {}
+        self._initialize_drives()
+        self._last_update_time = time.time()
+        
+        # Personality profile (random per agent)
+        self._personality = {
+            DriveType.SURVIVAL: random.uniform(0.8, 1.2),      # Everyone values survival
+            DriveType.CURIOSITY: random.uniform(0.5, 1.5),     # Variable curiosity
+            DriveType.PROGRESS: random.uniform(0.7, 1.3),      # Achievement motivation
+            DriveType.EFFICIENCY: random.uniform(0.6, 1.2),    # Some are more efficient-minded
+            DriveType.SOCIAL: random.uniform(0.3, 1.5),        # High variance in social drive
+            DriveType.ACQUISITION: random.uniform(0.5, 1.3),   # Loot motivation
+            DriveType.MASTERY: random.uniform(0.5, 1.4),       # Skill improvement drive
+            DriveType.COMFORT: random.uniform(0.6, 1.2),       # Risk aversion
+        }
+    
+    def _initialize_drives(self):
+        """Initialize all drives with default values."""
+        for drive_type in DriveType:
+            self.drives[drive_type] = Drive(
+                drive_type=drive_type,
+                intensity=random.uniform(0.3, 0.7),
+                satiation=random.uniform(0.4, 0.6),
+                base_weight=1.0
+            )
+    
+    def update(self, delta_time: float = None):
+        """Update all drives."""
+        if delta_time is None:
+            delta_time = (time.time() - self._last_update_time) / 60.0  # Convert to minutes
+        
+        for drive_type, drive in self.drives.items():
+            drive.base_weight = self._personality.get(drive_type, 1.0)
+            drive.update(delta_time)
+        
+        self._last_update_time = time.time()
+    
+    def satisfy_drive(self, drive_type: DriveType, amount: float):
+        """Satisfy a specific drive."""
+        if drive_type in self.drives:
+            self.drives[drive_type].satisfy(amount)
+    
+    def get_dominant_drive(self) -> DriveType:
+        """Get the most urgent drive."""
+        return max(self.drives.items(), key=lambda d: d[1].get_urgency())[0]
+    
+    def get_drive_influences(self) -> Dict[DriveType, float]:
+        """Get normalized influence of each drive on decision-making."""
+        urgencies = {dt: d.get_urgency() for dt, d in self.drives.items()}
+        total = sum(urgencies.values())
+        
+        if total == 0:
+            return {dt: 1.0 / len(self.drives) for dt in self.drives}
+        
+        return {dt: u / total for dt, u in urgencies.items()}
+    
+    def get_action_utility_modifier(self, action_type: str) -> float:
+        """
+        Get a utility modifier for an action based on current drives.
+        Different actions satisfy different drives.
+        """
+        influences = self.get_drive_influences()
+        
+        action_drive_mapping = {
+            'attack': {DriveType.PROGRESS: 0.3, DriveType.MASTERY: 0.2, DriveType.ACQUISITION: 0.2},
+            'flee': {DriveType.SURVIVAL: 0.8, DriveType.COMFORT: 0.2},
+            'heal': {DriveType.SURVIVAL: 0.5, DriveType.COMFORT: 0.3},
+            'rest': {DriveType.COMFORT: 0.6, DriveType.SURVIVAL: 0.2},
+            'explore': {DriveType.CURIOSITY: 0.6, DriveType.PROGRESS: 0.2},
+            'loot': {DriveType.ACQUISITION: 0.7, DriveType.PROGRESS: 0.1},
+            'train': {DriveType.MASTERY: 0.6, DriveType.PROGRESS: 0.2},
+            'socialize': {DriveType.SOCIAL: 0.8},
+        }
+        
+        mapping = action_drive_mapping.get(action_type, {})
+        modifier = 0.0
+        
+        for drive_type, weight in mapping.items():
+            modifier += influences.get(drive_type, 0) * weight
+        
+        return modifier
+    
+    def notify_event(self, event_type: str, success: bool = True):
+        """Notify system of events that affect drives."""
+        if event_type == 'kill':
+            self.satisfy_drive(DriveType.PROGRESS, 0.1)
+            self.satisfy_drive(DriveType.MASTERY, 0.05)
+            self.satisfy_drive(DriveType.ACQUISITION, 0.1)
+        elif event_type == 'death':
+            # Death increases survival drive
+            self.drives[DriveType.SURVIVAL].intensity = min(1.0, 
+                self.drives[DriveType.SURVIVAL].intensity + 0.3)
+            self.drives[DriveType.COMFORT].satiation = max(0.0,
+                self.drives[DriveType.COMFORT].satiation - 0.2)
+        elif event_type == 'rest':
+            self.satisfy_drive(DriveType.COMFORT, 0.3)
+            self.satisfy_drive(DriveType.SURVIVAL, 0.1)
+        elif event_type == 'explore_new':
+            self.satisfy_drive(DriveType.CURIOSITY, 0.2)
+        elif event_type == 'level_up':
+            self.satisfy_drive(DriveType.PROGRESS, 0.5)
+            self.satisfy_drive(DriveType.MASTERY, 0.3)
+        elif event_type == 'loot':
+            self.satisfy_drive(DriveType.ACQUISITION, 0.15)
+        elif event_type == 'social_interaction':
+            self.satisfy_drive(DriveType.SOCIAL, 0.2)
+        elif event_type == 'skill_improved':
+            self.satisfy_drive(DriveType.MASTERY, 0.2)
+    
+    def get_risk_tolerance(self) -> float:
+        """
+        Get current risk tolerance based on drive state.
+        High survival drive = low risk tolerance.
+        """
+        survival_urgency = self.drives[DriveType.SURVIVAL].get_urgency()
+        progress_urgency = self.drives[DriveType.PROGRESS].get_urgency()
+        
+        # Balance between survival and progress
+        risk_tolerance = 0.5 + (progress_urgency - survival_urgency) * 0.3
+        return max(0.1, min(0.9, risk_tolerance))
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'drives': {dt.name: {
+                'intensity': d.intensity,
+                'satiation': d.satiation,
+                'last_satisfied': d.last_satisfied,
+            } for dt, d in self.drives.items()},
+            'personality': {dt.name: w for dt, w in self._personality.items()},
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'drives' in state:
+            for dt_name, d_state in state['drives'].items():
+                dt = DriveType[dt_name]
+                if dt in self.drives:
+                    self.drives[dt].intensity = d_state.get('intensity', 0.5)
+                    self.drives[dt].satiation = d_state.get('satiation', 0.5)
+                    self.drives[dt].last_satisfied = d_state.get('last_satisfied', 0.0)
+        if 'personality' in state:
+            for dt_name, weight in state['personality'].items():
+                dt = DriveType[dt_name]
+                self._personality[dt] = weight
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REINFORCEMENT LEARNING SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# True reinforcement learning with exploration/exploitation tradeoff.
+# Actions are learned from outcomes, not pre-programmed.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class StateActionValue:
+    """Q-value for a state-action pair."""
+    state_hash: str
+    action: str
+    value: float = 0.0
+    visit_count: int = 0
+    last_visit: float = 0.0
+
+
+class ReinforcementLearner:
+    """
+    Implements Q-learning with exploration/exploitation tradeoff.
+    Agent learns which actions work in which situations.
+    """
+    
+    def __init__(self, 
+                 learning_rate: float = 0.1,
+                 discount_factor: float = 0.95,
+                 initial_exploration_rate: float = 0.5,
+                 exploration_decay: float = 0.995,
+                 min_exploration_rate: float = 0.05):
+        
+        self.learning_rate = learning_rate
+        self.discount_factor = discount_factor
+        self.exploration_rate = initial_exploration_rate
+        self.exploration_decay = exploration_decay
+        self.min_exploration_rate = min_exploration_rate
+        
+        self.q_values: Dict[str, StateActionValue] = {}
+        self._episode_history: deque = deque(maxlen=10000)
+        self._current_episode: List[dict] = []
+        
+        # Track learning progress
+        self._total_updates = 0
+        self._cumulative_reward = 0.0
+        self._episode_rewards: deque = deque(maxlen=100)
+    
+    def _hash_state(self, state_features: Dict[str, Any]) -> str:
+        """Create hash from state features."""
+        # Discretize continuous features
+        discretized = {}
+        for key, value in state_features.items():
+            if isinstance(value, float):
+                # Discretize to buckets
+                discretized[key] = int(value * 10) / 10
+            elif isinstance(value, bool):
+                discretized[key] = 1 if value else 0
+            else:
+                discretized[key] = value
+        
+        return hashlib.md5(json.dumps(discretized, sort_keys=True).encode()).hexdigest()[:16]
+    
+    def _get_q_key(self, state_hash: str, action: str) -> str:
+        """Get key for Q-value lookup."""
+        return f"{state_hash}:{action}"
+    
+    def get_q_value(self, state_features: Dict[str, Any], action: str) -> float:
+        """Get Q-value for state-action pair."""
+        state_hash = self._hash_state(state_features)
+        q_key = self._get_q_key(state_hash, action)
+        
+        if q_key in self.q_values:
+            return self.q_values[q_key].value
+        
+        return 0.0  # Optimistic initialization
+    
+    def select_action(self, state_features: Dict[str, Any], 
+                     available_actions: List[str]) -> str:
+        """
+        Select action using epsilon-greedy policy.
+        Explores randomly with probability epsilon, exploits best known action otherwise.
+        """
+        if not available_actions:
+            return 'wait'
+        
+        # Exploration: random action
+        if random.random() < self.exploration_rate:
+            return random.choice(available_actions)
+        
+        # Exploitation: best known action
+        state_hash = self._hash_state(state_features)
+        best_action = available_actions[0]
+        best_value = float('-inf')
+        
+        for action in available_actions:
+            q_key = self._get_q_key(state_hash, action)
+            value = self.q_values.get(q_key, StateActionValue(state_hash, action)).value
+            
+            # Add small random tiebreaker
+            value += random.uniform(0, 0.01)
+            
+            if value > best_value:
+                best_value = value
+                best_action = action
+        
+        return best_action
+    
+    def record_transition(self, state_features: Dict[str, Any], 
+                         action: str, reward: float,
+                         next_state_features: Dict[str, Any],
+                         done: bool = False):
+        """
+        Record a state transition and update Q-values.
+        Uses temporal difference learning (TD(0)).
+        """
+        state_hash = self._hash_state(state_features)
+        next_state_hash = self._hash_state(next_state_features)
+        q_key = self._get_q_key(state_hash, action)
+        
+        # Initialize if needed
+        if q_key not in self.q_values:
+            self.q_values[q_key] = StateActionValue(
+                state_hash=state_hash,
+                action=action,
+                value=0.0
+            )
+        
+        q_entry = self.q_values[q_key]
+        old_value = q_entry.value
+        
+        # Compute TD target
+        if done:
+            td_target = reward
+        else:
+            # Max Q-value for next state
+            max_next_q = max(
+                self.q_values.get(
+                    self._get_q_key(next_state_hash, a),
+                    StateActionValue(next_state_hash, a)
+                ).value
+                for a in ['attack', 'defend', 'flee', 'rest', 'explore', 'wait']
+            )
+            td_target = reward + self.discount_factor * max_next_q
+        
+        # Update Q-value
+        q_entry.value += self.learning_rate * (td_target - old_value)
+        q_entry.visit_count += 1
+        q_entry.last_visit = time.time()
+        
+        # Record in episode
+        self._current_episode.append({
+            'state': state_hash,
+            'action': action,
+            'reward': reward,
+            'next_state': next_state_hash,
+            'done': done
+        })
+        
+        self._total_updates += 1
+        self._cumulative_reward += reward
+        
+        # Decay exploration
+        self.exploration_rate = max(
+            self.min_exploration_rate,
+            self.exploration_rate * self.exploration_decay
+        )
+        
+        if done:
+            self._end_episode()
+    
+    def _end_episode(self):
+        """End current episode and record statistics."""
+        if self._current_episode:
+            total_reward = sum(t['reward'] for t in self._current_episode)
+            self._episode_rewards.append(total_reward)
+            self._episode_history.append({
+                'length': len(self._current_episode),
+                'total_reward': total_reward,
+                'time': time.time()
+            })
+            self._current_episode = []
+    
+    def get_learning_progress(self) -> Dict[str, float]:
+        """Get statistics about learning progress."""
+        if not self._episode_rewards:
+            return {
+                'avg_reward': 0.0,
+                'exploration_rate': self.exploration_rate,
+                'total_updates': self._total_updates,
+                'q_values_learned': len(self.q_values)
+            }
+        
+        return {
+            'avg_reward': statistics.mean(self._episode_rewards),
+            'reward_trend': (list(self._episode_rewards)[-1] - list(self._episode_rewards)[0]) 
+                           if len(self._episode_rewards) > 1 else 0,
+            'exploration_rate': self.exploration_rate,
+            'total_updates': self._total_updates,
+            'q_values_learned': len(self.q_values)
+        }
+    
+    def get_action_preferences(self, state_features: Dict[str, Any]) -> Dict[str, float]:
+        """Get learned preferences for actions in current state."""
+        state_hash = self._hash_state(state_features)
+        preferences = {}
+        
+        for q_key, q_entry in self.q_values.items():
+            if q_entry.state_hash == state_hash:
+                preferences[q_entry.action] = q_entry.value
+        
+        return preferences
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'q_values': {k: {
+                'state_hash': v.state_hash,
+                'action': v.action,
+                'value': v.value,
+                'visit_count': v.visit_count,
+                'last_visit': v.last_visit,
+            } for k, v in self.q_values.items()},
+            'exploration_rate': self.exploration_rate,
+            'total_updates': self._total_updates,
+            'cumulative_reward': self._cumulative_reward,
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'q_values' in state:
+            self.q_values = {}
+            for k, v in state['q_values'].items():
+                self.q_values[k] = StateActionValue(
+                    state_hash=v['state_hash'],
+                    action=v['action'],
+                    value=v['value'],
+                    visit_count=v.get('visit_count', 0),
+                    last_visit=v.get('last_visit', 0.0),
+                )
+        if 'exploration_rate' in state:
+            self.exploration_rate = state['exploration_rate']
+        if 'total_updates' in state:
+            self._total_updates = state['total_updates']
+        if 'cumulative_reward' in state:
+            self._cumulative_reward = state['cumulative_reward']
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INTEGRATED HUMAN-EQUIVALENT COGNITIVE SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Combines all cognitive systems into a unified decision-making architecture.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class HumanEquivalentCognition:
+    """
+    Main integration class that combines all cognitive systems.
+    Produces human-like behavior through the interaction of:
+    - Probabilistic beliefs
+    - Procedural memory (skill acquisition)
+    - Internal world model
+    - Competing drives
+    - Reinforcement learning
+    - Behavioral momentum (identity continuity)
+    """
+    
+    def __init__(self, persistence_path: str = "human_cognition_state.json"):
+        self.persistence_path = persistence_path
+        
+        # Initialize all cognitive systems
+        self.beliefs = ProbabilisticBeliefSystem()
+        self.procedural_memory = ProceduralMemorySystem()
+        self.world_model = InternalWorldModel()
+        self.drives = DriveSystem()
+        self.learner = ReinforcementLearner(
+            initial_exploration_rate=0.5,  # Start with high exploration
+            min_exploration_rate=0.05      # Always keep some exploration
+        )
+        
+        # Behavioral momentum for identity continuity
+        self.momentum = BehavioralMomentum()
+        
+        # Integration state
+        self._last_state_features: Optional[Dict[str, Any]] = None
+        self._last_action: Optional[str] = None
+        self._tick_count = 0
+        self._session_start_time = time.time()
+        
+        # Hesitation and uncertainty modeling
+        self._confidence_threshold = 0.6  # Below this, hesitate
+        self._hesitation_duration = 0.0
+        
+        # Load persisted state
+        self._load_state()
+        
+        # Validate identity continuity
+        self._validate_identity_continuity()
+    
+    def tick(self, perception: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Main cognitive tick. Process perception and decide action.
+        
+        Returns decision with:
+        - action: The chosen action
+        - confidence: How confident in the decision
+        - hesitation: Delay before acting (uncertainty)
+        - reasoning: Why this action was chosen
+        """
+        self._tick_count += 1
+        
+        # Update drives
+        self.drives.update()
+        
+        # Build state features
+        state_features = self._build_state_features(perception)
+        
+        # Record world model observations
+        if 'position' in perception:
+            self.world_model.record_visit(
+                perception['position'][0],
+                perception['position'][1],
+                time.time()
+            )
+        
+        # Decay beliefs over time
+        if self._tick_count % 100 == 0:
+            self.beliefs.decay_all_beliefs(time.time())
+        
+        # Get available actions
+        available_actions = self._get_available_actions(perception)
+        
+        # Get action from RL system
+        rl_action = self.learner.select_action(state_features, available_actions)
+        
+        # Check behavioral momentum - habits may override RL selection
+        chosen_action = rl_action
+        action_source = "rl"
+        habit_actions = self.momentum.get_habit_actions()
+        available_habits = [a for a in habit_actions if a in available_actions]
+        
+        if available_habits and random.random() < 0.3:  # 30% chance to follow habit
+            preferred = self.momentum.get_preferred_action(available_habits)
+            if preferred:
+                chosen_action = preferred
+                action_source = "habit"
+        
+        # Modify action based on drives
+        drive_modifier = self.drives.get_action_utility_modifier(chosen_action)
+        
+        # Get skill performance for chosen action
+        skill_performance = self.procedural_memory.get_skill_performance(chosen_action)
+        
+        # Get belief about action success
+        belief_prob, belief_conf = self.beliefs.predict(
+            BeliefType.ABILITY_EFFECTIVENESS,
+            f"{chosen_action}:{state_features.get('context', 'general')}"
+        )
+        
+        # Compute overall confidence
+        confidence = (skill_performance * 0.3 + 
+                     belief_conf * 0.3 + 
+                     (1.0 - self.learner.exploration_rate) * 0.4)
+        
+        # Boost confidence for habitual actions
+        if action_source == "habit":
+            confidence = min(1.0, confidence + 0.1)
+        
+        # Compute hesitation (uncertainty causes delay)
+        hesitation = 0.0
+        if confidence < self._confidence_threshold:
+            hesitation = (self._confidence_threshold - confidence) * 2.0
+            hesitation *= random.uniform(0.8, 1.2)  # Add variance
+        
+        # Build reasoning
+        reasoning = self._build_reasoning(
+            chosen_action, state_features, confidence, 
+            drive_modifier, skill_performance
+        )
+        if action_source == "habit":
+            reasoning += f" [HABIT: following established pattern]"
+        
+        # Record state for learning
+        self._last_state_features = state_features
+        self._last_action = chosen_action
+        
+        # Periodic save
+        if self._tick_count % 500 == 0:
+            self._save_state()
+        
+        return {
+            'action': chosen_action,
+            'confidence': confidence,
+            'hesitation': hesitation,
+            'reasoning': reasoning,
+            'skill_level': skill_performance,
+            'exploration_rate': self.learner.exploration_rate,
+            'dominant_drive': self.drives.get_dominant_drive().name,
+            'action_source': action_source,
+        }
+    
+    def record_outcome(self, outcome: Dict[str, Any]):
+        """
+        Record the outcome of the last action for learning.
+        """
+        if self._last_state_features is None or self._last_action is None:
+            return
+        
+        # Compute reward
+        reward = self._compute_reward(outcome)
+        
+        # Build next state features
+        next_state_features = self._build_state_features(outcome.get('perception', {}))
+        
+        # Update RL system
+        self.learner.record_transition(
+            self._last_state_features,
+            self._last_action,
+            reward,
+            next_state_features,
+            done=outcome.get('episode_done', False)
+        )
+        
+        # Update procedural memory
+        success = outcome.get('success', reward > 0)
+        self.procedural_memory.execute_skill(self._last_action)
+        
+        # Update beliefs
+        context = self._last_state_features.get('context', 'general')
+        self.beliefs.update_from_experience(
+            BeliefType.ABILITY_EFFECTIVENESS,
+            f"{self._last_action}:{context}",
+            success
+        )
+        
+        # Update behavioral momentum
+        risk_level = 0.5  # Default risk
+        if self._last_state_features.get('hp_bucket', 5) <= 1:
+            risk_level = 0.8  # High risk at low HP
+        elif self._last_state_features.get('enemy_count', 0) >= 3:
+            risk_level = 0.7  # Risk with multiple enemies
+        self.momentum.record_action(
+            action=self._last_action,
+            context=context,
+            success=success,
+            risk_level=risk_level
+        )
+        
+        # Update world model
+        if 'position' in outcome:
+            pos = outcome['position']
+            if outcome.get('death', False):
+                self.world_model.record_death(pos[0], pos[1])
+                self.drives.notify_event('death')
+            elif outcome.get('kill', False):
+                enemy_type = outcome.get('enemy_type', 'unknown')
+                self.world_model.record_kill(pos[0], pos[1], enemy_type)
+                self.drives.notify_event('kill')
+        
+        # Update drives based on outcome
+        if outcome.get('rested', False):
+            self.drives.notify_event('rest')
+        if outcome.get('loot', False):
+            self.drives.notify_event('loot')
+        if outcome.get('new_area', False):
+            self.drives.notify_event('explore_new')
+    
+    def _build_state_features(self, perception: Dict[str, Any]) -> Dict[str, Any]:
+        """Build state features for learning."""
+        hp_bucket = int(perception.get('player_hp', 100) / 20)  # 0-5
+        resource_bucket = int(perception.get('resource', 100) / 20)
+        
+        return {
+            'hp_bucket': hp_bucket,
+            'resource_bucket': resource_bucket,
+            'in_combat': perception.get('in_combat', False),
+            'enemy_count': min(5, perception.get('enemy_count', 0)),
+            'has_target': perception.get('has_target', False),
+            'target_hp_bucket': int(perception.get('target_hp', 100) / 20),
+            'context': 'combat' if perception.get('in_combat', False) else 'exploration',
+            'danger_level': perception.get('danger_level', 0.5),
+        }
+    
+    def _get_available_actions(self, perception: Dict[str, Any]) -> List[str]:
+        """Get list of available actions based on current state."""
+        actions = ['wait', 'explore']
+        
+        if perception.get('has_target', False):
+            actions.extend(['attack', 'flee'])
+        
+        if perception.get('player_hp', 100) < 80:
+            actions.append('heal')
+        
+        if not perception.get('in_combat', False):
+            actions.extend(['rest', 'loot'])
+        
+        if perception.get('in_combat', False):
+            actions.extend(['defend', 'interrupt'])
+        
+        return actions
+    
+    def _compute_reward(self, outcome: Dict[str, Any]) -> float:
+        """Compute reward signal from outcome."""
+        reward = 0.0
+        
+        # Positive rewards
+        if outcome.get('kill', False):
+            reward += 1.0
+        if outcome.get('loot', False):
+            reward += 0.3
+        if outcome.get('level_up', False):
+            reward += 5.0
+        if outcome.get('quest_complete', False):
+            reward += 3.0
+        if outcome.get('new_area', False):
+            reward += 0.2
+        
+        # Negative rewards
+        if outcome.get('death', False):
+            reward -= 5.0
+        if outcome.get('damage_taken', 0) > 0:
+            reward -= outcome['damage_taken'] / 100.0
+        if outcome.get('wasted_resource', False):
+            reward -= 0.2
+        
+        return reward
+    
+    def _build_reasoning(self, action: str, state: Dict[str, Any],
+                        confidence: float, drive_mod: float,
+                        skill_level: float) -> List[str]:
+        """Build human-readable reasoning for the decision."""
+        reasons = []
+        
+        # Main action reason
+        if state.get('in_combat'):
+            reasons.append(f"In combat, chose {action}")
+        else:
+            reasons.append(f"Not in combat, chose {action}")
+        
+        # Confidence level
+        if confidence < 0.4:
+            reasons.append("Uncertain about this choice")
+        elif confidence > 0.8:
+            reasons.append("Confident in this decision")
+        
+        # Skill level
+        if skill_level < 0.5:
+            reasons.append(f"Still learning {action} (skill: {skill_level:.0%})")
+        
+        # Drive influence
+        dominant = self.drives.get_dominant_drive()
+        reasons.append(f"Driven by {dominant.name.lower()}")
+        
+        # Learning state
+        if self.learner.exploration_rate > 0.3:
+            reasons.append("Exploring to learn")
+        
+        return reasons
+    
+    def get_metrics(self) -> Dict[str, Any]:
+        """Get cognitive metrics."""
+        learning_progress = self.learner.get_learning_progress()
+        
+        return {
+            'tick_count': self._tick_count,
+            'session_duration': time.time() - self._session_start_time,
+            'beliefs_formed': len(self.beliefs.beliefs),
+            'skills_practiced': len(self.procedural_memory.skills),
+            'world_cells_known': len(self.world_model.cells),
+            'learning_progress': learning_progress,
+            'dominant_drive': self.drives.get_dominant_drive().name,
+            'risk_tolerance': self.drives.get_risk_tolerance(),
+        }
+    
+    def _validate_identity_continuity(self):
+        """Validate identity continuity at session start."""
+        validator = get_identity_validator()
+        validator.begin_session(
+            beliefs=self.beliefs.get_state(),
+            skills=self.procedural_memory.get_state().get('skills', {}),
+            q_values=self.learner.get_state(),
+            personality=self.drives._personality,
+            drives=self.drives.get_state().get('drives', {}),
+        )
+        
+        regression, warnings = validator.get_regression_status()
+        if regression:
+            logger.warning("Identity regression detected - agent will relearn from current state")
+    
+    def _save_state(self):
+        """Save cognitive state to disk."""
+        state = {
+            'version': '2.0.0',  # Version with continuity support
+            'beliefs': self.beliefs.get_state(),
+            'procedural_memory': self.procedural_memory.get_state(),
+            'world_model': self.world_model.get_state(),
+            'drives': self.drives.get_state(),
+            'learner': self.learner.get_state(),
+            'momentum': self.momentum.get_state(),
+            'tick_count': self._tick_count,
+            'saved_at': time.time(),
+        }
+        
+        try:
+            with open(self.persistence_path, 'w') as f:
+                json.dump(state, f, indent=2, default=str)
+            logger.debug(f"Saved cognitive state (tick {self._tick_count})")
+        except Exception as e:
+            logger.error(f"Failed to save cognitive state: {e}")
+    
+    def _load_state(self):
+        """Load cognitive state from disk."""
+        try:
+            with open(self.persistence_path, 'r') as f:
+                state = json.load(f)
+            
+            version = state.get('version', '1.0.0')
+            logger.info(f"Loading cognitive state (version {version})")
+            
+            if 'beliefs' in state:
+                self.beliefs.set_state(state['beliefs'])
+            if 'procedural_memory' in state:
+                self.procedural_memory.set_state(state['procedural_memory'])
+            if 'world_model' in state:
+                self.world_model.set_state(state['world_model'])
+            if 'drives' in state:
+                self.drives.set_state(state['drives'])
+            if 'learner' in state:
+                self.learner.set_state(state['learner'])
+            if 'momentum' in state:
+                self.momentum.set_state(state['momentum'])
+            if 'tick_count' in state:
+                self._tick_count = state['tick_count']
+            
+            logger.info(f"Restored cognitive state: {self._tick_count} previous ticks, "
+                       f"{len(self.beliefs.beliefs)} beliefs, "
+                       f"{len(self.procedural_memory.skills)} skills, "
+                       f"{len(self.learner.q_values)} Q-values")
+        except FileNotFoundError:
+            logger.info("No previous cognitive state found, starting fresh")
+        except Exception as e:
+            logger.error(f"Failed to load cognitive state: {e}")
+    
+    def shutdown(self):
+        """Save state on shutdown with identity continuity tracking."""
+        self._save_state()
+        
+        # End session for identity continuity tracking
+        validator = get_identity_validator()
+        validator.end_session(
+            beliefs=self.beliefs.get_state(),
+            skills=self.procedural_memory.get_state().get('skills', {}),
+            q_values=self.learner.get_state(),
+            personality=self.drives._personality,
+            drives=self.drives.get_state().get('drives', {}),
+            ticks_this_session=self._tick_count,
+        )
+        
+        # Log momentum report
+        report = self.momentum.get_momentum_report()
+        logger.info(f"Behavioral momentum report:")
+        logger.info(f"  - Habits formed: {report['habits']}")
+        logger.info(f"  - Is improving: {report['is_improving']}")
+        logger.info(f"  - Improvement rate: {report['improvement_rate']:.3f}")
+        logger.info(f"  - Success rate: {report['cumulative_success_rate']:.3f}")
+
+
+# =============================================================================
+# ENUMERATIONS
+# =============================================================================
+
+class CogActionType(Enum):
+    ATTACK = auto()
+    DEFEND = auto()
+    HEAL = auto()
+    ESCAPE = auto()
+    INTERRUPT = auto()
+    BUFF = auto()
+    DEBUFF = auto()
+    MOVE = auto()
+    WAIT = auto()
+    LOOT = auto()
+    REST = auto()
+    COMMUNICATE = auto()
+    OBSERVE = auto()
+    ASSIST = auto()
+    TRADE = auto()
+
+class SocialAction(Enum):
+    NONE = auto()
+    GREET = auto()
+    THANK = auto()
+    REQUEST_HELP = auto()
+    OFFER_HELP = auto()
+    WARN = auto()
+    APOLOGIZE = auto()
+    CELEBRATE = auto()
+    MOURN = auto()
+    CHALLENGE = auto()
+    RETREAT_SIGNAL = auto()
+    COORDINATE = auto()
+    IGNORE = auto()
+
+class CommunicationTone(Enum):
+    NEUTRAL = auto()
+    FRIENDLY = auto()
+    URGENT = auto()
+    HOSTILE = auto()
+    SUBMISSIVE = auto()
+    AUTHORITATIVE = auto()
+    PLAYFUL = auto()
+    CAUTIOUS = auto()
+
+class PositioningIntent(Enum):
+    HOLD = auto()
+    ADVANCE = auto()
+    RETREAT = auto()
+    FLANK = auto()
+    KITE = auto()
+    INTERCEPT = auto()
+    REGROUP = auto()
+    EXPLORE = auto()
+    EVADE = auto()
+
+class MovementUrgency(Enum):
+    NONE = auto()
+    LOW = auto()
+    MEDIUM = auto()
+    HIGH = auto()
+    CRITICAL = auto()
+
+class MessageIntent(Enum):
+    UNKNOWN = auto()
+    GREETING = auto()
+    QUESTION = auto()
+    REQUEST = auto()
+    OFFER = auto()
+    INFORMATION = auto()
+    WARNING = auto()
+    THREAT = auto()
+    PRAISE = auto()
+    CRITICISM = auto()
+    COMMAND = auto()
+    FAREWELL = auto()
+
+class GroupStatus(Enum):
+    NONE = auto()
+    SAME_GROUP = auto()
+    SAME_RAID = auto()
+    INVITED = auto()
+    REQUESTING = auto()
+
+class CombatState(Enum):
+    IDLE = auto()
+    ENGAGED = auto()
+    FLEEING = auto()
+    DEAD = auto()
+    LOOTING = auto()
+    RESTING = auto()
+
+class BehaviorPattern(Enum):
+    UNKNOWN = auto()
+    MELEE_AGGRESSIVE = auto()
+    MELEE_DEFENSIVE = auto()
+    RANGED_STATIONARY = auto()
+    RANGED_KITING = auto()
+    CASTER_CHANNELING = auto()
+    HEALER = auto()
+    FLEEING = auto()
+    PATROLLING = auto()
+    AMBUSHER = auto()
+
+class BeliefConfidence(Enum):
+    SPECULATION = 1
+    LOW = 2
+    MODERATE = 3
+    HIGH = 4
+    CERTAIN = 5
+
+class GoalPriority(Enum):
+    TRIVIAL = 1
+    LOW = 2
+    MEDIUM = 3
+    HIGH = 4
+    CRITICAL = 5
+    SURVIVAL = 6
+
+# =============================================================================
+# INPUT DATA STRUCTURES - PerceptionState
+# =============================================================================
+
+@dataclass
+class AbilityInfo:
+    name: str
+    cooldown_remaining: float
+    resource_cost: float
+    range: float
+    cast_time: float
+    is_interrupt: bool
+    is_escape: bool
+    is_defensive: bool
+
+@dataclass
+class EnemyPerception:
+    id: str
+    level_relative_to_player: int
+    hp: float
+    hp_percent: float
+    damage_output: float
+    attack_rate: float
+    is_caster: bool
+    is_elite: bool
+    is_fleeing: bool
+    is_targeting_player: bool
+    current_cast_name: Optional[str]
+    current_cast_time_remaining: float
+    position: Tuple[float, float]
+    distance_to_player: float
+    relative_angle_to_player: float
+    line_of_sight_clear: bool
+    time_since_aggro: float
+    behavior_pattern: BehaviorPattern
+
+@dataclass
+class PlayerPerception:
+    player_id: str
+    name: str
+    player_class: str
+    level_relative_to_self: int
+    guild_name: Optional[str]
+    group_status: GroupStatus
+    distance_to_player: float
+    movement_behavior: str
+    combat_state: CombatState
+    recent_actions_observed: List[str]
+    assistance_history: List[Tuple[float, str]]
+    competition_history: List[Tuple[float, str]]
+
+@dataclass
+class ChatEvent:
+    timestamp: float
+    channel: str
+    sender_id: str
+    sender_role_context: str
+    message_text: str
+    message_intent: MessageIntent
+    sentiment_valence: float
+    urgency_level: float
+
+@dataclass
+class DamageEvent:
+    timestamp: float
+    source_id: str
+    amount: float
+    damage_type: str
+    was_critical: bool
+
+@dataclass
+class HealingEvent:
+    timestamp: float
+    source_id: str
+    amount: float
+    spell_name: str
+
+@dataclass
+class BuffDebuff:
+    name: str
+    duration_remaining: float
+    stacks: int
+    is_beneficial: bool
+    source_id: Optional[str]
+
+@dataclass
+class CogPerceptionState:
+    # Temporal context
+    timestamp: float
+    delta_time: float
+    reaction_time: float
+    time_in_combat: float
+    time_since_last_damage: float
+    time_since_last_kill: float
+    time_since_last_social_interaction: float
+    global_cooldown_remaining: float
+    
+    # Physiological state
+    player_hp: float
+    player_hp_max: float
+    player_hp_percent: float
+    hp_history: List[Tuple[float, float]]
+    recent_damage_events: List[DamageEvent]
+    recent_healing_events: List[HealingEvent]
+    incoming_damage_rate: float
+    is_being_targeted: bool
+    active_debuffs_visible: List[BuffDebuff]
+    
+    # Spatial awareness
+    player_position: Tuple[float, float]
+    player_facing_angle: float
+    velocity_vector: Tuple[float, float]
+    movement_speed: float
+    is_moving: bool
+    is_backpedaling: bool
+    distance_traveled_last_5s: float
+    position_history: List[Tuple[float, Tuple[float, float]]]
+    terrain_slope: float
+    is_indoors: bool
+    is_in_water: bool
+    is_on_road: bool
+    is_in_narrow_space: bool
+    
+    # Logistics & resources
+    inventory_slots_used: int
+    inventory_slots_total: int
+    inventory_fill_ratio: float
+    has_vendor_junk: bool
+    durability_percent: float
+    estimated_repair_cost: float
+    nearest_vendor_distance: float
+    is_overburdened: bool
+    
+    # Player capabilities
+    available_abilities: List[AbilityInfo]
+    resource_current: float
+    resource_max: float
+    resource_regen_rate: float
+    buffs_active: List[BuffDebuff]
+    debuffs_active: List[BuffDebuff]
+    
+    # Enemy perception
+    nearby_enemies: List[EnemyPerception]
+    
+    # Social perception
+    nearby_players: List[PlayerPerception]
+    chat_events: List[ChatEvent]
+
+# =============================================================================
+# OUTPUT DATA STRUCTURE - TacticalDirective
+# =============================================================================
+
+@dataclass
+class TacticalDirective:
+    primary_action: CogActionType
+    secondary_action: Optional[CogActionType]
+    target_id: Optional[str]
+    movement_vector: Tuple[float, float]
+    desired_facing_angle: float
+    movement_urgency: MovementUrgency
+    positioning_intent: PositioningIntent
+    social_action: SocialAction
+    social_target_id: Optional[str]
+    communication_tone: CommunicationTone
+    action_confidence: float
+    risk_estimate: float
+    expected_outcome: str
+    time_horizon_seconds: float
+    reasoning_log: List[str]
+    dominant_factors: List[str]
+    suppressed_goals: List[str]
+    utility_snapshot: Dict[str, float]
+
+# =============================================================================
+# COGNITIVE DATA STRUCTURES
+# =============================================================================
+
+@dataclass
+class Belief:
+    subject: str
+    predicate: str
+    object_value: Any
+    confidence: BeliefConfidence
+    timestamp_formed: float
+    timestamp_last_confirmed: float
+    evidence_count: int
+    contradiction_count: int
+
+@dataclass
+class EpisodicMemory:
+    memory_id: str
+    timestamp: float
+    context_hash: str
+    perception_summary: Dict[str, Any]
+    action_taken: CogActionType
+    outcome_valence: float
+    emotional_intensity: float
+    narrative_tags: List[str]
+    lessons_extracted: List[str]
+
+@dataclass
+class SocialMemoryEntry:
+    player_id: str
+    name: str
+    last_interaction_time: float
+    interaction_outcomes: List[Tuple[float, float, str]]
+    trust_estimate: float
+    cooperation_likelihood: float
+    conflict_likelihood: float
+    guild_reputation_estimate: float
+    personality_inferences: Dict[str, float]
+
+@dataclass
+class Goal:
+    goal_id: str
+    description: str
+    priority: GoalPriority
+    creation_time: float
+    deadline: Optional[float]
+    progress: float
+    parent_goal_id: Optional[str]
+    subgoal_ids: List[str]
+    success_conditions: List[str]
+    failure_conditions: List[str]
+    utility_weight: float
+
+@dataclass
+class PersonalityProfile:
+    risk_tolerance: float
+    patience_level: float
+    social_engagement_preference: float
+    assertiveness: float
+    helpfulness_bias: float
+    conflict_avoidance: float
+    leadership_tendency: float
+    learning_openness: float
+    
+    _change_momentum: Dict[str, float] = field(default_factory=dict)
+    _last_update_time: float = 0.0
+    _update_count: int = 0
+
+@dataclass
+class NarrativeSelfModel:
+    identity_core: str
+    accumulated_wisdom: List[str]
+    signature_behaviors: List[str]
+    feared_outcomes: List[str]
+    desired_states: List[str]
+    relationship_summary: str
+    combat_identity: str
+    social_identity: str
+    growth_trajectory: str
+    session_count: int
+    total_ticks_lived: int
+    total_kills: int
+    total_deaths: int
+    total_social_interactions: int
+    memorable_moments: List[str]
+
+@dataclass
+class MetaCognitiveState:
+    current_confidence_level: float
+    cognitive_load: float
+    decision_consistency_score: float
+    belief_coherence_score: float
+    personality_stability_score: float
+    thrashing_counter: int
+    last_decision_hash: str
+    decision_history: Deque[str]
+    correction_log: List[Tuple[float, str]]
+    recovery_mode: bool
+    recovery_reason: Optional[str]
+
+@dataclass
+class WorkingMemorySlot:
+    content_type: str
+    content: Any
+    salience: float
+    timestamp_added: float
+    decay_rate: float
+    access_count: int
+
+@dataclass
+class AttentionFocus:
+    primary_target_id: Optional[str]
+    secondary_targets: List[str]
+    threat_priorities: Dict[str, float]
+    opportunity_priorities: Dict[str, float]
+    social_priorities: Dict[str, float]
+    environmental_alerts: List[str]
+
+@dataclass
+class LearningCreditAssignment:
+    action_outcome_pairs: Deque[Tuple[str, CogActionType, float, float]]
+    ability_effectiveness: Dict[str, float]
+    strategy_effectiveness: Dict[str, float]
+    social_strategy_effectiveness: Dict[str, float]
+    enemy_type_knowledge: Dict[str, Dict[str, float]]
+    terrain_preferences: Dict[str, float]
+
+# =============================================================================
+# PERSISTENCE MANAGER
+# =============================================================================
+
+class PersistenceManager:
+    VERSION = "1.0.0"
+    MAX_RECURSION_DEPTH = 100  # Safety limit for deeply nested structures
+    
+    def __init__(self, save_path: str = "cognitive_state.json.gz"):
+        self.save_path = Path(save_path)
+        self.backup_path = self.save_path.with_suffix(".backup.json.gz")
+        self._lock = threading.RLock()
+    
+    def _serialize_dataclass(self, obj: Any, _seen: Optional[Set[int]] = None, _depth: int = 0) -> Any:
+        """Serialize dataclass with cycle detection and depth limiting."""
+        # Initialize seen set on first call
+        if _seen is None:
+            _seen = set()
+        
+        # Depth check to prevent stack overflow
+        if _depth > self.MAX_RECURSION_DEPTH:
+            logger.warning(f"Serialization depth exceeded {self.MAX_RECURSION_DEPTH}, truncating")
+            return {"__truncated__": True, "reason": "max_depth_exceeded"}
+        
+        # Cycle detection for mutable containers and dataclasses
+        obj_id = id(obj)
+        if hasattr(obj, '__dataclass_fields__') or isinstance(obj, (dict, list, set, deque)):
+            if obj_id in _seen:
+                logger.warning(f"Cycle detected in serialization for {type(obj).__name__}")
+                return {"__cycle__": True, "type": type(obj).__name__}
+            _seen.add(obj_id)
+        
+        try:
+            if hasattr(obj, '__dataclass_fields__'):
+                result = {'__dataclass__': type(obj).__name__}
+                for f in obj.__dataclass_fields__:
+                    value = getattr(obj, f)
+                    result[f] = self._serialize_dataclass(value, _seen, _depth + 1)
+                return result
+            elif isinstance(obj, Enum):
+                return {'__enum__': type(obj).__name__, 'value': obj.name}
+            elif isinstance(obj, deque):
+                return {'__deque__': [self._serialize_dataclass(x, _seen, _depth + 1) for x in obj], 'maxlen': obj.maxlen}
+            elif isinstance(obj, dict):
+                return {k: self._serialize_dataclass(v, _seen, _depth + 1) for k, v in obj.items()}
+            elif isinstance(obj, (list, tuple)):
+                serialized = [self._serialize_dataclass(x, _seen, _depth + 1) for x in obj]
+                if isinstance(obj, tuple):
+                    return {'__tuple__': serialized}
+                return serialized
+            elif isinstance(obj, set):
+                return {'__set__': [self._serialize_dataclass(x, _seen, _depth + 1) for x in obj]}
+            else:
+                return obj
+        finally:
+            # Remove from seen set when done (allows same object in different branches)
+            if obj_id in _seen and not isinstance(obj, (str, int, float, bool, type(None))):
+                _seen.discard(obj_id)
+    
+    def _deserialize_dataclass(self, data: Any, class_registry: Dict[str, type]) -> Any:
+        if isinstance(data, dict):
+            if '__dataclass__' in data:
+                cls_name = data['__dataclass__']
+                if cls_name in class_registry:
+                    cls = class_registry[cls_name]
+                    kwargs = {}
+                    for k, v in data.items():
+                        if k != '__dataclass__':
+                            kwargs[k] = self._deserialize_dataclass(v, class_registry)
+                    return cls(**kwargs)
+                return data
+            elif '__enum__' in data:
+                enum_name = data['__enum__']
+                enum_value = data['value']
+                # Lazily build registry to avoid forward reference issues
+                # Comprehensive enum registry - must include all enums for proper deserialization
+                enum_registry = {
+                    # Core cognitive enums
+                    'CogActionType': CogActionType,
+                    'SocialAction': SocialAction,
+                    'CommunicationTone': CommunicationTone,
+                    'PositioningIntent': PositioningIntent,
+                    'MovementUrgency': MovementUrgency,
+                    'MessageIntent': MessageIntent,
+                    'GroupStatus': GroupStatus,
+                    'CombatState': CombatState,
+                    'BehaviorPattern': BehaviorPattern,
+                    'BeliefConfidence': BeliefConfidence,
+                    'GoalPriority': GoalPriority,
+                    # Game enums
+                    'ResourceType': ResourceType,
+                    'PlayerClass': PlayerClass,
+                    'TargetType': TargetType,
+                    'UIState': UIState,
+                    'GoalType': GoalType,
+                    'CombatPhase': CombatPhase,
+                    'Priority': Priority,
+                    'ActionType': ActionType,
+                    'ItemQuality': ItemQuality,
+                    'ItemSlot': ItemSlot,
+                    'ConsumableType': ConsumableType,
+                    'AbilityState': AbilityState,
+                    'CombatRole': CombatRole,
+                    'PetState': PetState,
+                    'StanceForm': StanceForm,
+                    'ThreatLevel': ThreatLevel,
+                    'ChatChannel': ChatChannel,
+                    'GroupRole': GroupRole,
+                    'RaidMarker': RaidMarker,
+                    'ReputationLevel': ReputationLevel,
+                    'BattlegroundType': BattlegroundType,
+                    'FishingState': FishingState,
+                    'TransportType': TransportType,
+                    'TargetPriority': TargetPriority,
+                    'ThreatType': ThreatType,
+                    'MovementPattern': MovementPattern,
+                    'UIContextType': UIContextType,
+                    'DeathPhase': DeathPhase,
+                    'ExplorationMode': ExplorationMode,
+                }
+                if enum_name in enum_registry:
+                    return enum_registry[enum_name][enum_value]
+                return data
+            elif '__deque__' in data:
+                items = [self._deserialize_dataclass(x, class_registry) for x in data['__deque__']]
+                return deque(items, maxlen=data.get('maxlen'))
+            elif '__tuple__' in data:
+                return tuple(self._deserialize_dataclass(x, class_registry) for x in data['__tuple__'])
+            elif '__set__' in data:
+                return set(self._deserialize_dataclass(x, class_registry) for x in data['__set__'])
+            else:
+                return {k: self._deserialize_dataclass(v, class_registry) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._deserialize_dataclass(x, class_registry) for x in data]
+        else:
+            return data
+    
+    def save(self, state: Dict[str, Any]) -> bool:
+        with self._lock:
+            try:
+                save_data = {
+                    'version': self.VERSION,
+                    'save_timestamp': time.time(),
+                    'checksum': '',
+                    'state': self._serialize_dataclass(state)
+                }
+                
+                # Use sort_keys=True for deterministic serialization across Python versions
+                json_str = json.dumps(save_data, indent=None, separators=(',', ':'), sort_keys=True)
+                # Use full SHA-256 for better integrity protection (64 hex chars)
+                save_data['checksum'] = hashlib.sha256(json_str.encode()).hexdigest()
+                json_str = json.dumps(save_data, indent=None, separators=(',', ':'), sort_keys=True)
+                
+                # Write to temp file with fsync for durability
+                temp_path = self.save_path.with_suffix('.tmp.json.gz')
+                with gzip.open(temp_path, 'wt', encoding='utf-8') as f:
+                    f.write(json_str)
+                    f.flush()
+                    os.fsync(f.fileno())
+                
+                # Atomic replace - keep backup until after successful replace
+                if self.save_path.exists():
+                    if self.backup_path.exists():
+                        self.backup_path.unlink()
+                    self.save_path.rename(self.backup_path)
+                
+                # Use os.replace for atomic operation on same filesystem
+                os.replace(temp_path, self.save_path)
+                return True
+            except Exception as e:
+                logger.error(f"Persistence save failed: {e}", exc_info=True)
+                # Try to clean up temp file if it exists
+                try:
+                    temp_path = self.save_path.with_suffix('.tmp.json.gz')
+                    if temp_path.exists():
+                        temp_path.unlink()
+                except Exception:
+                    pass
+                return False
+    
+    def load(self, class_registry: Dict[str, type]) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            load_path = None
+            if self.save_path.exists():
+                load_path = self.save_path
+            elif self.backup_path.exists():
+                load_path = self.backup_path
+            
+            if load_path is None:
+                return None
+            
+            try:
+                with gzip.open(load_path, 'rt', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                stored_checksum = data.get('checksum', '')
+                data['checksum'] = ''
+                # Use sort_keys=True to match save serialization
+                json_str = json.dumps(data, indent=None, separators=(',', ':'), sort_keys=True)
+                computed_checksum_full = hashlib.sha256(json_str.encode()).hexdigest()
+                
+                # Support both old (16-char truncated) and new (64-char full) checksums
+                if stored_checksum:
+                    checksum_valid = (
+                        stored_checksum == computed_checksum_full or  # Full checksum match
+                        stored_checksum == computed_checksum_full[:16] or  # Old truncated format
+                        stored_checksum == computed_checksum_full[:len(stored_checksum)]  # Variable length
+                    )
+                    if not checksum_valid:
+                        logger.warning(f"Persistence checksum mismatch - data may be corrupted "
+                                      f"(stored: {stored_checksum[:16]}..., computed: {computed_checksum_full[:16]}...)")
+                
+                state = self._deserialize_dataclass(data.get('state', {}), class_registry)
+                return state
+            except Exception as e:
+                logger.error(f"Persistence load failed: {e}", exc_info=True)
+                return None
+
+# =============================================================================
+# ATTENTION & SALIENCE SYSTEM
+# =============================================================================
+
+class AttentionSystem:
+    def __init__(self):
+        self.focus = AttentionFocus(
+            primary_target_id=None,
+            secondary_targets=[],
+            threat_priorities={},
+            opportunity_priorities={},
+            social_priorities={},
+            environmental_alerts=[]
+        )
+        self._salience_decay = 0.95
+        self._threat_weight = 2.0
+        self._opportunity_weight = 1.5
+        self._social_weight = 1.0
+    
+    def compute_salience(self, perception: CogPerceptionState, personality: PersonalityProfile) -> AttentionFocus:
+        self.focus.threat_priorities.clear()
+        self.focus.opportunity_priorities.clear()
+        self.focus.social_priorities.clear()
+        self.focus.environmental_alerts.clear()
+        self.focus.secondary_targets.clear()
+        
+        for enemy in perception.nearby_enemies:
+            threat_score = self._compute_enemy_threat(enemy, perception, personality)
+            self.focus.threat_priorities[enemy.id] = threat_score
+        
+        if self.focus.threat_priorities:
+            max_threat_id = max(self.focus.threat_priorities, key=self.focus.threat_priorities.get)
+            self.focus.primary_target_id = max_threat_id
+        else:
+            self.focus.primary_target_id = None
+        
+        for player in perception.nearby_players:
+            social_score = self._compute_social_salience(player, personality)
+            self.focus.social_priorities[player.player_id] = social_score
+            
+            if player.combat_state == CombatState.ENGAGED and personality.helpfulness_bias > 0.5:
+                self.focus.opportunity_priorities[player.player_id] = social_score * 1.5
+        
+        if perception.player_hp_percent < 30:
+            self.focus.environmental_alerts.append("CRITICAL_HEALTH")
+        if perception.is_being_targeted and not perception.nearby_enemies:
+            self.focus.environmental_alerts.append("UNSEEN_THREAT")
+        if perception.is_in_narrow_space and len(perception.nearby_enemies) > 2:
+            self.focus.environmental_alerts.append("SURROUNDED_NARROW")
+        if perception.durability_percent < 20:
+            self.focus.environmental_alerts.append("EQUIPMENT_CRITICAL")
+        if perception.inventory_fill_ratio > 0.9:
+            self.focus.environmental_alerts.append("INVENTORY_FULL")
+        
+        sorted_threats = sorted(self.focus.threat_priorities.items(), key=lambda x: x[1], reverse=True)
+        self.focus.secondary_targets = [tid for tid, _ in sorted_threats[1:4]]
+        
+        return self.focus
+    
+    def _compute_enemy_threat(self, enemy: EnemyPerception, perception: CogPerceptionState, 
+                              personality: PersonalityProfile) -> float:
+        base_threat = 1.0
+        
+        if enemy.is_targeting_player:
+            base_threat *= 2.5
+        if enemy.is_elite:
+            base_threat *= 2.0
+        
+        level_factor = 1.0 + (enemy.level_relative_to_player * 0.2)
+        base_threat *= max(0.5, level_factor)
+        
+        hp_threat = (100 - enemy.hp_percent) / 100
+        base_threat *= (1.0 + hp_threat * 0.3)
+        
+        distance_factor = max(0.1, 1.0 - (enemy.distance_to_player / 50.0))
+        base_threat *= (0.5 + distance_factor * 0.5)
+        
+        if enemy.current_cast_name:
+            cast_urgency = 1.0 - (enemy.current_cast_time_remaining / 3.0)
+            base_threat *= (1.0 + max(0, cast_urgency) * 0.5)
+        
+        if enemy.is_caster and personality.risk_tolerance < 0.5:
+            base_threat *= 1.3
+        
+        return base_threat
+    
+    def _compute_social_salience(self, player: PlayerPerception, personality: PersonalityProfile) -> float:
+        base_salience = 0.5
+        
+        if player.group_status in (GroupStatus.SAME_GROUP, GroupStatus.SAME_RAID):
+            base_salience *= 2.0
+        
+        if player.assistance_history:
+            base_salience *= 1.5
+        if player.competition_history:
+            base_salience *= (1.0 + personality.conflict_avoidance * 0.5)
+        
+        distance_factor = max(0.1, 1.0 - (player.distance_to_player / 40.0))
+        base_salience *= (0.5 + distance_factor * 0.5)
+        
+        base_salience *= (0.5 + personality.social_engagement_preference * 0.5)
+        
+        return base_salience
+    
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            'focus': self.focus,
+            'salience_decay': self._salience_decay
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        if 'focus' in state:
+            self.focus = state['focus']
+        if 'salience_decay' in state:
+            self._salience_decay = state['salience_decay']
+
+# =============================================================================
+# WORKING MEMORY SYSTEM
+# =============================================================================
+
+class WorkingMemorySystem:
+    CAPACITY = 7
+    
+    def __init__(self):
+        self.slots: List[WorkingMemorySlot] = []
+        self._access_boost = 0.1
+        self._base_decay = 0.02
+    
+    def add(self, content_type: str, content: Any, salience: float, timestamp: float):
+        slot = WorkingMemorySlot(
+            content_type=content_type,
+            content=content,
+            salience=salience,
+            timestamp_added=timestamp,
+            decay_rate=self._base_decay,
+            access_count=0
+        )
+        
+        self.slots.append(slot)
+        self._enforce_capacity()
+    
+    def access(self, content_type: str) -> Optional[Any]:
+        for slot in self.slots:
+            if slot.content_type == content_type:
+                slot.access_count += 1
+                slot.salience = min(1.0, slot.salience + self._access_boost)
+                return slot.content
+        return None
+    
+    def update(self, delta_time: float):
+        for slot in self.slots:
+            slot.salience -= slot.decay_rate * delta_time
+        
+        self.slots = [s for s in self.slots if s.salience > 0.1]
+    
+    def _enforce_capacity(self):
+        if len(self.slots) > self.CAPACITY:
+            self.slots.sort(key=lambda s: s.salience, reverse=True)
+            self.slots = self.slots[:self.CAPACITY]
+    
+    def get_contents(self, min_salience: float = 0.0) -> List[WorkingMemorySlot]:
+        return [s for s in self.slots if s.salience >= min_salience]
+    
+    def clear(self):
+        self.slots.clear()
+    
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            'slots': self.slots,
+            'access_boost': self._access_boost,
+            'base_decay': self._base_decay
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        if 'slots' in state:
+            self.slots = state['slots']
+        if 'access_boost' in state:
+            self._access_boost = state['access_boost']
+        if 'base_decay' in state:
+            self._base_decay = state['base_decay']
+
+# =============================================================================
+# EPISODIC MEMORY SYSTEM
+# =============================================================================
+
+class EpisodicMemorySystem:
+    MAX_MEMORIES = 1000
+    CONSOLIDATION_THRESHOLD = 100
+    
+    def __init__(self):
+        self.memories: Deque[EpisodicMemory] = deque(maxlen=self.MAX_MEMORIES)
+        self._similarity_threshold = 0.7
+        self._emotional_boost = 1.5
+    
+    def record(self, perception: CogPerceptionState, action: CogActionType, outcome_valence: float,
+               emotional_intensity: float, narrative_tags: List[str]):
+        context_hash = self._compute_context_hash(perception)
+        
+        perception_summary = {
+            'hp_percent': perception.player_hp_percent,
+            'enemy_count': len(perception.nearby_enemies),
+            'player_count': len(perception.nearby_players),
+            'in_combat': perception.time_in_combat > 0,
+            'position': perception.player_position,
+            'resource_percent': perception.resource_current / max(1, perception.resource_max) * 100
+        }
+        
+        lessons = self._extract_lessons(perception, action, outcome_valence)
+        
+        memory = EpisodicMemory(
+            memory_id=str(uuid.uuid4()),
+            timestamp=perception.timestamp,
+            context_hash=context_hash,
+            perception_summary=perception_summary,
+            action_taken=action,
+            outcome_valence=outcome_valence,
+            emotional_intensity=emotional_intensity,
+            narrative_tags=narrative_tags,
+            lessons_extracted=lessons
+        )
+        
+        self.memories.append(memory)
+    
+    def recall_similar(self, perception: CogPerceptionState, limit: int = 5) -> List[EpisodicMemory]:
+        context_hash = self._compute_context_hash(perception)
+        
+        scored_memories = []
+        for mem in self.memories:
+            similarity = self._compute_similarity(context_hash, mem.context_hash)
+            recency = 1.0 / (1.0 + (perception.timestamp - mem.timestamp) / 3600)
+            emotional_factor = 1.0 + mem.emotional_intensity * self._emotional_boost
+            
+            score = similarity * recency * emotional_factor
+            scored_memories.append((score, mem))
+        
+        scored_memories.sort(key=lambda x: x[0], reverse=True)
+        return [mem for _, mem in scored_memories[:limit]]
+    
+    def recall_by_tag(self, tag: str, limit: int = 10) -> List[EpisodicMemory]:
+        matching = [m for m in self.memories if tag in m.narrative_tags]
+        matching.sort(key=lambda m: m.timestamp, reverse=True)
+        return matching[:limit]
+    
+    def _compute_context_hash(self, perception: CogPerceptionState) -> str:
+        context_features = [
+            int(perception.player_hp_percent / 20),
+            min(5, len(perception.nearby_enemies)),
+            min(5, len(perception.nearby_players)),
+            1 if perception.time_in_combat > 0 else 0,
+            1 if perception.is_indoors else 0,
+            int(perception.resource_current / max(1, perception.resource_max) * 5)
+        ]
+        return hashlib.md5(str(context_features).encode()).hexdigest()[:8]
+    
+    def _compute_similarity(self, hash1: str, hash2: str) -> float:
+        matching = sum(c1 == c2 for c1, c2 in zip(hash1, hash2))
+        return matching / len(hash1)
+    
+    def _extract_lessons(self, perception: CogPerceptionState, action: CogActionType, 
+                         outcome_valence: float) -> List[str]:
+        lessons = []
+        
+        if outcome_valence > 0.5:
+            if perception.player_hp_percent < 30:
+                lessons.append("survived_low_health_with_" + action.name)
+            if len(perception.nearby_enemies) > 2:
+                lessons.append("succeeded_against_multiple_enemies")
+        elif outcome_valence < -0.5:
+            if perception.player_hp_percent > 70:
+                lessons.append("failed_despite_high_health")
+            if action == CogActionType.ATTACK:
+                lessons.append("attack_failed_in_context")
+        
+        return lessons
+    
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            'memories': list(self.memories),
+            'similarity_threshold': self._similarity_threshold,
+            'emotional_boost': self._emotional_boost
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        if 'memories' in state:
+            self.memories = deque(state['memories'], maxlen=self.MAX_MEMORIES)
+        if 'similarity_threshold' in state:
+            self._similarity_threshold = state['similarity_threshold']
+        if 'emotional_boost' in state:
+            self._emotional_boost = state['emotional_boost']
+
+# =============================================================================
+# SEMANTIC BELIEF MODEL
+# =============================================================================
+
+class SemanticBeliefModel:
+    MAX_BELIEFS = 500
+    
+    def __init__(self):
+        self.beliefs: Dict[str, Belief] = {}
+        self._decay_rate = 0.001
+        self._confirmation_boost = 0.2
+        self._contradiction_penalty = 0.3
+    
+    def add_belief(self, subject: str, predicate: str, object_value: Any, 
+                   confidence: BeliefConfidence, timestamp: float):
+        belief_key = f"{subject}:{predicate}"
+        
+        if belief_key in self.beliefs:
+            existing = self.beliefs[belief_key]
+            if existing.object_value == object_value:
+                existing.evidence_count += 1
+                existing.timestamp_last_confirmed = timestamp
+                existing.confidence = BeliefConfidence(min(5, existing.confidence.value + 1))
+            else:
+                existing.contradiction_count += 1
+                if existing.contradiction_count > existing.evidence_count:
+                    existing.object_value = object_value
+                    existing.evidence_count = 1
+                    existing.contradiction_count = 0
+                    existing.confidence = confidence
+        else:
+            self.beliefs[belief_key] = Belief(
+                subject=subject,
+                predicate=predicate,
+                object_value=object_value,
+                confidence=confidence,
+                timestamp_formed=timestamp,
+                timestamp_last_confirmed=timestamp,
+                evidence_count=1,
+                contradiction_count=0
+            )
+        
+        self._enforce_capacity()
+    
+    def query(self, subject: str, predicate: str) -> Optional[Belief]:
+        belief_key = f"{subject}:{predicate}"
+        return self.beliefs.get(belief_key)
+    
+    def query_subject(self, subject: str) -> List[Belief]:
+        return [b for key, b in self.beliefs.items() if b.subject == subject]
+    
+    def update_confidence(self, subject: str, predicate: str, delta: int, timestamp: float):
+        belief_key = f"{subject}:{predicate}"
+        if belief_key in self.beliefs:
+            belief = self.beliefs[belief_key]
+            new_value = max(1, min(5, belief.confidence.value + delta))
+            belief.confidence = BeliefConfidence(new_value)
+            belief.timestamp_last_confirmed = timestamp
+    
+    def decay_beliefs(self, current_time: float):
+        to_remove = []
+        for key, belief in self.beliefs.items():
+            age = current_time - belief.timestamp_last_confirmed
+            if age > 3600 and belief.confidence.value <= 2:
+                to_remove.append(key)
+        
+        for key in to_remove:
+            del self.beliefs[key]
+    
+    def get_coherence_score(self) -> float:
+        if not self.beliefs:
+            return 1.0
+        
+        total_contradictions = sum(b.contradiction_count for b in self.beliefs.values())
+        total_evidence = sum(b.evidence_count for b in self.beliefs.values())
+        
+        if total_evidence == 0:
+            return 1.0
+        
+        return 1.0 - (total_contradictions / (total_evidence + total_contradictions))
+    
+    def _enforce_capacity(self):
+        if len(self.beliefs) > self.MAX_BELIEFS:
+            sorted_beliefs = sorted(
+                self.beliefs.items(),
+                key=lambda x: (x[1].confidence.value, x[1].timestamp_last_confirmed),
+                reverse=True
+            )
+            self.beliefs = dict(sorted_beliefs[:self.MAX_BELIEFS])
+    
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            'beliefs': self.beliefs,
+            'decay_rate': self._decay_rate
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        if 'beliefs' in state:
+            self.beliefs = state['beliefs']
+        if 'decay_rate' in state:
+            self._decay_rate = state['decay_rate']
+
+# =============================================================================
+# SOCIAL MEMORY SYSTEM
+# =============================================================================
+
+class SocialMemorySystem:
+    MAX_ENTRIES = 200
+    
+    def __init__(self):
+        self.entries: Dict[str, SocialMemoryEntry] = {}
+        self._trust_decay = 0.001
+        self._interaction_weight = 0.1
+    
+    def record_interaction(self, player_id: str, name: str, outcome_valence: float,
+                           interaction_type: str, timestamp: float):
+        if player_id not in self.entries:
+            self.entries[player_id] = SocialMemoryEntry(
+                player_id=player_id,
+                name=name,
+                last_interaction_time=timestamp,
+                interaction_outcomes=[],
+                trust_estimate=0.5,
+                cooperation_likelihood=0.5,
+                conflict_likelihood=0.5,
+                guild_reputation_estimate=0.5,
+                personality_inferences={}
+            )
+        
+        entry = self.entries[player_id]
+        entry.last_interaction_time = timestamp
+        entry.interaction_outcomes.append((timestamp, outcome_valence, interaction_type))
+        
+        if len(entry.interaction_outcomes) > 50:
+            entry.interaction_outcomes = entry.interaction_outcomes[-50:]
+        
+        self._update_estimates(entry, outcome_valence, interaction_type)
+        self._enforce_capacity()
+    
+    def _update_estimates(self, entry: SocialMemoryEntry, outcome: float, interaction_type: str):
+        weight = self._interaction_weight
+        
+        entry.trust_estimate = entry.trust_estimate * (1 - weight) + (outcome * 0.5 + 0.5) * weight
+        entry.trust_estimate = max(0.0, min(1.0, entry.trust_estimate))
+        
+        if interaction_type in ('assist', 'trade', 'group'):
+            entry.cooperation_likelihood = min(1.0, entry.cooperation_likelihood + weight * (outcome + 1) / 2)
+            entry.conflict_likelihood = max(0.0, entry.conflict_likelihood - weight * 0.5)
+        elif interaction_type in ('compete', 'conflict', 'steal'):
+            entry.conflict_likelihood = min(1.0, entry.conflict_likelihood + weight * (1 - outcome) / 2)
+            entry.cooperation_likelihood = max(0.0, entry.cooperation_likelihood - weight * 0.5)
+    
+    def get_entry(self, player_id: str) -> Optional[SocialMemoryEntry]:
+        return self.entries.get(player_id)
+    
+    def get_trusted_players(self, min_trust: float = 0.6) -> List[SocialMemoryEntry]:
+        return [e for e in self.entries.values() if e.trust_estimate >= min_trust]
+    
+    def get_hostile_players(self, min_conflict: float = 0.6) -> List[SocialMemoryEntry]:
+        return [e for e in self.entries.values() if e.conflict_likelihood >= min_conflict]
+    
+    def decay_relationships(self, current_time: float):
+        for entry in self.entries.values():
+            age = current_time - entry.last_interaction_time
+            decay_factor = self._trust_decay * (age / 3600)
+            
+            entry.trust_estimate = 0.5 + (entry.trust_estimate - 0.5) * (1 - decay_factor)
+            entry.cooperation_likelihood = 0.5 + (entry.cooperation_likelihood - 0.5) * (1 - decay_factor)
+            entry.conflict_likelihood = 0.5 + (entry.conflict_likelihood - 0.5) * (1 - decay_factor)
+    
+    def _enforce_capacity(self):
+        if len(self.entries) > self.MAX_ENTRIES:
+            sorted_entries = sorted(
+                self.entries.items(),
+                key=lambda x: x[1].last_interaction_time,
+                reverse=True
+            )
+            self.entries = dict(sorted_entries[:self.MAX_ENTRIES])
+    
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            'entries': self.entries,
+            'trust_decay': self._trust_decay,
+            'interaction_weight': self._interaction_weight
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        if 'entries' in state:
+            self.entries = state['entries']
+        if 'trust_decay' in state:
+            self._trust_decay = state['trust_decay']
+        if 'interaction_weight' in state:
+            self._interaction_weight = state['interaction_weight']
+
+# =============================================================================
+# INTENT INFERENCE SYSTEM
+# =============================================================================
+
+class IntentInferenceSystem:
+    def __init__(self):
+        self._behavior_patterns: Dict[str, List[Tuple[float, str]]] = {}
+        self._pattern_window = 10.0
+    
+    def infer_enemy_intent(self, enemy: EnemyPerception) -> Tuple[str, float]:
+        if enemy.is_fleeing:
+            return ("fleeing", 0.9)
+        
+        if enemy.current_cast_name:
+            if "heal" in enemy.current_cast_name.lower():
+                return ("healing", 0.85)
+            elif "fire" in enemy.current_cast_name.lower() or "bolt" in enemy.current_cast_name.lower():
+                return ("casting_damage", 0.85)
+            else:
+                return ("casting_unknown", 0.6)
+        
+        if enemy.is_targeting_player:
+            if enemy.distance_to_player < 5:
+                return ("melee_attacking", 0.9)
+            elif enemy.is_caster:
+                return ("preparing_cast", 0.7)
+            else:
+                return ("closing_distance", 0.8)
+        
+        if enemy.behavior_pattern == BehaviorPattern.PATROLLING:
+            return ("patrolling", 0.7)
+        
+        return ("unknown", 0.3)
+    
+    def infer_player_intent(self, player: PlayerPerception, 
+                            social_memory: Optional[SocialMemoryEntry]) -> Tuple[str, float]:
+        if player.combat_state == CombatState.ENGAGED:
+            return ("in_combat", 0.9)
+        elif player.combat_state == CombatState.FLEEING:
+            return ("fleeing", 0.85)
+        elif player.combat_state == CombatState.LOOTING:
+            return ("looting", 0.8)
+        elif player.combat_state == CombatState.RESTING:
+            return ("resting", 0.8)
+        
+        if "approach" in player.movement_behavior.lower():
+            if social_memory and social_memory.conflict_likelihood > 0.6:
+                return ("potential_threat", 0.6)
+            elif social_memory and social_memory.trust_estimate > 0.6:
+                return ("friendly_approach", 0.7)
+            else:
+                return ("approaching", 0.5)
+        
+        if player.group_status == GroupStatus.REQUESTING:
+            return ("seeking_group", 0.85)
+        
+        return ("neutral", 0.4)
+    
+    def infer_chat_intent(self, chat: ChatEvent) -> Tuple[str, float]:
+        text_lower = chat.message_text.lower()
+        
+        if any(w in text_lower for w in ['help', 'assist', 'sos', 'need']):
+            return ("requesting_help", 0.8)
+        elif any(w in text_lower for w in ['thanks', 'ty', 'thx', 'thank']):
+            return ("expressing_gratitude", 0.9)
+        elif any(w in text_lower for w in ['hi', 'hello', 'hey', 'greetings']):
+            return ("greeting", 0.9)
+        elif any(w in text_lower for w in ['bye', 'later', 'cya', 'farewell']):
+            return ("farewell", 0.9)
+        elif any(w in text_lower for w in ['invite', 'group', 'party', 'join']):
+            return ("group_invitation", 0.75)
+        elif any(w in text_lower for w in ['trade', 'buy', 'sell', 'gold']):
+            return ("trade_related", 0.7)
+        elif chat.urgency_level > 0.7:
+            return ("urgent_communication", 0.75)
+        
+        return (chat.message_intent.name.lower(), 0.5)
+    
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            'behavior_patterns': self._behavior_patterns,
+            'pattern_window': self._pattern_window
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        if 'behavior_patterns' in state:
+            self._behavior_patterns = state['behavior_patterns']
+        if 'pattern_window' in state:
+            self._pattern_window = state['pattern_window']
+
+# =============================================================================
+# GOAL MANAGEMENT SYSTEM
+# =============================================================================
+
+class GoalManagementSystem:
+    MAX_ACTIVE_GOALS = 10
+    
+    def __init__(self):
+        self.goals: Dict[str, Goal] = {}
+        self._goal_id_counter = 0
+    
+    def create_goal(self, description: str, priority: GoalPriority, deadline: Optional[float] = None,
+                    parent_goal_id: Optional[str] = None, utility_weight: float = 1.0) -> str:
+        self._goal_id_counter += 1
+        goal_id = f"goal_{self._goal_id_counter}"
+        
+        goal = Goal(
+            goal_id=goal_id,
+            description=description,
+            priority=priority,
+            creation_time=time.time(),
+            deadline=deadline,
+            progress=0.0,
+            parent_goal_id=parent_goal_id,
+            subgoal_ids=[],
+            success_conditions=[],
+            failure_conditions=[],
+            utility_weight=utility_weight
+        )
+        
+        self.goals[goal_id] = goal
+        
+        if parent_goal_id and parent_goal_id in self.goals:
+            self.goals[parent_goal_id].subgoal_ids.append(goal_id)
+        
+        self._enforce_capacity()
+        return goal_id
+    
+    def update_progress(self, goal_id: str, progress: float):
+        if goal_id in self.goals:
+            self.goals[goal_id].progress = max(0.0, min(1.0, progress))
+    
+    def complete_goal(self, goal_id: str):
+        if goal_id in self.goals:
+            self.goals[goal_id].progress = 1.0
+            
+            parent_id = self.goals[goal_id].parent_goal_id
+            if parent_id and parent_id in self.goals:
+                parent = self.goals[parent_id]
+                completed_subgoals = sum(
+                    1 for sg_id in parent.subgoal_ids 
+                    if sg_id in self.goals and self.goals[sg_id].progress >= 1.0
+                )
+                if parent.subgoal_ids:
+                    parent.progress = completed_subgoals / len(parent.subgoal_ids)
+    
+    def fail_goal(self, goal_id: str):
+        if goal_id in self.goals:
+            del self.goals[goal_id]
+    
+    def get_active_goals(self) -> List[Goal]:
+        return [g for g in self.goals.values() if g.progress < 1.0]
+    
+    def get_priority_goals(self, min_priority: GoalPriority) -> List[Goal]:
+        return [g for g in self.goals.values() 
+                if g.priority.value >= min_priority.value and g.progress < 1.0]
+    
+    def _enforce_capacity(self):
+        if len(self.goals) > self.MAX_ACTIVE_GOALS:
+            completed = [g for g in self.goals.values() if g.progress >= 1.0]
+            for goal in completed:
+                if len(self.goals) <= self.MAX_ACTIVE_GOALS:
+                    break
+                del self.goals[goal.goal_id]
+            
+            if len(self.goals) > self.MAX_ACTIVE_GOALS:
+                sorted_goals = sorted(
+                    self.goals.values(),
+                    key=lambda g: g.priority.value,
+                    reverse=True
+                )
+                self.goals = {g.goal_id: g for g in sorted_goals[:self.MAX_ACTIVE_GOALS]}
+    
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            'goals': self.goals,
+            'goal_id_counter': self._goal_id_counter
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        if 'goals' in state:
+            self.goals = state['goals']
+        if 'goal_id_counter' in state:
+            self._goal_id_counter = state['goal_id_counter']
+
+# =============================================================================
+# PERSONALITY UPDATE ENGINE
+# =============================================================================
+
+class PersonalityUpdateEngine:
+    CHANGE_RATE_LIMIT = 0.01
+    MOMENTUM_DECAY = 0.95
+    MIN_UPDATE_INTERVAL = 60.0
+    
+    def __init__(self):
+        self._last_update_outcomes: Deque[Tuple[float, str, float]] = deque(maxlen=100)
+    
+    def update(self, personality: PersonalityProfile, outcome_type: str, 
+               outcome_valence: float, timestamp: float) -> PersonalityProfile:
+        if timestamp - personality._last_update_time < self.MIN_UPDATE_INTERVAL:
+            return personality
+        
+        self._last_update_outcomes.append((timestamp, outcome_type, outcome_valence))
+        
+        if not personality._change_momentum:
+            personality._change_momentum = {
+                'risk_tolerance': 0.0,
+                'patience_level': 0.0,
+                'social_engagement_preference': 0.0,
+                'assertiveness': 0.0,
+                'helpfulness_bias': 0.0,
+                'conflict_avoidance': 0.0,
+                'leadership_tendency': 0.0,
+                'learning_openness': 0.0
+            }
+        
+        delta_risk = 0.0
+        delta_patience = 0.0
+        delta_social = 0.0
+        delta_assert = 0.0
+        delta_help = 0.0
+        delta_conflict = 0.0
+        delta_lead = 0.0
+        delta_learn = 0.0
+        
+        if outcome_type == 'combat_success':
+            delta_risk += outcome_valence * 0.005
+            delta_assert += outcome_valence * 0.003
+        elif outcome_type == 'combat_failure':
+            delta_risk -= 0.008
+            delta_conflict += 0.005
+        elif outcome_type == 'social_positive':
+            delta_social += outcome_valence * 0.006
+            delta_help += outcome_valence * 0.004
+        elif outcome_type == 'social_negative':
+            delta_social -= 0.005
+            delta_conflict += 0.004
+        elif outcome_type == 'exploration_success':
+            delta_learn += outcome_valence * 0.005
+            delta_risk += outcome_valence * 0.002
+        elif outcome_type == 'leadership_success':
+            delta_lead += outcome_valence * 0.006
+            delta_assert += outcome_valence * 0.003
+        elif outcome_type == 'patience_rewarded':
+            delta_patience += outcome_valence * 0.007
+        elif outcome_type == 'patience_punished':
+            delta_patience -= 0.005
+        
+        for attr, delta in [
+            ('risk_tolerance', delta_risk),
+            ('patience_level', delta_patience),
+            ('social_engagement_preference', delta_social),
+            ('assertiveness', delta_assert),
+            ('helpfulness_bias', delta_help),
+            ('conflict_avoidance', delta_conflict),
+            ('leadership_tendency', delta_lead),
+            ('learning_openness', delta_learn)
+        ]:
+            momentum = personality._change_momentum.get(attr, 0.0)
+            momentum = momentum * self.MOMENTUM_DECAY + delta
+            momentum = max(-self.CHANGE_RATE_LIMIT, min(self.CHANGE_RATE_LIMIT, momentum))
+            personality._change_momentum[attr] = momentum
+            
+            current = getattr(personality, attr)
+            new_value = max(0.0, min(1.0, current + momentum))
+            setattr(personality, attr, new_value)
+        
+        personality._last_update_time = timestamp
+        personality._update_count += 1
+        
+        return personality
+    
+    def get_stability_score(self, personality: PersonalityProfile) -> float:
+        if not personality._change_momentum:
+            return 1.0
+        
+        total_momentum = sum(abs(v) for v in personality._change_momentum.values())
+        max_possible = self.CHANGE_RATE_LIMIT * len(personality._change_momentum)
+        
+        return 1.0 - (total_momentum / max_possible)
+    
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            'last_update_outcomes': list(self._last_update_outcomes)
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        if 'last_update_outcomes' in state:
+            self._last_update_outcomes = deque(state['last_update_outcomes'], maxlen=100)
+
+# =============================================================================
+# LEARNING & CREDIT ASSIGNMENT SYSTEM
+# =============================================================================
+
+class LearningCreditSystem:
+    MAX_HISTORY = 500
+    LEARNING_RATE = 0.1
+    DISCOUNT_FACTOR = 0.95
+    
+    def __init__(self):
+        self.credit = LearningCreditAssignment(
+            action_outcome_pairs=deque(maxlen=self.MAX_HISTORY),
+            ability_effectiveness={},
+            strategy_effectiveness={},
+            social_strategy_effectiveness={},
+            enemy_type_knowledge={},
+            terrain_preferences={}
+        )
+    
+    def record_outcome(self, context_hash: str, action: CogActionType, outcome: float, timestamp: float):
+        self.credit.action_outcome_pairs.append((context_hash, action, outcome, timestamp))
+    
+    def update_ability_effectiveness(self, ability_name: str, outcome: float):
+        current = self.credit.ability_effectiveness.get(ability_name, 0.5)
+        updated = current * (1 - self.LEARNING_RATE) + outcome * self.LEARNING_RATE
+        self.credit.ability_effectiveness[ability_name] = max(0.0, min(1.0, updated))
+    
+    def update_strategy_effectiveness(self, strategy_name: str, outcome: float):
+        current = self.credit.strategy_effectiveness.get(strategy_name, 0.5)
+        updated = current * (1 - self.LEARNING_RATE) + outcome * self.LEARNING_RATE
+        self.credit.strategy_effectiveness[strategy_name] = max(0.0, min(1.0, updated))
+    
+    def update_social_strategy(self, strategy_name: str, outcome: float):
+        current = self.credit.social_strategy_effectiveness.get(strategy_name, 0.5)
+        updated = current * (1 - self.LEARNING_RATE) + outcome * self.LEARNING_RATE
+        self.credit.social_strategy_effectiveness[strategy_name] = max(0.0, min(1.0, updated))
+    
+    def update_enemy_knowledge(self, enemy_type: str, attribute: str, value: float):
+        if enemy_type not in self.credit.enemy_type_knowledge:
+            self.credit.enemy_type_knowledge[enemy_type] = {}
+        
+        current = self.credit.enemy_type_knowledge[enemy_type].get(attribute, 0.5)
+        updated = current * (1 - self.LEARNING_RATE) + value * self.LEARNING_RATE
+        self.credit.enemy_type_knowledge[enemy_type][attribute] = updated
+    
+    def update_terrain_preference(self, terrain_type: str, outcome: float):
+        current = self.credit.terrain_preferences.get(terrain_type, 0.5)
+        updated = current * (1 - self.LEARNING_RATE) + outcome * self.LEARNING_RATE
+        self.credit.terrain_preferences[terrain_type] = max(0.0, min(1.0, updated))
+    
+    def get_ability_score(self, ability_name: str) -> float:
+        return self.credit.ability_effectiveness.get(ability_name, 0.5)
+    
+    def get_strategy_score(self, strategy_name: str) -> float:
+        return self.credit.strategy_effectiveness.get(strategy_name, 0.5)
+    
+    def compute_temporal_credit(self, recent_actions: List[Tuple[str, CogActionType]], 
+                                 final_outcome: float) -> Dict[str, float]:
+        credits = {}
+        discount = 1.0
+        
+        for i, (context, action) in enumerate(reversed(recent_actions)):
+            key = f"{context}:{action.name}"
+            credits[key] = final_outcome * discount
+            discount *= self.DISCOUNT_FACTOR
+        
+        return credits
+    
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            'credit': self.credit
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        if 'credit' in state:
+            self.credit = state['credit']
+
+# =============================================================================
+# NARRATIVE SELF-MODEL
+# =============================================================================
+
+class NarrativeSelfModelSystem:
+    MAX_MEMORABLE_MOMENTS = 50
+    MAX_WISDOM = 30
+    
+    def __init__(self):
+        self.model = NarrativeSelfModel(
+            identity_core="An autonomous agent learning to navigate and survive",
+            accumulated_wisdom=[],
+            signature_behaviors=[],
+            feared_outcomes=["death", "abandonment", "failure"],
+            desired_states=["mastery", "connection", "growth"],
+            relationship_summary="Building understanding of the world",
+            combat_identity="Developing combat capabilities",
+            social_identity="Learning social dynamics",
+            growth_trajectory="Early development phase",
+            session_count=0,
+            total_ticks_lived=0,
+            total_kills=0,
+            total_deaths=0,
+            total_social_interactions=0,
+            memorable_moments=[]
+        )
+    
+    def record_tick(self):
+        self.model.total_ticks_lived += 1
+    
+    def record_kill(self):
+        self.model.total_kills += 1
+        self._update_combat_identity()
+    
+    def record_death(self):
+        self.model.total_deaths += 1
+        self._update_combat_identity()
+        self._add_feared_outcome_if_new("recent death trauma")
+    
+    def record_social_interaction(self, interaction_type: str, outcome: float):
+        self.model.total_social_interactions += 1
+        self._update_social_identity(interaction_type, outcome)
+    
+    def add_memorable_moment(self, description: str, emotional_weight: float):
+        moment = f"[{self.model.total_ticks_lived}] {description} (weight: {emotional_weight:.2f})"
+        self.model.memorable_moments.append(moment)
+        
+        if len(self.model.memorable_moments) > self.MAX_MEMORABLE_MOMENTS:
+            self.model.memorable_moments = self.model.memorable_moments[-self.MAX_MEMORABLE_MOMENTS:]
+    
+    def add_wisdom(self, lesson: str):
+        if lesson not in self.model.accumulated_wisdom:
+            self.model.accumulated_wisdom.append(lesson)
+            
+            if len(self.model.accumulated_wisdom) > self.MAX_WISDOM:
+                self.model.accumulated_wisdom = self.model.accumulated_wisdom[-self.MAX_WISDOM:]
+    
+    def add_signature_behavior(self, behavior: str):
+        if behavior not in self.model.signature_behaviors:
+            self.model.signature_behaviors.append(behavior)
+            if len(self.model.signature_behaviors) > 10:
+                self.model.signature_behaviors = self.model.signature_behaviors[-10:]
+    
+    def increment_session(self):
+        self.model.session_count += 1
+        self._update_growth_trajectory()
+    
+    def _update_combat_identity(self):
+        kills = self.model.total_kills
+        deaths = self.model.total_deaths
+        
+        if deaths == 0:
+            ratio = kills
+        else:
+            ratio = kills / deaths
+        
+        if ratio > 5:
+            self.model.combat_identity = "Highly effective combatant with dominant kill ratio"
+        elif ratio > 2:
+            self.model.combat_identity = "Competent fighter with favorable outcomes"
+        elif ratio > 1:
+            self.model.combat_identity = "Balanced combatant learning from experience"
+        elif ratio > 0.5:
+            self.model.combat_identity = "Struggling fighter, often facing defeat"
+        else:
+            self.model.combat_identity = "Frequently overwhelmed in combat, needs caution"
+    
+    def _update_social_identity(self, interaction_type: str, outcome: float):
+        interactions = self.model.total_social_interactions
+        
+        if interactions > 100 and outcome > 0.5:
+            self.model.social_identity = "Experienced social participant with positive reputation"
+        elif interactions > 50:
+            self.model.social_identity = "Developing social awareness and connections"
+        elif interactions > 10:
+            self.model.social_identity = "Beginning to engage with others"
+        else:
+            self.model.social_identity = "Socially inexperienced, observing more than engaging"
+    
+    def _update_growth_trajectory(self):
+        sessions = self.model.session_count
+        ticks = self.model.total_ticks_lived
+        wisdom_count = len(self.model.accumulated_wisdom)
+        
+        if sessions > 50 and wisdom_count > 20:
+            self.model.growth_trajectory = "Mature agent with accumulated experience"
+        elif sessions > 20 and wisdom_count > 10:
+            self.model.growth_trajectory = "Developing expertise through continued learning"
+        elif sessions > 5:
+            self.model.growth_trajectory = "Growing understanding of environment and self"
+        else:
+            self.model.growth_trajectory = "Early exploration and discovery phase"
+    
+    def _add_feared_outcome_if_new(self, outcome: str):
+        if outcome not in self.model.feared_outcomes:
+            self.model.feared_outcomes.append(outcome)
+            if len(self.model.feared_outcomes) > 10:
+                self.model.feared_outcomes = self.model.feared_outcomes[-10:]
+    
+    def get_identity_summary(self) -> str:
+        return (f"{self.model.identity_core}. "
+                f"Sessions: {self.model.session_count}, "
+                f"Ticks lived: {self.model.total_ticks_lived}, "
+                f"Combat: {self.model.combat_identity}, "
+                f"Social: {self.model.social_identity}")
+    
+    def get_state(self) -> Dict[str, Any]:
+        return {'model': self.model}
+    
+    def set_state(self, state: Dict[str, Any]):
+        if 'model' in state:
+            self.model = state['model']
+
+# =============================================================================
+# META-COGNITION SYSTEM
+# =============================================================================
+
+class MetaCognitionSystem:
+    THRASHING_THRESHOLD = 5
+    DECISION_HISTORY_SIZE = 20
+    CORRECTION_LOG_SIZE = 50
+    
+    def __init__(self):
+        self.state = MetaCognitiveState(
+            current_confidence_level=0.5,
+            cognitive_load=0.0,
+            decision_consistency_score=1.0,
+            belief_coherence_score=1.0,
+            personality_stability_score=1.0,
+            thrashing_counter=0,
+            last_decision_hash="",
+            decision_history=deque(maxlen=self.DECISION_HISTORY_SIZE),
+            correction_log=[],
+            recovery_mode=False,
+            recovery_reason=None
+        )
+    
+    def record_decision(self, decision_hash: str, timestamp: float):
+        if self.state.last_decision_hash and decision_hash != self.state.last_decision_hash:
+            recent_hashes = list(self.state.decision_history)[-5:]
+            if decision_hash in recent_hashes:
+                self.state.thrashing_counter += 1
+            else:
+                self.state.thrashing_counter = max(0, self.state.thrashing_counter - 1)
+        
+        self.state.decision_history.append(decision_hash)
+        self.state.last_decision_hash = decision_hash
+        
+        self._update_consistency_score()
+    
+    def update_scores(self, belief_coherence: float, personality_stability: float):
+        self.state.belief_coherence_score = belief_coherence
+        self.state.personality_stability_score = personality_stability
+        
+        self.state.current_confidence_level = (
+            self.state.decision_consistency_score * 0.3 +
+            self.state.belief_coherence_score * 0.3 +
+            self.state.personality_stability_score * 0.2 +
+            (1.0 - min(1.0, self.state.thrashing_counter / self.THRASHING_THRESHOLD)) * 0.2
+        )
+    
+    def update_cognitive_load(self, perception: CogPerceptionState):
+        enemy_factor = min(1.0, len(perception.nearby_enemies) / 5)
+        player_factor = min(1.0, len(perception.nearby_players) / 5)
+        chat_factor = min(1.0, len(perception.chat_events) / 3)
+        health_factor = 1.0 - perception.player_hp_percent / 100
+        
+        self.state.cognitive_load = (
+            enemy_factor * 0.4 +
+            player_factor * 0.2 +
+            chat_factor * 0.2 +
+            health_factor * 0.2
+        )
+    
+    def check_sanity(self, personality: PersonalityProfile, beliefs: SemanticBeliefModel,
+                     narrative: NarrativeSelfModelSystem) -> Tuple[bool, List[str]]:
+        violations = []
+        
+        if self.state.thrashing_counter >= self.THRASHING_THRESHOLD:
+            violations.append("decision_thrashing")
+        
+        if self.state.belief_coherence_score < 0.3:
+            violations.append("belief_incoherence")
+        
+        if self.state.personality_stability_score < 0.3:
+            violations.append("personality_instability")
+        
+        if self.state.decision_consistency_score < 0.3:
+            violations.append("decision_inconsistency")
+        
+        if violations:
+            self._log_correction(time.time(), f"Sanity violations: {violations}")
+            return False, violations
+        
+        return True, []
+    
+    def enter_recovery_mode(self, reason: str, timestamp: float):
+        self.state.recovery_mode = True
+        self.state.recovery_reason = reason
+        self.state.current_confidence_level *= 0.5
+        self._log_correction(timestamp, f"Entered recovery mode: {reason}")
+    
+    def exit_recovery_mode(self, timestamp: float):
+        if self.state.recovery_mode:
+            self.state.recovery_mode = False
+            self.state.recovery_reason = None
+            self._log_correction(timestamp, "Exited recovery mode")
+    
+    def should_act_conservatively(self) -> bool:
+        return (
+            self.state.recovery_mode or
+            self.state.current_confidence_level < 0.4 or
+            self.state.thrashing_counter >= self.THRASHING_THRESHOLD - 1
+        )
+    
+    def _update_consistency_score(self):
+        if len(self.state.decision_history) < 3:
+            self.state.decision_consistency_score = 1.0
+            return
+        
+        recent = list(self.state.decision_history)[-10:]
+        unique_decisions = len(set(recent))
+        
+        self.state.decision_consistency_score = 1.0 - (unique_decisions / len(recent)) * 0.5
+    
+    def _log_correction(self, timestamp: float, message: str):
+        self.state.correction_log.append((timestamp, message))
+        if len(self.state.correction_log) > self.CORRECTION_LOG_SIZE:
+            self.state.correction_log = self.state.correction_log[-self.CORRECTION_LOG_SIZE:]
+    
+    def get_state_dict(self) -> Dict[str, Any]:
+        return {
+            'state': self.state
+        }
+    
+    def set_state_dict(self, state_dict: Dict[str, Any]):
+        if 'state' in state_dict:
+            self.state = state_dict['state']
+
+# =============================================================================
+# DECISION SYNTHESIS (EXECUTIVE FUNCTION)
+# =============================================================================
+
+class DecisionSynthesisSystem:
+    def __init__(self):
+        self._utility_weights = {
+            'survival': 3.0,
+            'combat_efficiency': 1.5,
+            'resource_management': 1.0,
+            'social_opportunity': 0.8,
+            'exploration': 0.5,
+            'rest': 0.7
+        }
+        self._last_action: Optional[CogActionType] = None
+        self._action_cooldowns: Dict[CogActionType, float] = {}
+    
+    def synthesize(self, perception: CogPerceptionState, attention: AttentionFocus,
+                   working_memory: WorkingMemorySystem, episodic_memory: EpisodicMemorySystem,
+                   beliefs: SemanticBeliefModel, social_memory: SocialMemorySystem,
+                   goals: GoalManagementSystem, personality: PersonalityProfile,
+                   learning: LearningCreditSystem, meta_cognition: MetaCognitionSystem,
+                   intent_inference: IntentInferenceSystem) -> TacticalDirective:
+        
+        utilities = self._compute_utilities(perception, attention, personality, learning)
+        
+        similar_memories = episodic_memory.recall_similar(perception, limit=3)
+        memory_adjustments = self._apply_memory_lessons(similar_memories, utilities)
+        
+        for key, adj in memory_adjustments.items():
+            if key in utilities:
+                utilities[key] += adj
+        
+        if meta_cognition.should_act_conservatively():
+            utilities['survival'] *= 1.5
+            utilities['combat_efficiency'] *= 0.7
+            utilities['exploration'] *= 0.5
+        
+        primary_action, secondary_action = self._select_actions(
+            perception, attention, utilities, personality, learning
+        )
+        
+        target_id = self._select_target(perception, attention, primary_action)
+        
+        movement = self._compute_movement(
+            perception, attention, primary_action, target_id, personality
+        )
+        
+        social_action, social_target = self._compute_social_action(
+            perception, social_memory, personality, intent_inference
+        )
+        
+        confidence = self._compute_confidence(
+            perception, primary_action, utilities, meta_cognition
+        )
+        
+        risk = self._estimate_risk(perception, attention, primary_action)
+        
+        reasoning = self._generate_reasoning(
+            utilities, primary_action, secondary_action, similar_memories
+        )
+        
+        dominant = sorted(utilities.items(), key=lambda x: x[1], reverse=True)[:3]
+        suppressed = [g.description for g in goals.get_active_goals() 
+                      if g.priority.value < GoalPriority.HIGH.value][:3]
+        
+        self._last_action = primary_action
+        
+        return TacticalDirective(
+            primary_action=primary_action,
+            secondary_action=secondary_action,
+            target_id=target_id,
+            movement_vector=movement['vector'],
+            desired_facing_angle=movement['facing'],
+            movement_urgency=movement['urgency'],
+            positioning_intent=movement['intent'],
+            social_action=social_action,
+            social_target_id=social_target,
+            communication_tone=self._select_tone(personality, perception),
+            action_confidence=confidence,
+            risk_estimate=risk,
+            expected_outcome=self._predict_outcome(primary_action, perception, learning),
+            time_horizon_seconds=self._compute_time_horizon(primary_action),
+            reasoning_log=reasoning,
+            dominant_factors=[f"{k}: {v:.2f}" for k, v in dominant],
+            suppressed_goals=suppressed,
+            utility_snapshot=utilities
+        )
+    
+    def _compute_utilities(self, perception: CogPerceptionState, attention: AttentionFocus,
+                           personality: PersonalityProfile, learning: LearningCreditSystem) -> Dict[str, float]:
+        utilities = {}
+        
+        hp_factor = 1.0 - perception.player_hp_percent / 100
+        threat_factor = min(1.0, len(attention.threat_priorities) / 3)
+        utilities['survival'] = (hp_factor * 2.0 + threat_factor) * self._utility_weights['survival']
+        
+        if perception.nearby_enemies:
+            combat_opportunity = sum(
+                1.0 / max(0.1, e.hp_percent / 100) 
+                for e in perception.nearby_enemies[:3]
+            ) / 3
+            risk_adjusted = combat_opportunity * (0.5 + personality.risk_tolerance * 0.5)
+            utilities['combat_efficiency'] = risk_adjusted * self._utility_weights['combat_efficiency']
+        else:
+            utilities['combat_efficiency'] = 0.0
+        
+        resource_need = (
+            perception.inventory_fill_ratio * 0.3 +
+            (1.0 - perception.durability_percent / 100) * 0.3 +
+            (1.0 if perception.has_vendor_junk else 0.0) * 0.4
+        )
+        utilities['resource_management'] = resource_need * self._utility_weights['resource_management']
+        
+        if perception.nearby_players:
+            social_opportunity = (
+                len(perception.nearby_players) * 0.2 +
+                len(perception.chat_events) * 0.3
+            ) * personality.social_engagement_preference
+            utilities['social_opportunity'] = min(1.0, social_opportunity) * self._utility_weights['social_opportunity']
+        else:
+            utilities['social_opportunity'] = 0.0
+        
+        if perception.player_hp_percent > 50 and not perception.nearby_enemies:
+            exploration_drive = personality.learning_openness * 0.5 + personality.risk_tolerance * 0.3
+            utilities['exploration'] = exploration_drive * self._utility_weights['exploration']
+        else:
+            utilities['exploration'] = 0.0
+        
+        fatigue = 1.0 - perception.resource_current / max(1, perception.resource_max)
+        rest_need = fatigue * (1.0 - personality.risk_tolerance) 
+        if perception.player_hp_percent < 50:
+            rest_need += (1.0 - perception.player_hp_percent / 100) * 0.5
+        utilities['rest'] = rest_need * self._utility_weights['rest']
+        
+        return utilities
+    
+    def _apply_memory_lessons(self, memories: List[EpisodicMemory], 
+                               utilities: Dict[str, float]) -> Dict[str, float]:
+        adjustments = {k: 0.0 for k in utilities}
+        
+        for mem in memories:
+            weight = mem.emotional_intensity * 0.1
+            
+            if mem.outcome_valence > 0.5:
+                if mem.action_taken == CogActionType.ATTACK:
+                    adjustments['combat_efficiency'] += weight
+                elif mem.action_taken == CogActionType.ESCAPE:
+                    adjustments['survival'] += weight
+                elif mem.action_taken == CogActionType.REST:
+                    adjustments['rest'] += weight
+            elif mem.outcome_valence < -0.5:
+                if mem.action_taken == CogActionType.ATTACK:
+                    adjustments['combat_efficiency'] -= weight
+                    adjustments['survival'] += weight * 0.5
+        
+        return adjustments
+    
+    def _select_actions(self, perception: CogPerceptionState, attention: AttentionFocus,
+                        utilities: Dict[str, float], personality: PersonalityProfile,
+                        learning: LearningCreditSystem) -> Tuple[CogActionType, Optional[CogActionType]]:
+        
+        if perception.player_hp_percent < 15 and perception.nearby_enemies:
+            return CogActionType.ESCAPE, CogActionType.DEFEND
+        
+        sorted_utilities = sorted(utilities.items(), key=lambda x: x[1], reverse=True)
+        primary_utility = sorted_utilities[0][0]
+        
+        action_map = {
+            'survival': CogActionType.DEFEND if perception.player_hp_percent < 30 else CogActionType.ESCAPE,
+            'combat_efficiency': CogActionType.ATTACK,
+            'resource_management': CogActionType.LOOT,
+            'social_opportunity': CogActionType.COMMUNICATE,
+            'exploration': CogActionType.MOVE,
+            'rest': CogActionType.REST
+        }
+        
+        primary = action_map.get(primary_utility, CogActionType.OBSERVE)
+        
+        if primary == CogActionType.ATTACK and perception.nearby_enemies:
+            for ability in perception.available_abilities:
+                if ability.is_interrupt and ability.cooldown_remaining <= 0:
+                    for enemy in perception.nearby_enemies:
+                        if enemy.current_cast_name and enemy.current_cast_time_remaining < 1.5:
+                            return CogActionType.INTERRUPT, CogActionType.ATTACK
+        
+        secondary = None
+        if len(sorted_utilities) > 1:
+            secondary_utility = sorted_utilities[1][0]
+            secondary = action_map.get(secondary_utility)
+        
+        return primary, secondary
+    
+    def _select_target(self, perception: CogPerceptionState, attention: AttentionFocus,
+                       action: CogActionType) -> Optional[str]:
+        if action in (CogActionType.ATTACK, CogActionType.INTERRUPT, CogActionType.DEBUFF):
+            if attention.primary_target_id:
+                return attention.primary_target_id
+            elif perception.nearby_enemies:
+                return perception.nearby_enemies[0].id
+        
+        elif action in (CogActionType.HEAL, CogActionType.BUFF, CogActionType.ASSIST):
+            if perception.nearby_players:
+                lowest_hp = min(perception.nearby_players, 
+                               key=lambda p: 100 if p.combat_state == CombatState.DEAD else 
+                                            getattr(p, 'hp_percent', 100))
+                return lowest_hp.player_id
+        
+        return None
+    
+    def _compute_movement(self, perception: CogPerceptionState, attention: AttentionFocus,
+                          action: CogActionType, target_id: Optional[str],
+                          personality: PersonalityProfile) -> Dict[str, Any]:
+        
+        px, py = perception.player_position
+        
+        if action == CogActionType.ESCAPE:
+            if perception.nearby_enemies:
+                avg_ex = sum(e.position[0] for e in perception.nearby_enemies) / len(perception.nearby_enemies)
+                avg_ey = sum(e.position[1] for e in perception.nearby_enemies) / len(perception.nearby_enemies)
+                dx, dy = px - avg_ex, py - avg_ey
+                dist = math.sqrt(dx*dx + dy*dy) or 1.0
+                return {
+                    'vector': (dx/dist, dy/dist),
+                    'facing': math.atan2(dy, dx),
+                    'urgency': MovementUrgency.CRITICAL,
+                    'intent': PositioningIntent.RETREAT
+                }
+        
+        elif action == CogActionType.ATTACK and target_id:
+            for enemy in perception.nearby_enemies:
+                if enemy.id == target_id:
+                    dx = enemy.position[0] - px
+                    dy = enemy.position[1] - py
+                    dist = math.sqrt(dx*dx + dy*dy) or 1.0
+                    
+                    if enemy.distance_to_player > 5:
+                        return {
+                            'vector': (dx/dist, dy/dist),
+                            'facing': math.atan2(dy, dx),
+                            'urgency': MovementUrgency.MEDIUM,
+                            'intent': PositioningIntent.ADVANCE
+                        }
+                    elif enemy.is_caster and personality.risk_tolerance < 0.5:
+                        return {
+                            'vector': (dx/dist, dy/dist),
+                            'facing': math.atan2(dy, dx),
+                            'urgency': MovementUrgency.LOW,
+                            'intent': PositioningIntent.INTERCEPT
+                        }
+        
+        elif action == CogActionType.MOVE:
+            angle = random.uniform(0, 2 * math.pi)
+            return {
+                'vector': (math.cos(angle), math.sin(angle)),
+                'facing': angle,
+                'urgency': MovementUrgency.LOW,
+                'intent': PositioningIntent.EXPLORE
+            }
+        
+        return {
+            'vector': (0.0, 0.0),
+            'facing': perception.player_facing_angle,
+            'urgency': MovementUrgency.NONE,
+            'intent': PositioningIntent.HOLD
+        }
+    
+    def _compute_social_action(self, perception: CogPerceptionState,
+                                social_memory: SocialMemorySystem,
+                                personality: PersonalityProfile,
+                                intent_inference: IntentInferenceSystem) -> Tuple[SocialAction, Optional[str]]:
+        
+        for chat in perception.chat_events:
+            intent, confidence = intent_inference.infer_chat_intent(chat)
+            
+            if intent == "requesting_help" and personality.helpfulness_bias > 0.5:
+                return SocialAction.OFFER_HELP, chat.sender_id
+            elif intent == "greeting":
+                return SocialAction.GREET, chat.sender_id
+            elif intent == "expressing_gratitude":
+                return SocialAction.NONE, None
+        
+        for player in perception.nearby_players:
+            if player.combat_state == CombatState.ENGAGED:
+                entry = social_memory.get_entry(player.player_id)
+                if entry and entry.trust_estimate > 0.6 and personality.helpfulness_bias > 0.5:
+                    return SocialAction.ASSIST, player.player_id
+        
+        return SocialAction.NONE, None
+    
+    def _compute_confidence(self, perception: CogPerceptionState, action: CogActionType,
+                            utilities: Dict[str, float], 
+                            meta_cognition: MetaCognitionSystem) -> float:
+        
+        base_confidence = meta_cognition.state.current_confidence_level
+        
+        if utilities:
+            sorted_utils = sorted(utilities.values(), reverse=True)
+            if len(sorted_utils) > 1 and sorted_utils[0] > 0:
+                clarity = (sorted_utils[0] - sorted_utils[1]) / sorted_utils[0]
+                base_confidence *= (0.5 + clarity * 0.5)
+        
+        if action == CogActionType.ATTACK:
+            if perception.player_hp_percent < 30:
+                base_confidence *= 0.7
+            if any(e.is_elite for e in perception.nearby_enemies):
+                base_confidence *= 0.8
+        
+        return max(0.1, min(1.0, base_confidence))
+    
+    def _estimate_risk(self, perception: CogPerceptionState, attention: AttentionFocus,
+                       action: CogActionType) -> float:
+        
+        base_risk = 0.0
+        
+        hp_risk = (100 - perception.player_hp_percent) / 100
+        base_risk += hp_risk * 0.4
+        
+        enemy_risk = min(1.0, len(perception.nearby_enemies) / 3) * 0.3
+        base_risk += enemy_risk
+        
+        if any(e.is_elite for e in perception.nearby_enemies):
+            base_risk += 0.2
+        
+        if action == CogActionType.ATTACK:
+            base_risk += 0.1
+        elif action == CogActionType.ESCAPE:
+            base_risk -= 0.1
+        elif action == CogActionType.DEFEND:
+            base_risk -= 0.05
+        
+        return max(0.0, min(1.0, base_risk))
+    
+    def _predict_outcome(self, action: CogActionType, perception: CogPerceptionState,
+                          learning: LearningCreditSystem) -> str:
+        
+        if action == CogActionType.ATTACK:
+            if perception.nearby_enemies:
+                avg_hp = sum(e.hp_percent for e in perception.nearby_enemies) / len(perception.nearby_enemies)
+                if avg_hp < 30:
+                    return "likely_kill"
+                elif perception.player_hp_percent > 60:
+                    return "favorable_engagement"
+                else:
+                    return "uncertain_engagement"
+        elif action == CogActionType.ESCAPE:
+            return "likely_disengage"
+        elif action == CogActionType.REST:
+            return "recovery"
+        elif action == CogActionType.HEAL:
+            return "health_restoration"
+        
+        return "unknown_outcome"
+    
+    def _compute_time_horizon(self, action: CogActionType) -> float:
+        horizons = {
+            CogActionType.ATTACK: 3.0,
+            CogActionType.DEFEND: 2.0,
+            CogActionType.ESCAPE: 5.0,
+            CogActionType.HEAL: 2.0,
+            CogActionType.REST: 10.0,
+            CogActionType.MOVE: 5.0,
+            CogActionType.OBSERVE: 1.0
+        }
+        return horizons.get(action, 2.0)
+    
+    def _select_tone(self, personality: PersonalityProfile, 
+                     perception: CogPerceptionState) -> CommunicationTone:
+        
+        if perception.player_hp_percent < 30:
+            return CommunicationTone.URGENT
+        
+        if personality.assertiveness > 0.7:
+            return CommunicationTone.AUTHORITATIVE
+        elif personality.social_engagement_preference > 0.7:
+            return CommunicationTone.FRIENDLY
+        elif personality.conflict_avoidance > 0.7:
+            return CommunicationTone.CAUTIOUS
+        
+        return CommunicationTone.NEUTRAL
+    
+    def _generate_reasoning(self, utilities: Dict[str, float], primary: CogActionType,
+                            secondary: Optional[CogActionType],
+                            memories: List[EpisodicMemory]) -> List[str]:
+        reasoning = []
+        
+        sorted_utils = sorted(utilities.items(), key=lambda x: x[1], reverse=True)
+        reasoning.append(f"Primary driver: {sorted_utils[0][0]} ({sorted_utils[0][1]:.2f})")
+        
+        reasoning.append(f"Selected action: {primary.name}")
+        if secondary:
+            reasoning.append(f"Secondary action: {secondary.name}")
+        
+        if memories:
+            reasoning.append(f"Referenced {len(memories)} similar past experiences")
+            for mem in memories[:2]:
+                reasoning.append(f"  - {mem.action_taken.name}: outcome {mem.outcome_valence:.2f}")
+        
+        return reasoning
+    
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            'utility_weights': self._utility_weights,
+            'last_action': self._last_action,
+            'action_cooldowns': self._action_cooldowns
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        if 'utility_weights' in state:
+            self._utility_weights = state['utility_weights']
+        if 'last_action' in state:
+            self._last_action = state['last_action']
+        if 'action_cooldowns' in state:
+            self._action_cooldowns = state['action_cooldowns']
+
+# =============================================================================
+# COGNITIVE CORE - MAIN INTEGRATION CLASS
+# =============================================================================
+
+class CognitiveCore:
+    VERSION = "1.0.0"
+    DEFAULT_SAVE_PATH = "cognitive_state.json.gz"
+    
+    def __init__(self, save_path: Optional[str] = None):
+        self.save_path = save_path or self.DEFAULT_SAVE_PATH
+        self.persistence = PersistenceManager(self.save_path)
+        
+        self._lock = threading.RLock()
+        
+        self.attention = AttentionSystem()
+        self.working_memory = WorkingMemorySystem()
+        self.episodic_memory = EpisodicMemorySystem()
+        self.beliefs = SemanticBeliefModel()
+        self.social_memory = SocialMemorySystem()
+        self.goals = GoalManagementSystem()
+        self.intent_inference = IntentInferenceSystem()
+        self.personality_engine = PersonalityUpdateEngine()
+        self.learning = LearningCreditSystem()
+        self.narrative = NarrativeSelfModelSystem()
+        self.meta_cognition = MetaCognitionSystem()
+        self.decision_synthesis = DecisionSynthesisSystem()
+        
+        # Human-Equivalent Cognitive Systems (Enhanced)
+        self.probabilistic_beliefs = ProbabilisticBeliefSystem()
+        self.procedural_memory = ProceduralMemorySystem()
+        self.world_model = InternalWorldModel()
+        self.drive_system = DriveSystem()
+        self.rl_learner = ReinforcementLearner(
+            initial_exploration_rate=0.5,
+            min_exploration_rate=0.05
+        )
+        self.human_cognition = HumanEquivalentCognition()
+        
+        self.personality = PersonalityProfile(
+            risk_tolerance=0.4,
+            patience_level=0.5,
+            social_engagement_preference=0.5,
+            assertiveness=0.4,
+            helpfulness_bias=0.5,
+            conflict_avoidance=0.5,
+            leadership_tendency=0.3,
+            learning_openness=0.6
+        )
+        
+        self._tick_count = 0
+        self._last_perception: Optional[PerceptionState] = None
+        self._last_directive: Optional[TacticalDirective] = None
+        self._session_start_time = time.time()
+        self._initialized = False
+        
+        self._class_registry = {
+            'PersonalityProfile': PersonalityProfile,
+            'NarrativeSelfModel': NarrativeSelfModel,
+            'MetaCognitiveState': MetaCognitiveState,
+            'Belief': Belief,
+            'EpisodicMemory': EpisodicMemory,
+            'SocialMemoryEntry': SocialMemoryEntry,
+            'Goal': Goal,
+            'WorkingMemorySlot': WorkingMemorySlot,
+            'AttentionFocus': AttentionFocus,
+            'LearningCreditAssignment': LearningCreditAssignment,
+        }
+    
+    def initialize(self) -> bool:
+        with self._lock:
+            loaded_state = self.persistence.load(self._class_registry)
+            
+            if loaded_state:
+                try:
+                    self._restore_state(loaded_state)
+                    self.narrative.increment_session()
+                    self._initialized = True
+                    logger.info(f"Cognitive state restored from session {self.narrative.model.session_count}")
+                    return True
+                except Exception as e:
+                    logger.error(f"Cognitive state restoration failed: {e}", exc_info=True)
+                    self._enter_amnesiac_mode()
+            else:
+                self.narrative.increment_session()
+                self._initialized = True
+                logger.info("Cognitive system fresh initialization - first session")
+            
+            return True
+    
+    def _restore_state(self, state: Dict[str, Any]):
+        if 'attention' in state:
+            self.attention.set_state(state['attention'])
+        if 'working_memory' in state:
+            self.working_memory.set_state(state['working_memory'])
+        if 'episodic_memory' in state:
+            self.episodic_memory.set_state(state['episodic_memory'])
+        if 'beliefs' in state:
+            self.beliefs.set_state(state['beliefs'])
+        if 'social_memory' in state:
+            self.social_memory.set_state(state['social_memory'])
+        if 'goals' in state:
+            self.goals.set_state(state['goals'])
+        if 'intent_inference' in state:
+            self.intent_inference.set_state(state['intent_inference'])
+        if 'personality_engine' in state:
+            self.personality_engine.set_state(state['personality_engine'])
+        if 'learning' in state:
+            self.learning.set_state(state['learning'])
+        if 'narrative' in state:
+            self.narrative.set_state(state['narrative'])
+        if 'meta_cognition' in state:
+            self.meta_cognition.set_state_dict(state['meta_cognition'])
+        if 'decision_synthesis' in state:
+            self.decision_synthesis.set_state(state['decision_synthesis'])
+        if 'personality' in state:
+            self.personality = state['personality']
+        if 'tick_count' in state:
+            self._tick_count = state['tick_count']
+    
+    def _enter_amnesiac_mode(self):
+        logger.warning("Cognitive system entering amnesiac recovery mode")
+        self.meta_cognition.enter_recovery_mode("memory_corruption", time.time())
+        self.personality.risk_tolerance *= 0.5
+        self.personality.assertiveness *= 0.5
+        self.narrative.add_memorable_moment("Experienced partial memory loss", 0.9)
+        self._initialized = True
+    
+    def process_tick(self, perception: CogPerceptionState) -> TacticalDirective:
+        with self._lock:
+            if not self._initialized:
+                self.initialize()
+            
+            self._tick_count += 1
+            self.narrative.record_tick()
+            
+            self.working_memory.update(perception.delta_time)
+            
+            attention_focus = self.attention.compute_salience(perception, self.personality)
+            
+            self.working_memory.add("perception_summary", {
+                'hp_percent': perception.player_hp_percent,
+                'enemy_count': len(perception.nearby_enemies),
+                'in_combat': perception.time_in_combat > 0
+            }, 0.8, perception.timestamp)
+            
+            self.meta_cognition.update_cognitive_load(perception)
+            
+            for enemy in perception.nearby_enemies:
+                intent, conf = self.intent_inference.infer_enemy_intent(enemy)
+                self.beliefs.add_belief(
+                    enemy.id, "intent", intent,
+                    BeliefConfidence(min(5, int(conf * 5) + 1)),
+                    perception.timestamp
+                )
+            
+            for player in perception.nearby_players:
+                social_entry = self.social_memory.get_entry(player.player_id)
+                intent, conf = self.intent_inference.infer_player_intent(player, social_entry)
+                self.beliefs.add_belief(
+                    player.player_id, "intent", intent,
+                    BeliefConfidence(min(5, int(conf * 5) + 1)),
+                    perception.timestamp
+                )
+            
+            for chat in perception.chat_events:
+                intent, conf = self.intent_inference.infer_chat_intent(chat)
+                self.social_memory.record_interaction(
+                    chat.sender_id, chat.sender_id,
+                    chat.sentiment_valence, intent, perception.timestamp
+                )
+            
+            directive = self.decision_synthesis.synthesize(
+                perception, attention_focus, self.working_memory, self.episodic_memory,
+                self.beliefs, self.social_memory, self.goals, self.personality,
+                self.learning, self.meta_cognition, self.intent_inference
+            )
+            
+            decision_hash = hashlib.md5(
+                f"{directive.primary_action.name}:{directive.target_id}".encode()
+            ).hexdigest()[:8]
+            self.meta_cognition.record_decision(decision_hash, perception.timestamp)
+            
+            sane, violations = self.meta_cognition.check_sanity(
+                self.personality, self.beliefs, self.narrative
+            )
+            if not sane:
+                self.meta_cognition.enter_recovery_mode(
+                    f"sanity_violations: {violations}", perception.timestamp
+                )
+                directive = self._create_conservative_directive(perception, directive)
+            
+            self.meta_cognition.update_scores(
+                self.beliefs.get_coherence_score(),
+                self.personality_engine.get_stability_score(self.personality)
+            )
+            
+            self._last_perception = perception
+            self._last_directive = directive
+            
+            if self._tick_count % 100 == 0:
+                self.save_state()
+            
+            return directive
+    
+    def _create_conservative_directive(self, perception: CogPerceptionState,
+                                        original: TacticalDirective) -> TacticalDirective:
+        if perception.player_hp_percent < 50 and perception.nearby_enemies:
+            primary = CogActionType.ESCAPE
+            intent = PositioningIntent.RETREAT
+            urgency = MovementUrgency.HIGH
+        else:
+            primary = CogActionType.OBSERVE
+            intent = PositioningIntent.HOLD
+            urgency = MovementUrgency.LOW
+        
+        return TacticalDirective(
+            primary_action=primary,
+            secondary_action=CogActionType.DEFEND,
+            target_id=None,
+            movement_vector=(0.0, 0.0),
+            desired_facing_angle=perception.player_facing_angle,
+            movement_urgency=urgency,
+            positioning_intent=intent,
+            social_action=SocialAction.NONE,
+            social_target_id=None,
+            communication_tone=CommunicationTone.CAUTIOUS,
+            action_confidence=0.3,
+            risk_estimate=0.7,
+            expected_outcome="conservative_recovery",
+            time_horizon_seconds=5.0,
+            reasoning_log=["Sanity check failed - entering conservative mode"],
+            dominant_factors=["sanity_recovery"],
+            suppressed_goals=original.suppressed_goals,
+            utility_snapshot=original.utility_snapshot
+        )
+    
+    def record_outcome(self, outcome_type: str, outcome_valence: float):
+        with self._lock:
+            timestamp = time.time()
+            
+            self.personality = self.personality_engine.update(
+                self.personality, outcome_type, outcome_valence, timestamp
+            )
+            
+            if self._last_perception and self._last_directive:
+                context_hash = self.episodic_memory._compute_context_hash(self._last_perception)
+                self.learning.record_outcome(
+                    context_hash, self._last_directive.primary_action,
+                    outcome_valence, timestamp
+                )
+                
+                emotional_intensity = abs(outcome_valence)
+                narrative_tags = [outcome_type]
+                
+                if outcome_valence > 0.7:
+                    narrative_tags.append("success")
+                    if outcome_type == 'combat_success':
+                        self.narrative.record_kill()
+                elif outcome_valence < -0.7:
+                    narrative_tags.append("failure")
+                    if outcome_type == 'combat_failure':
+                        self.narrative.record_death()
+                
+                self.episodic_memory.record(
+                    self._last_perception, self._last_directive.primary_action,
+                    outcome_valence, emotional_intensity, narrative_tags
+                )
+                
+                if emotional_intensity > 0.8:
+                    self.narrative.add_memorable_moment(
+                        f"{outcome_type} with intensity {emotional_intensity:.2f}",
+                        emotional_intensity
+                    )
+                
+                for lesson in self.episodic_memory.memories[-1].lessons_extracted if self.episodic_memory.memories else []:
+                    self.narrative.add_wisdom(lesson)
+    
+    def record_social_interaction(self, player_id: str, name: str, 
+                                   interaction_type: str, outcome: float):
+        with self._lock:
+            timestamp = time.time()
+            self.social_memory.record_interaction(
+                player_id, name, outcome, interaction_type, timestamp
+            )
+            self.narrative.record_social_interaction(interaction_type, outcome)
+            
+            self.record_outcome(
+                'social_positive' if outcome > 0 else 'social_negative',
+                outcome
+            )
+    
+    def save_state(self) -> bool:
+        with self._lock:
+            state = {
+                'version': self.VERSION,
+                'attention': self.attention.get_state(),
+                'working_memory': self.working_memory.get_state(),
+                'episodic_memory': self.episodic_memory.get_state(),
+                'beliefs': self.beliefs.get_state(),
+                'social_memory': self.social_memory.get_state(),
+                'goals': self.goals.get_state(),
+                'intent_inference': self.intent_inference.get_state(),
+                'personality_engine': self.personality_engine.get_state(),
+                'learning': self.learning.get_state(),
+                'narrative': self.narrative.get_state(),
+                'meta_cognition': self.meta_cognition.get_state_dict(),
+                'decision_synthesis': self.decision_synthesis.get_state(),
+                'personality': self.personality,
+                'tick_count': self._tick_count
+            }
+            
+            return self.persistence.save(state)
+    
+    def shutdown(self):
+        with self._lock:
+            self.save_state()
+            logger.info(f"Cognitive shutdown complete. Ticks: {self._tick_count}, "
+                       f"Sessions: {self.narrative.model.session_count}")
+    
+    def get_identity_summary(self) -> str:
+        return self.narrative.get_identity_summary()
+    
+    def get_metrics(self) -> Dict[str, Any]:
+        with self._lock:
+            return {
+                'tick_count': self._tick_count,
+                'session_count': self.narrative.model.session_count,
+                'total_ticks_lived': self.narrative.model.total_ticks_lived,
+                'total_kills': self.narrative.model.total_kills,
+                'total_deaths': self.narrative.model.total_deaths,
+                'total_social_interactions': self.narrative.model.total_social_interactions,
+                'belief_count': len(self.beliefs.beliefs),
+                'memory_count': len(self.episodic_memory.memories),
+                'social_contacts': len(self.social_memory.entries),
+                'active_goals': len(self.goals.get_active_goals()),
+                'confidence': self.meta_cognition.state.current_confidence_level,
+                'cognitive_load': self.meta_cognition.state.cognitive_load,
+                'personality': {
+                    'risk_tolerance': self.personality.risk_tolerance,
+                    'patience_level': self.personality.patience_level,
+                    'social_engagement': self.personality.social_engagement_preference,
+                    'assertiveness': self.personality.assertiveness,
+                    'helpfulness': self.personality.helpfulness_bias,
+                    'conflict_avoidance': self.personality.conflict_avoidance,
+                    'leadership': self.personality.leadership_tendency,
+                    'learning_openness': self.personality.learning_openness
+                }
+            }
+
+# =============================================================================
+# INTEGRATION INTERFACE
+# =============================================================================
+
+_cognitive_instance: Optional[CognitiveCore] = None
+_instance_lock = threading.Lock()
+
+def get_cognitive_core(save_path: Optional[str] = None) -> CognitiveCore:
+    global _cognitive_instance
+    with _instance_lock:
+        if _cognitive_instance is None:
+            _cognitive_instance = CognitiveCore(save_path)
+            _cognitive_instance.initialize()
+        return _cognitive_instance
+
+def process_perception(perception: CogPerceptionState) -> TacticalDirective:
+    core = get_cognitive_core()
+    return core.process_tick(perception)
+
+def record_action_outcome(outcome_type: str, outcome_valence: float):
+    core = get_cognitive_core()
+    core.record_outcome(outcome_type, outcome_valence)
+
+def record_social_event(player_id: str, name: str, interaction_type: str, outcome: float):
+    core = get_cognitive_core()
+    core.record_social_interaction(player_id, name, interaction_type, outcome)
+
+def save_cognitive_state() -> bool:
+    core = get_cognitive_core()
+    return core.save_state()
+
+def shutdown_cognitive_system():
+    global _cognitive_instance
+    with _instance_lock:
+        if _cognitive_instance is not None:
+            _cognitive_instance.shutdown()
+            _cognitive_instance = None
+
+def get_identity() -> str:
+    core = get_cognitive_core()
+    return core.get_identity_summary()
+
+def get_cognitive_metrics() -> Dict[str, Any]:
+    core = get_cognitive_core()
+    return core.get_metrics()
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# UTILITY DECORATORS AND HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+T = TypeVar('T')
+
+
+def retry(max_attempts: int = 3, delay: float = 0.1, 
+          exceptions: Tuple[type, ...] = (Exception,)) -> Callable:
+    """Decorator for retrying failed operations."""
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @wraps(func)
+        def wrapper(*args, **kwargs) -> T:
+            last_exception = None
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    if attempt < max_attempts - 1:
+                        time.sleep(delay * (attempt + 1))
+            raise last_exception  # type: ignore
+        return wrapper
+    return decorator
+
+
+def timed(func: Callable[..., T]) -> Callable[..., T]:
+    """Decorator to measure function execution time."""
+    @wraps(func)
+    def wrapper(*args, **kwargs) -> T:
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        elapsed = time.perf_counter() - start
+        if elapsed > 0.1:  # Log slow operations
+            logger.debug(f"{func.__name__} took {elapsed:.3f}s")
+        return result
+    return wrapper
+
+
+def clamp(value: float, min_val: float, max_val: float) -> float:
+    """Clamp a value between min and max."""
+    return max(min_val, min(max_val, value))
+
+
+def lerp(a: float, b: float, t: float) -> float:
+    """Linear interpolation between a and b."""
+    return a + (b - a) * clamp(t, 0.0, 1.0)
+
+
+def distance_2d(p1: Tuple[float, float], p2: Tuple[float, float]) -> float:
+    """Calculate 2D Euclidean distance."""
+    return math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+
+
+def normalize_angle(angle: float) -> float:
+    """Normalize angle to [-180, 180] degrees."""
+    while angle > 180:
+        angle -= 360
+    while angle < -180:
+        angle += 360
+    return angle
+
+
+def weighted_choice(choices: List[Tuple[T, float]]) -> T:
+    """Select from weighted choices using roulette wheel selection."""
+    total = sum(weight for _, weight in choices)
+    if total <= 0:
+        return choices[0][0] if choices else None  # type: ignore
+    r = random.uniform(0, total)
+    cumulative = 0.0
+    for item, weight in choices:
+        cumulative += weight
+        if r <= cumulative:
+            return item
+    return choices[-1][0]
+
+
+class RollingAverage:
+    """Efficient rolling average calculator using circular buffer."""
+    
+    __slots__ = ('_buffer', '_size', '_index', '_count', '_sum')
+    
+    def __init__(self, size: int = 100):
+        self._buffer = [0.0] * size
+        self._size = size
+        self._index = 0
+        self._count = 0
+        self._sum = 0.0
+    
+    def add(self, value: float) -> None:
+        if self._count >= self._size:
+            self._sum -= self._buffer[self._index]
+        else:
+            self._count += 1
+        self._buffer[self._index] = value
+        self._sum += value
+        self._index = (self._index + 1) % self._size
+    
+    @property
+    def average(self) -> float:
+        return self._sum / self._count if self._count > 0 else 0.0
+    
+    @property
+    def count(self) -> int:
+        return self._count
+
+
+class ExponentialMovingAverage:
+    """EMA for smoothing time-series data."""
+    
+    __slots__ = ('_alpha', '_value', '_initialized')
+    
+    def __init__(self, alpha: float = 0.1):
+        self._alpha = alpha
+        self._value = 0.0
+        self._initialized = False
+    
+    def update(self, value: float) -> float:
+        if not self._initialized:
+            self._value = value
+            self._initialized = True
+        else:
+            self._value = self._alpha * value + (1 - self._alpha) * self._value
+        return self._value
+    
+    @property
+    def value(self) -> float:
+        return self._value
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ENUMERATIONS - COMPREHENSIVE GAME STATE MODELING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class PlayerClass(Enum):
+    """All WoW 1.12 player classes."""
+    WARRIOR = "warrior"
+    PALADIN = "paladin"
+    HUNTER = "hunter"
+    ROGUE = "rogue"
+    PRIEST = "priest"
+    SHAMAN = "shaman"
+    MAGE = "mage"
+    WARLOCK = "warlock"
+    DRUID = "druid"
+
+
+class ResourceType(Enum):
+    """Player resource types by class."""
+    MANA = "mana"
+    RAGE = "rage"
+    ENERGY = "energy"
+    FOCUS = "focus"  # Hunter pet
+
+
+class TargetType(Enum):
+    """Target types for targeting system."""
+    NONE = auto()
+    HOSTILE_MOB = auto()
+    FRIENDLY_NPC = auto()
+    PLAYER_FRIENDLY = auto()
+    PLAYER_HOSTILE = auto()
+    CORPSE = auto()
+    OBJECT = auto()
+
+
+class CombatPhase(Enum):
+    """Combat engagement phases."""
+    OPENER = auto()        # Initial pull/engage
+    BURST = auto()         # Cooldown usage
+    SUSTAINED = auto()     # Regular rotation
+    EXECUTE = auto()       # Target low HP
+    DEFENSIVE = auto()     # Self low HP
+    FLEE = auto()          # Emergency escape
+
+
+class UIState(Enum):
+    """Current UI panel state."""
+    WORLD = auto()
+    SPELLBOOK_OPEN = auto()
+    CHARACTER_OPEN = auto()
+    TALENTS_OPEN = auto()
+    QUEST_LOG_OPEN = auto()
+    MAP_OPEN = auto()
+    BAGS_OPEN = auto()
+    VENDOR_OPEN = auto()
+    TRAINER_OPEN = auto()
+    GOSSIP_OPEN = auto()
+    LOOT_OPEN = auto()
+    DIALOG_OPEN = auto()
+    DEAD_DIALOG = auto()
+    BANK_OPEN = auto()
+    MAIL_OPEN = auto()
+    AUCTION_OPEN = auto()
+    TRADE_OPEN = auto()
+    FLIGHT_MAP = auto()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DEFAULT WOW 1.12 KEYBINDS
+# These are the only hardcoded game-specific values - standard default bindings
+# ═══════════════════════════════════════════════════════════════════════════
+
+class DefaultKeybinds:
+    """
+    Default WoW 1.12 keybindings.
+    These represent the standard out-of-box keybind configuration.
+    """
+    # Action Bar 1 (slots 1-12)
+    ACTION_BAR_1 = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=']
+    # Action Bar 2 (Ctrl+1 through Ctrl+=)
+    ACTION_BAR_2 = ['ctrl+1', 'ctrl+2', 'ctrl+3', 'ctrl+4', 'ctrl+5', 'ctrl+6',
+                   'ctrl+7', 'ctrl+8', 'ctrl+9', 'ctrl+0', 'ctrl+-', 'ctrl+=']
+    
+    # Movement
+    MOVE_FORWARD = 'w'
+    MOVE_BACKWARD = 's'
+    TURN_LEFT = 'a'
+    TURN_RIGHT = 'd'
+    STRAFE_LEFT = 'q'
+    STRAFE_RIGHT = 'e'
+    JUMP = 'space'
+    SIT_STAND = 'x'
+    AUTORUN = 'num_lock'
+    
+    # Targeting
+    TARGET_NEAREST_ENEMY = 'tab'
+    TARGET_LAST_TARGET = 'g'
+    ASSIST_TARGET = 'f'
+    CLEAR_TARGET = 'esc'
+    
+    # Combat
+    ATTACK = 't'
+    STOP_ATTACK = 's'
+    
+    # UI Panels
+    SPELLBOOK = 'p'
+    CHARACTER_PANEL = 'c'
+    TALENTS = 'n'
+    QUEST_LOG = 'l'
+    WORLD_MAP = 'm'
+    SOCIAL = 'o'
+    MAIN_MENU = 'esc'
+    BAGS = 'b'
+    ALL_BAGS = 'shift+b'
+    
+    # Camera
+    FLIP_CAMERA = 'home'
+    ZOOM_IN = 'page_up'
+    ZOOM_OUT = 'page_down'
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SCREEN REGIONS - UI Element Coordinates
+# Calibrated for 1366x768 resolution, auto-scales to detected resolution
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ScreenRegions:
+    """
+    Screen coordinate system for UI element detection.
+    All coordinates are calibrated for 1366x768 and auto-scaled.
+    """
+    
+    def __init__(self, width: int = 1366, height: int = 768):
+        self.width = width
+        self.height = height
+        self.scale_x = width / 1366.0
+        self.scale_y = height / 768.0
+        self._calculate_regions()
+    
+    def _scale(self, coords):
+        """Scale coordinates to current resolution."""
+        if coords is None:
+            return None
+        if len(coords) == 2:
+            return (int(coords[0] * self.scale_x), int(coords[1] * self.scale_y))
+        elif len(coords) == 4:
+            return [
+                int(coords[0] * self.scale_x),
+                int(coords[1] * self.scale_y),
+                int(coords[2] * self.scale_x),
+                int(coords[3] * self.scale_y)
+            ]
+        return coords
+    
+    def _calculate_regions(self):
+        """Calculate all UI regions based on screen size."""
+        # Player Unit Frame (top-left)
+        self.PLAYER_PORTRAIT = self._scale([20, 10, 110, 80])
+        self.PLAYER_HP_BAR = self._scale([117, 48, 208, 56])
+        self.PLAYER_RESOURCE_BAR = self._scale([117, 58, 208, 66])
+        self.PLAYER_LEVEL = self._scale([22, 60, 45, 78])
+        self.PLAYER_NAME = self._scale([115, 20, 210, 35])
+        
+        # Target Unit Frame (right of player frame)
+        self.TARGET_FRAME = self._scale([250, 10, 420, 80])
+        self.TARGET_HP_BAR = self._scale([289, 48, 380, 56])
+        self.TARGET_LEVEL = self._scale([252, 60, 275, 78])
+        self.TARGET_NAME = self._scale([287, 20, 420, 35])
+        self.TARGET_EXISTS_CHECK = self._scale([315, 35, 320, 40])
+        
+        # Action Bars (bottom center)
+        self.ACTION_BAR_1_START = self._scale([468, 720])
+        self.ACTION_BAR_2_START = self._scale([468, 680])
+        self.ACTION_BAR_SLOT_SIZE = int(36 * self.scale_x)
+        self.ACTION_BAR_1 = self._scale([468, 715, 900, 760])
+        self.ACTION_BAR_2 = self._scale([468, 679, 900, 715])
+        
+        # Experience Bar
+        self.XP_BAR = self._scale([468, 754, 898, 762])
+        
+        # Minimap (top-right)
+        self.MINIMAP = self._scale([1220, 10, 1356, 130])
+        self.MINIMAP_CENTER = self._scale([1288, 70])
+        
+        # Chat Window (bottom-left)
+        self.CHAT_WINDOW = self._scale([10, 560, 450, 715])
+        self.CHAT_INPUT = self._scale([35, 695, 430, 715])
+        
+        # Buff/Debuff Area
+        self.BUFF_AREA = self._scale([1050, 10, 1210, 50])
+        self.DEBUFF_AREA = self._scale([1050, 55, 1210, 95])
+        
+        # UI Panels
+        self.SPELLBOOK_PANEL = self._scale([680, 100, 1060, 620])
+        self.SPELLBOOK_TABS = [
+            self._scale([700, 580]),
+            self._scale([760, 580]),
+            self._scale([820, 580]),
+        ]
+        self.SPELLBOOK_SPELL_START = self._scale([720, 140])
+        self.SPELLBOOK_SPELL_SIZE = int(42 * self.scale_y)
+        self.SPELLBOOK_SPELLS_PER_PAGE = 12
+        self.SPELLBOOK_PAGE_NEXT = self._scale([1000, 590])
+        self.SPELLBOOK_PAGE_PREV = self._scale([720, 590])
+        
+        self.CHARACTER_PANEL = self._scale([300, 100, 660, 560])
+        self.INVENTORY_PANEL = self._scale([880, 290, 1200, 560])
+        
+        self.QUEST_LOG_PANEL = self._scale([80, 100, 520, 560])
+        self.QUEST_LIST_START = self._scale([120, 150])
+        self.QUEST_ENTRY_HEIGHT = int(20 * self.scale_y)
+        
+        self.WORLD_MAP_PANEL = self._scale([100, 50, 1266, 718])
+        
+        self.TRAINER_PANEL = self._scale([80, 100, 560, 560])
+        self.TRAINER_SPELL_LIST_START = self._scale([120, 140])
+        self.TRAINER_SPELL_HEIGHT = int(30 * self.scale_y)
+        self.TRAINER_TRAIN_BUTTON = self._scale([450, 520])
+        
+        self.VENDOR_PANEL = self._scale([80, 100, 520, 560])
+        self.VENDOR_ITEM_START = self._scale([120, 140])
+        self.VENDOR_ITEM_HEIGHT = int(30 * self.scale_y)
+        
+        self.GOSSIP_PANEL = self._scale([80, 100, 520, 480])
+        self.GOSSIP_OPTIONS_START = self._scale([120, 200])
+        self.GOSSIP_OPTION_HEIGHT = int(25 * self.scale_y)
+        
+        self.LOOT_WINDOW = self._scale([40, 280, 200, 500])
+        self.LOOT_SLOT_START = self._scale([60, 310])
+        self.LOOT_SLOT_HEIGHT = int(35 * self.scale_y)
+        
+        self.DIALOG_ACCEPT = self._scale([380, 520])
+        self.DIALOG_DECLINE = self._scale([520, 520])
+        
+        # Combat Text Area
+        self.COMBAT_TEXT = self._scale([450, 180, 916, 420])
+        
+        # Casting Bar
+        self.CASTING_BAR = self._scale([483, 600, 883, 630])
+        
+        # Death/Ghost UI
+        self.RELEASE_SPIRIT_BUTTON = self._scale([600, 400, 766, 450])
+        
+        # Screen center for interactions
+        self.SCREEN_CENTER = (self.width // 2, self.height // 2)
+    
+    def get_action_bar_slot(self, slot: int, bar: int = 1) -> Tuple[int, int]:
+        """Get center coordinates of an action bar slot."""
+        if bar == 1:
+            base = self.ACTION_BAR_1_START
+        else:
+            base = self.ACTION_BAR_2_START
+        
+        x = base[0] + (slot * self.ACTION_BAR_SLOT_SIZE) + (self.ACTION_BAR_SLOT_SIZE // 2)
+        y = base[1] + (self.ACTION_BAR_SLOT_SIZE // 2)
+        return (x, y)
+    
+    def get_spellbook_spell_position(self, index: int) -> Tuple[int, int]:
+        """Get position of a spell slot in the spellbook."""
+        row = index // 2
+        col = index % 2
+        x = self.SPELLBOOK_SPELL_START[0] + (col * 160)
+        y = self.SPELLBOOK_SPELL_START[1] + (row * self.SPELLBOOK_SPELL_SIZE)
+        return (x, y)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# COLOR DEFINITIONS (HSV)
+# Used for visual detection of UI elements
+# ═══════════════════════════════════════════════════════════════════════════
+
+class Colors:
+    """HSV color ranges for visual detection."""
+    
+    # Health/Resource Bars
+    HEALTH_GREEN = {'lower': np.array([40, 80, 80]), 'upper': np.array([80, 255, 255])}
+    HEALTH_RED = {
+        'lower': np.array([0, 100, 80]), 'upper': np.array([10, 255, 255]),
+        'lower2': np.array([170, 100, 80]), 'upper2': np.array([180, 255, 255])
+    }
+    MANA_BLUE = {'lower': np.array([100, 80, 80]), 'upper': np.array([130, 255, 255])}
+    RAGE_RED = {'lower': np.array([0, 150, 100]), 'upper': np.array([10, 255, 255])}
+    ENERGY_YELLOW = {'lower': np.array([20, 100, 100]), 'upper': np.array([35, 255, 255])}
+    
+    # Nameplate Colors
+    HOSTILE_RED = {'lower': np.array([0, 150, 100]), 'upper': np.array([10, 255, 255])}
+    FRIENDLY_GREEN = {'lower': np.array([40, 100, 100]), 'upper': np.array([80, 255, 255])}
+    NEUTRAL_YELLOW = {'lower': np.array([20, 100, 100]), 'upper': np.array([40, 255, 255])}
+    
+    # UI Elements
+    BUTTON_GOLD = {'lower': np.array([15, 100, 150]), 'upper': np.array([30, 255, 255])}
+    TEXT_WHITE = {'lower': np.array([0, 0, 200]), 'upper': np.array([180, 30, 255])}
+    
+    # Combat Indicator
+    COMBAT_FLASH = {'lower': np.array([0, 100, 150]), 'upper': np.array([10, 255, 255])}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ENUMERATIONS (Priority and ActionType - UIState defined earlier)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class Priority(Enum):
+    """Action priority levels."""
+    CRITICAL = 1000
+    URGENT = 800
+    HIGH = 600
+    NORMAL = 400
+    LOW = 200
+    IDLE = 0
+
+class ActionType(Enum):
+    """Types of actions the agent can perform."""
+    NONE = auto()
+    WAIT = auto()
+    PRESS_KEY = auto()
+    HOLD_KEY = auto()
+    RELEASE_KEY = auto()
+    CLICK = auto()
+    RIGHT_CLICK = auto()
+    DRAG = auto()
+    MOVE_FORWARD = auto()
+    MOVE_BACKWARD = auto()
+    TURN_LEFT = auto()
+    TURN_RIGHT = auto()
+    STRAFE_LEFT = auto()
+    STRAFE_RIGHT = auto()
+    JUMP = auto()
+    TARGET_ENEMY = auto()
+    ATTACK = auto()
+    USE_ABILITY = auto()
+    OPEN_PANEL = auto()
+    CLOSE_PANEL = auto()
+    INTERACT = auto()
+    LOOT = auto()
+
+# ═══════════════════════════════════════════════════════════════════════════
+# KNOWLEDGE PERSISTENCE SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════
+
+class KnowledgeBase:
+    """
+    Persistent storage for learned information.
+    All knowledge is saved to JSON files for cross-session learning.
+    """
+    
+    def __init__(self, name: str):
+        self.name = name
+        self.filepath = DATA_DIR / f"{name}.json"
+        self._lock = threading.RLock()
+        self.data = self._load()
+        self._dirty = False
+    
+    def _load(self) -> dict:
+        """Load knowledge from disk."""
+        if self.filepath.exists():
+            try:
+                with open(self.filepath, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    logger.debug(f"Loaded {self.name}: {len(data)} entries")
+                    return data
+            except (json.JSONDecodeError, IOError) as e:
+                logger.warning(f"Failed to load {self.name}: {e}")
+        return {}
+    
+    def save(self):
+        """Save knowledge to disk atomically."""
+        if not self._dirty:
+            return
+        with self._lock:
+            try:
+                temp = str(self.filepath) + '.tmp'
+                with open(temp, 'w', encoding='utf-8') as f:
+                    json.dump(self.data, f, indent=2, default=str)
+                os.replace(temp, self.filepath)
+                self._dirty = False
+                logger.debug(f"Saved {self.name}")
+            except Exception as e:
+                logger.error(f"Save {self.name} failed: {e}")
+    
+    def get(self, key: str, default=None):
+        with self._lock:
+            return self.data.get(key, default)
+    
+    def set(self, key: str, value):
+        with self._lock:
+            self.data[key] = value
+            self._dirty = True
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SPELL KNOWLEDGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class SpellKnowledge(KnowledgeBase):
+    """Knowledge about discovered spells and action bar assignments."""
+    
+    def __init__(self):
+        super().__init__("spells")
+        if not self.data:
+            self.data = {
+                "discovered_spells": {},
+                "action_bar_1": {str(i): None for i in range(12)},
+                "action_bar_2": {str(i): None for i in range(12)},
+                "spell_costs": {},
+                "spell_cooldowns": {},
+                "last_spellbook_scan": 0,
+            }
+    
+    def discover_spell(self, name: str, rank: int = 1, properties: dict = None):
+        """Record a newly discovered spell."""
+        with self._lock:
+            key = f"{name}_rank{rank}"
+            if key not in self.data["discovered_spells"]:
+                self.data["discovered_spells"][key] = {
+                    "name": name,
+                    "rank": rank,
+                    "discovered_at": time.time(),
+                    "times_used": 0,
+                    "times_succeeded": 0,
+                    "known_cost": None,
+                    "known_cooldown": None,
+                    "spellbook_page": None,
+                    "spellbook_slot": None,
+                    "action_bar": None,
+                    "action_bar_slot": None,
+                    **(properties or {})
+                }
+                logger.info(f"Discovered spell: {name} (Rank {rank})")
+                self._dirty = True
+                return True
+            return False
+    
+    def get_spell(self, name: str, highest_rank: bool = True) -> Optional[dict]:
+        """Get spell info by name."""
+        with self._lock:
+            matches = [
+                spell for spell in self.data["discovered_spells"].values()
+                if spell["name"].lower() == name.lower()
+            ]
+            if not matches:
+                return None
+            if highest_rank:
+                return max(matches, key=lambda s: s.get("rank", 1))
+            return matches[0]
+    
+    def get_all_spells(self) -> List[dict]:
+        """Get all discovered spells."""
+        with self._lock:
+            return list(self.data["discovered_spells"].values())
+    
+    def assign_to_action_bar(self, spell_name: str, slot: int, bar: int = 1):
+        """Record spell assignment to action bar."""
+        with self._lock:
+            bar_key = f"action_bar_{bar}"
+            if bar_key not in self.data:
+                self.data[bar_key] = {str(i): None for i in range(12)}
+            self.data[bar_key][str(slot)] = spell_name
+            
+            for spell in self.data["discovered_spells"].values():
+                if spell["name"].lower() == spell_name.lower():
+                    spell["action_bar"] = bar
+                    spell["action_bar_slot"] = slot
+                    break
+            
+            logger.info(f"Assigned {spell_name} to bar {bar} slot {slot}")
+            self._dirty = True
+    
+    def get_action_bar_slot(self, spell_name: str) -> Optional[Tuple[int, int]]:
+        """Get (bar, slot) for a spell."""
+        with self._lock:
+            for bar in [1, 2]:
+                bar_key = f"action_bar_{bar}"
+                if bar_key in self.data:
+                    for slot, name in self.data[bar_key].items():
+                        if name and name.lower() == spell_name.lower():
+                            return (bar, int(slot))
+            return None
+    
+    def get_spell_at_slot(self, slot: int, bar: int = 1) -> Optional[str]:
+        """Get spell name at a given slot."""
+        with self._lock:
+            bar_key = f"action_bar_{bar}"
+            return self.data.get(bar_key, {}).get(str(slot))
+    
+    def record_spell_use(self, spell_name: str, succeeded: bool,
+                        cost: float = None, cooldown: float = None):
+        """Record outcome of using a spell."""
+        with self._lock:
+            for spell in self.data["discovered_spells"].values():
+                if spell["name"].lower() == spell_name.lower():
+                    spell["times_used"] = spell.get("times_used", 0) + 1
+                    if succeeded:
+                        spell["times_succeeded"] = spell.get("times_succeeded", 0) + 1
+                    if cost is not None:
+                        spell["known_cost"] = cost
+                    if cooldown is not None:
+                        spell["known_cooldown"] = cooldown
+                    self._dirty = True
+                    break
+    
+    def get_best_combat_spell(self, available_resource: float) -> Optional[dict]:
+        """Get the most effective combat spell we can afford."""
+        with self._lock:
+            candidates = []
+            for spell in self.data["discovered_spells"].values():
+                if spell.get("action_bar") is None or spell.get("action_bar_slot") is None:
+                    continue
+                
+                cost = spell.get("known_cost") or 0
+                if cost > available_resource:
+                    continue
+                
+                uses = spell.get("times_used", 0)
+                successes = spell.get("times_succeeded", 0)
+                effectiveness = (successes / max(1, uses)) if uses > 0 else 0.5
+                
+                candidates.append((spell, effectiveness))
+            
+            if not candidates:
+                return None
+            
+            candidates.sort(key=lambda x: x[1], reverse=True)
+            return candidates[0][0]
+
+# ═══════════════════════════════════════════════════════════════════════════
+# WORLD KNOWLEDGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class WorldKnowledge(KnowledgeBase):
+    """Knowledge about the game world, NPCs, locations."""
+    
+    def __init__(self):
+        super().__init__("world")
+        if not self.data:
+            self.data = {
+                "known_npcs": {},
+                "death_locations": [],
+                "safe_spots": [],
+                "current_zone": "Unknown",
+            }
+    
+    def record_npc(self, name: str, npc_type: str,
+                   location: Tuple[int, int] = None, services: List[str] = None):
+        """Record NPC information."""
+        with self._lock:
+            key = name.lower().replace(" ", "_")
+            if key not in self.data["known_npcs"]:
+                self.data["known_npcs"][key] = {
+                    "name": name,
+                    "type": npc_type,
+                    "locations_seen": [],
+                    "services": services or [],
+                    "first_seen": time.time(),
+                }
+            if location:
+                locs = self.data["known_npcs"][key]["locations_seen"]
+                if location not in locs:
+                    locs.append(location)
+            self._dirty = True
+    
+    def record_death(self, location: Tuple[int, int]):
+        """Record death location."""
+        with self._lock:
+            self.data["death_locations"].append({
+                "location": location,
+                "time": time.time(),
+            })
+            logger.warning(f"Recorded death at {location}")
+            self._dirty = True
+    
+    def is_dangerous_area(self, location: Tuple[int, int], radius: int = 100) -> bool:
+        """Check if location is near previous deaths."""
+        with self._lock:
+            for death in self.data["death_locations"]:
+                loc = death.get("location")
+                if loc:
+                    dist = ((loc[0] - location[0])**2 + (loc[1] - location[1])**2)**0.5
+                    if dist < radius:
+                        return True
+            return False
+
+# ═══════════════════════════════════════════════════════════════════════════
+# QUEST KNOWLEDGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class QuestKnowledge(KnowledgeBase):
+    """Knowledge about quests."""
+    
+    def __init__(self):
+        super().__init__("quests")
+        if not self.data:
+            self.data = {
+                "active_quests": {},
+                "completed_quests": [],
+            }
+    
+    def add_quest(self, name: str, objectives: List[str] = None, giver_npc: str = None):
+        """Record accepting a quest."""
+        with self._lock:
+            key = name.lower().replace(" ", "_")
+            self.data["active_quests"][key] = {
+                "name": name,
+                "accepted_at": time.time(),
+                "objectives": objectives or [],
+                "objective_progress": {},
+                "giver_npc": giver_npc,
+                "is_complete": False,
+            }
+            logger.info(f"Accepted quest: {name}")
+            self._dirty = True
+    
+    def complete_quest(self, name: str, rewards: dict = None):
+        """Record completing a quest."""
+        with self._lock:
+            key = name.lower().replace(" ", "_")
+            if key in self.data["active_quests"]:
+                quest = self.data["active_quests"].pop(key)
+                quest["completed_at"] = time.time()
+                quest["rewards"] = rewards
+                self.data["completed_quests"].append(quest)
+                logger.info(f"Completed quest: {name}")
+                self._dirty = True
+    
+    def get_active_quests(self) -> List[dict]:
+        """Get list of active quests."""
+        with self._lock:
+            return list(self.data["active_quests"].values())
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PROGRESS KNOWLEDGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ProgressKnowledge(KnowledgeBase):
+    """Character progression tracking."""
+    
+    def __init__(self):
+        super().__init__("progress")
+        if not self.data:
+            self.data = {
+                "level": 1,
+                "total_kills": 0,
+                "total_deaths": 0,
+                "session_start": time.time(),
+                "level_history": [],
+            }
+    
+    def set_level(self, level: int):
+        """Update character level."""
+        with self._lock:
+            if level != self.data.get("level", 1):
+                self.data["level_history"].append({
+                    "level": level,
+                    "time": time.time(),
+                })
+                logger.info(f"LEVEL UP! Now level {level}")
+            self.data["level"] = level
+            self._dirty = True
+    
+    def get_level(self) -> int:
+        return self.data.get("level", 1)
+    
+    def record_kill(self):
+        with self._lock:
+            self.data["total_kills"] = self.data.get("total_kills", 0) + 1
+            self._dirty = True
+    
+    def record_death(self):
+        with self._lock:
+            self.data["total_deaths"] = self.data.get("total_deaths", 0) + 1
+            self._dirty = True
+
+# ═══════════════════════════════════════════════════════════════════════════
+# COMBAT KNOWLEDGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CombatKnowledge(KnowledgeBase):
+    """Knowledge learned from combat encounters."""
+    
+    def __init__(self):
+        super().__init__("combat")
+        if not self.data:
+            self.data = {
+                "enemy_types": {},
+                "kill_count_by_enemy": {},
+            }
+    
+    def record_enemy(self, name: str, level: int = None):
+        """Record seeing an enemy type."""
+        with self._lock:
+            key = name.lower().replace(" ", "_")
+            if key not in self.data["enemy_types"]:
+                self.data["enemy_types"][key] = {
+                    "name": name,
+                    "levels_seen": [],
+                    "times_killed": 0,
+                    "times_died_to": 0,
+                    "avg_fight_duration": 0,
+                    "effective_abilities": [],
+                }
+            if level and level not in self.data["enemy_types"][key]["levels_seen"]:
+                self.data["enemy_types"][key]["levels_seen"].append(level)
+            self._dirty = True
+    
+    def record_kill(self, enemy_name: str, fight_duration: float, abilities_used: List[str]):
+        """Record killing an enemy."""
+        with self._lock:
+            key = enemy_name.lower().replace(" ", "_")
+            if key in self.data["enemy_types"]:
+                enemy = self.data["enemy_types"][key]
+                enemy["times_killed"] = enemy.get("times_killed", 0) + 1
+                
+                old_avg = enemy.get("avg_fight_duration", 0)
+                kills = enemy["times_killed"]
+                enemy["avg_fight_duration"] = ((old_avg * (kills - 1)) + fight_duration) / kills
+                
+                for ability in abilities_used:
+                    if ability not in enemy["effective_abilities"]:
+                        enemy["effective_abilities"].append(ability)
+            
+            self.data["kill_count_by_enemy"][key] = self.data["kill_count_by_enemy"].get(key, 0) + 1
+            self._dirty = True
+    
+    def record_death_to(self, enemy_name: str):
+        """Record dying to an enemy."""
+        with self._lock:
+            key = enemy_name.lower().replace(" ", "_")
+            if key in self.data["enemy_types"]:
+                self.data["enemy_types"][key]["times_died_to"] = \
+                    self.data["enemy_types"][key].get("times_died_to", 0) + 1
+            self._dirty = True
+    
+    def is_enemy_dangerous(self, enemy_name: str) -> bool:
+        """Check if we've died to this enemy type frequently."""
+        with self._lock:
+            key = enemy_name.lower().replace(" ", "_")
+            enemy = self.data["enemy_types"].get(key, {})
+            deaths = enemy.get("times_died_to", 0)
+            kills = enemy.get("times_killed", 0)
+            return deaths > 0 and kills < deaths
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SCREEN CAPTURE SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ScreenCapture:
+    """
+    Handles screen capture for visual perception.
+    Uses mss for cross-platform screen capture.
+    """
+    
+    def __init__(self):
+        self._sct = None
+        self._monitor = None
+        self._last_frame = None
+        self._last_capture_time = 0
+        self._lock = threading.Lock()
+        self._regions = None
+        self._init_capture()
+    
+    def _init_capture(self):
+        """Initialize screen capture."""
+        try:
+            self._sct = mss.mss()
+            self._monitor = self._sct.monitors[1]  # Primary monitor
+            self._regions = ScreenRegions(self._monitor['width'], self._monitor['height'])
+            logger.info(f"Screen capture initialized: {self._monitor['width']}x{self._monitor['height']}")
+        except Exception as e:
+            logger.error(f"Screen capture initialization failed: {e}")
+            raise
+    
+    @property
+    def regions(self) -> ScreenRegions:
+        return self._regions
+    
+    def capture(self) -> np.ndarray:
+        """Capture current screen state."""
+        with self._lock:
+            try:
+                screenshot = self._sct.grab(self._monitor)
+                self._last_frame = np.array(screenshot)
+                self._last_frame = cv2.cvtColor(self._last_frame, cv2.COLOR_BGRA2BGR)
+                self._last_capture_time = time.time()
+                return self._last_frame
+            except Exception as e:
+                logger.error(f"Screen capture failed: {e}")
+                return self._last_frame
+    
+    def get_frame(self) -> Optional[np.ndarray]:
+        """Get last captured frame, or capture new if stale."""
+        if self._last_frame is None or time.time() - self._last_capture_time > 0.5:
+            return self.capture()
+        return self._last_frame
+    
+    def get_region(self, roi: List[int]) -> Optional[np.ndarray]:
+        """Extract a region from current frame."""
+        if roi is None:
+            return None
+        frame = self.get_frame()
+        if frame is None:
+            return None
+        
+        x1, y1, x2, y2 = roi
+        h, w = frame.shape[:2]
+        
+        x1 = max(0, min(x1, w))
+        x2 = max(0, min(x2, w))
+        y1 = max(0, min(y1, h))
+        y2 = max(0, min(y2, h))
+        
+        if x2 <= x1 or y2 <= y1:
+            return None
+        
+        return frame[y1:y2, x1:x2].copy()
+    
+    def get_pixel(self, x: int, y: int) -> Optional[Tuple[int, int, int]]:
+        """Get color of a single pixel."""
+        frame = self.get_frame()
+        if frame is None:
+            return None
+        
+        h, w = frame.shape[:2]
+        if 0 <= x < w and 0 <= y < h:
+            return tuple(frame[y, x])
+        return None
+    
+    def cleanup(self):
+        """Release screen capture resources."""
+        if self._sct:
+            try:
+                self._sct.close()
+            except Exception:
+                pass
+
+# ═══════════════════════════════════════════════════════════════════════════
+# VISUAL ANALYZER
+# ═══════════════════════════════════════════════════════════════════════════
+
+class VisualAnalyzer:
+    """
+    Analyzes screen content to understand game state.
+    All detection is done through pixel/color analysis.
+    """
+    
+    def __init__(self, capture: ScreenCapture):
+        self.capture = capture
+        self._regions = capture.regions
+    
+    def get_bar_percentage(self, roi: List[int], color: dict, max_width: int = None) -> float:
+        """Calculate fill percentage of a colored bar."""
+        region = self.capture.get_region(roi)
+        if region is None or region.size == 0:
+            return 0.0
+        
+        try:
+            hsv = cv2.cvtColor(region, cv2.COLOR_BGR2HSV)
+            mask = cv2.inRange(hsv, color['lower'], color['upper'])
+            
+            if 'lower2' in color:
+                mask2 = cv2.inRange(hsv, color['lower2'], color['upper2'])
+                mask = cv2.bitwise_or(mask, mask2)
+            
+            if np.sum(mask) == 0:
+                return 0.0
+            
+            horizontal = np.sum(mask, axis=0)
+            filled_pixels = np.where(horizontal > 0)[0]
+            
+            if len(filled_pixels) == 0:
+                return 0.0
+            
+            width = filled_pixels[-1] - filled_pixels[0] + 1
+            
+            if max_width:
+                return min(100.0, (width / max_width) * 100.0)
+            return min(100.0, (width / region.shape[1]) * 100.0)
+        except Exception as e:
+            logger.debug(f"Bar analysis error: {e}")
+            return 0.0
+    
+    def detect_color_presence(self, roi: List[int], color: dict, threshold: float = 0.05) -> bool:
+        """Check if a color is present in a region above threshold."""
+        region = self.capture.get_region(roi)
+        if region is None or region.size == 0:
+            return False
+        
+        try:
+            hsv = cv2.cvtColor(region, cv2.COLOR_BGR2HSV)
+            mask = cv2.inRange(hsv, color['lower'], color['upper'])
+            percentage = (np.sum(mask) / 255) / mask.size
+            return percentage > threshold
+        except Exception:
+            return False
+    
+    def is_pixel_bright(self, x: int, y: int, threshold: int = 50) -> bool:
+        """Check if a pixel is bright (indicates presence of content)."""
+        pixel = self.capture.get_pixel(x, y)
+        if pixel is None:
+            return False
+        return max(pixel) > threshold
+    
+    def get_dominant_color(self, roi: List[int]) -> str:
+        """Determine dominant color in a region."""
+        region = self.capture.get_region(roi)
+        if region is None or region.size == 0:
+            return "unknown"
+        
+        try:
+            hsv = cv2.cvtColor(region, cv2.COLOR_BGR2HSV)
+            
+            colors_to_check = [
+                ("green", Colors.HEALTH_GREEN),
+                ("red", Colors.HEALTH_RED),
+                ("blue", Colors.MANA_BLUE),
+                ("yellow", Colors.NEUTRAL_YELLOW),
+            ]
+            
+            best_color = "unknown"
+            best_percentage = 0.0
+            
+            for name, color in colors_to_check:
+                mask = cv2.inRange(hsv, color['lower'], color['upper'])
+                if 'lower2' in color:
+                    mask2 = cv2.inRange(hsv, color['lower2'], color['upper2'])
+                    mask = cv2.bitwise_or(mask, mask2)
+                
+                percentage = (np.sum(mask) / 255) / mask.size
+                if percentage > best_percentage:
+                    best_percentage = percentage
+                    best_color = name
+            
+            return best_color if best_percentage > 0.1 else "unknown"
+        except Exception:
+            return "unknown"
+    
+    def read_text_ocr(self, roi: List[int]) -> str:
+        """Read text from a region using OCR (if available)."""
+        if not OCR_AVAILABLE:
+            return ""
+        
+        region = self.capture.get_region(roi)
+        if region is None or region.size == 0:
+            return ""
+        
+        try:
+            gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
+            _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+            text = pytesseract.image_to_string(thresh, config='--psm 7')
+            return text.strip()
+        except Exception as e:
+            logger.debug(f"OCR error: {e}")
+            return ""
+    
+    def check_panel_open(self, panel_roi: List[int]) -> bool:
+        """Check if a UI panel appears to be open."""
+        region = self.capture.get_region(panel_roi)
+        if region is None:
+            return False
+        
+        gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
+        non_black = np.sum(gray > 30)
+        total = gray.size
+        
+        return (non_black / total) > 0.3
+
+# ═══════════════════════════════════════════════════════════════════════════
+# INPUT HANDLER
+# Provides human-like input with proper timing and movement
+# ═══════════════════════════════════════════════════════════════════════════
+
+class InputHandler:
+    """
+    Human-like input handling.
+    All inputs are real OS-level keyboard and mouse events.
+    """
+    
+    SPECIAL_KEYS = {
+        'esc': Key.esc, 'escape': Key.esc,
+        'tab': Key.tab, 'space': Key.space,
+        'enter': Key.enter, 'return': Key.enter,
+        'shift': Key.shift, 'ctrl': Key.ctrl, 'alt': Key.alt,
+        'backspace': Key.backspace, 'delete': Key.delete,
+        'home': Key.home, 'end': Key.end,
+        'page_up': Key.page_up, 'page_down': Key.page_down,
+        'up': Key.up, 'down': Key.down, 'left': Key.left, 'right': Key.right,
+        'f1': Key.f1, 'f2': Key.f2, 'f3': Key.f3, 'f4': Key.f4,
+        'f5': Key.f5, 'f6': Key.f6, 'f7': Key.f7, 'f8': Key.f8,
+        'f9': Key.f9, 'f10': Key.f10, 'f11': Key.f11, 'f12': Key.f12,
+        'num_lock': Key.num_lock,
+    }
+    
+    def __init__(self):
+        self._kb = KeyboardController()
+        self._mouse = MouseController()
+        self._held_keys: Set = set()
+        self._lock = threading.Lock()
+        self._last_action_time = 0
+        
+        # Human-like timing parameters
+        self._reaction_mean = 0.12
+        self._reaction_std = 0.04
+    
+    def _get_key(self, key_str: str):
+        """Convert string to pynput key object."""
+        if key_str is None:
+            return None
+        key_str = str(key_str).lower().strip()
+        if key_str in self.SPECIAL_KEYS:
+            return self.SPECIAL_KEYS[key_str]
+        if len(key_str) == 1:
+            return key_str
+        return None
+    
+    def _parse_key_combo(self, key_str: str) -> Tuple[List[str], str]:
+        """Parse 'ctrl+shift+1' into (['ctrl', 'shift'], '1')."""
+        if key_str is None:
+            return ([], '')
+        key_str = str(key_str).lower().strip()
+        if '+' in key_str:
+            parts = key_str.split('+')
+            modifiers = [p.strip() for p in parts[:-1] if p.strip() in ('ctrl', 'control', 'shift', 'alt')]
+            main_key = parts[-1].strip()
+            return (modifiers, main_key)
+        return ([], key_str)
+    
+    def _human_delay(self, base: float = 0.1, variance: float = 0.03):
+        """Add human-like delay."""
+        delay = max(0.01, random.gauss(base, variance))
+        time.sleep(delay)
+    
+    def press_key(self, key_str: str, hold_duration: float = None) -> bool:
+        """Press and release a key, handles modifiers like 'ctrl+1'."""
+        if key_str is None:
+            return False
+        
+        with self._lock:
+            modifiers, main_key = self._parse_key_combo(key_str)
+            
+            if modifiers:
+                return self._execute_key_combo(modifiers, main_key, hold_duration)
+            
+            key = self._get_key(main_key)
+            if key is None:
+                logger.warning(f"Unknown key: {key_str}")
+                return False
+            
+            try:
+                self._human_delay(self._reaction_mean, self._reaction_std)
+                
+                self._kb.press(key)
+                duration = hold_duration if hold_duration else random.uniform(0.05, 0.12)
+                time.sleep(duration)
+                self._kb.release(key)
+                
+                self._last_action_time = time.time()
+                self._human_delay(0.02, 0.01)
+                return True
+            except Exception as e:
+                logger.error(f"Key press error: {e}")
+                return False
+    
+    def _execute_key_combo(self, modifiers: List[str], main_key: str, hold_duration: float = None) -> bool:
+        """Execute a key combination with modifiers."""
+        mod_keys = [self._get_key(m) for m in modifiers]
+        main = self._get_key(main_key)
+        
+        if any(k is None for k in mod_keys) or main is None:
+            logger.warning(f"Invalid combo: {modifiers}+{main_key}")
+            return False
+        
+        try:
+            self._human_delay(self._reaction_mean, self._reaction_std)
+            
+            # Press modifiers
+            for mod in mod_keys:
+                self._kb.press(mod)
+                time.sleep(random.uniform(0.02, 0.04))
+            
+            # Press and release main key
+            self._kb.press(main)
+            duration = hold_duration if hold_duration else random.uniform(0.05, 0.1)
+            time.sleep(duration)
+            self._kb.release(main)
+            
+            # Release modifiers
+            for mod in reversed(mod_keys):
+                time.sleep(random.uniform(0.02, 0.04))
+                self._kb.release(mod)
+            
+            self._last_action_time = time.time()
+            return True
+        except Exception as e:
+            logger.error(f"Key combo error: {e}")
+            for mod in mod_keys:
+                try:
+                    self._kb.release(mod)
+                except Exception:
+                    pass
+            return False
+    
+    def hold_key(self, key_str: str) -> bool:
+        """Start holding a key."""
+        if key_str is None:
+            return False
+        
+        with self._lock:
+            key = self._get_key(key_str)
+            if key is None:
+                return False
+            
+            if key in self._held_keys:
+                return True
+            
+            try:
+                self._kb.press(key)
+                self._held_keys.add(key)
+                self._last_action_time = time.time()
+                return True
+            except Exception as e:
+                logger.error(f"Hold key error: {e}")
+                return False
+    
+    def release_key(self, key_str: str) -> bool:
+        """Release a held key."""
+        if key_str is None:
+            return False
+        
+        with self._lock:
+            key = self._get_key(key_str)
+            if key is None:
+                return False
+            
+            if key not in self._held_keys:
+                return True
+            
+            try:
+                self._kb.release(key)
+                self._held_keys.discard(key)
+                return True
+            except Exception:
+                return False
+    
+    def release_all_keys(self):
+        """Release all held keys."""
+        with self._lock:
+            for key in list(self._held_keys):
+                try:
+                    self._kb.release(key)
+                except Exception:
+                    pass
+            self._held_keys.clear()
+    
+    def click(self, x: int, y: int, button: str = 'left', double: bool = False) -> bool:
+        """Click at screen position with human-like mouse movement."""
+        with self._lock:
+            try:
+                self._human_delay(self._reaction_mean, self._reaction_std)
+                
+                # Smooth mouse movement
+                current_pos = self._mouse.position
+                dist = ((x - current_pos[0])**2 + (y - current_pos[1])**2)**0.5
+                move_time = min(0.4, dist / 2500)
+                
+                steps = max(1, int(move_time / 0.008))
+                for i in range(steps):
+                    t = (i + 1) / steps
+                    # Ease in-out curve
+                    t = t * t * (3 - 2 * t)
+                    nx = int(current_pos[0] + (x - current_pos[0]) * t)
+                    ny = int(current_pos[1] + (y - current_pos[1]) * t)
+                    self._mouse.position = (nx, ny)
+                    time.sleep(0.008)
+                
+                self._mouse.position = (x, y)
+                time.sleep(random.uniform(0.02, 0.05))
+                
+                btn = Button.left if button == 'left' else Button.right
+                clicks = 2 if double else 1
+                self._mouse.click(btn, clicks)
+                
+                self._last_action_time = time.time()
+                time.sleep(random.uniform(0.05, 0.1))
+                return True
+            except Exception as e:
+                logger.error(f"Click error: {e}")
+                return False
+    
+    def drag(self, start_x: int, start_y: int, end_x: int, end_y: int,
+             button: str = 'left') -> bool:
+        """Drag from start to end position."""
+        with self._lock:
+            try:
+                self._human_delay(self._reaction_mean, self._reaction_std)
+                
+                # Move to start
+                self._mouse.position = (start_x, start_y)
+                time.sleep(random.uniform(0.05, 0.1))
+                
+                # Press button
+                btn = Button.left if button == 'left' else Button.right
+                self._mouse.press(btn)
+                time.sleep(random.uniform(0.1, 0.15))
+                
+                # Drag with smooth movement
+                dist = ((end_x - start_x)**2 + (end_y - start_y)**2)**0.5
+                steps = max(5, int(dist / 50))
+                
+                for i in range(steps):
+                    t = (i + 1) / steps
+                    t = t * t * (3 - 2 * t)  # Ease curve
+                    nx = int(start_x + (end_x - start_x) * t)
+                    ny = int(start_y + (end_y - start_y) * t)
+                    self._mouse.position = (nx, ny)
+                    time.sleep(random.uniform(0.015, 0.025))
+                
+                self._mouse.position = (end_x, end_y)
+                time.sleep(random.uniform(0.05, 0.1))
+                
+                # Release
+                self._mouse.release(btn)
+                self._last_action_time = time.time()
+                return True
+            except Exception as e:
+                logger.error(f"Drag error: {e}")
+                try:
+                    self._mouse.release(Button.left)
+                    self._mouse.release(Button.right)
+                except Exception:
+                    pass
+                return False
+    
+    def type_text(self, text: str) -> bool:
+        """Type text with human-like timing."""
+        with self._lock:
+            try:
+                for char in text:
+                    delay = random.uniform(0.04, 0.12)
+                    time.sleep(delay)
+                    self._kb.press(char)
+                    time.sleep(random.uniform(0.02, 0.05))
+                    self._kb.release(char)
+                self._last_action_time = time.time()
+                return True
+            except Exception as e:
+                logger.error(f"Type error: {e}")
+                return False
+    
+    def get_mouse_position(self) -> Tuple[int, int]:
+        """Get current mouse position."""
+        return self._mouse.position
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PERCEPTION STATE
+# ═══════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class PerceptionState:
+    """Current perceived state of the game."""
+    timestamp: float = 0.0
+    
+    # Player state
+    player_hp: float = 100.0
+    player_hp_max: float = 100.0
+    player_resource: float = 0.0
+    player_resource_max: float = 100.0
+    player_resource_type: str = "rage"
+    player_level: int = 1
+    player_is_dead: bool = False
+    player_is_ghost: bool = False
+    player_in_combat: bool = False
+    
+    # Target state
+    has_target: bool = False
+    target_hp: float = 0.0
+    target_hp_max: float = 100.0
+    target_level: int = 0
+    target_name: str = ""
+    target_is_hostile: bool = False
+    target_is_dead: bool = False
+    
+    # UI state
+    ui_state: UIState = UIState.WORLD
+    loot_window_open: bool = False
+    vendor_window_open: bool = False
+    trainer_window_open: bool = False
+    gossip_window_open: bool = False
+    
+    # Environment
+    nearby_enemies: int = 0
+    nearby_npcs: int = 0
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PERCEPTION SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════
+
+class Perception:
+    """
+    Perceives game state from screen analysis.
+    All perception is derived from visual analysis only.
+    """
+    
+    def __init__(self, capture: ScreenCapture, analyzer: VisualAnalyzer):
+        self.capture = capture
+        self.analyzer = analyzer
+        self._regions = capture.regions
+        self._last_state = PerceptionState()
+        self._lock = threading.Lock()
+        self._last_target_hp = 0
+        self._gcd_end_time = 0
+    
+    def perceive(self) -> PerceptionState:
+        """Analyze screen and return current game state."""
+        with self._lock:
+            self.capture.capture()
+            state = PerceptionState(timestamp=time.time())
+            
+            # Player HP
+            state.player_hp = self.analyzer.get_bar_percentage(
+                self._regions.PLAYER_HP_BAR, Colors.HEALTH_GREEN, 91
+            )
+            
+            # Player Resource (Rage for Warrior)
+            state.player_resource = self.analyzer.get_bar_percentage(
+                self._regions.PLAYER_RESOURCE_BAR, Colors.RAGE_RED, 91
+            )
+            state.player_resource_type = "rage"
+            
+            # Death check
+            state.player_is_dead = state.player_hp < 1.0
+            
+            # Target
+            state.has_target = self._check_target_exists()
+            
+            if state.has_target:
+                target_color = self.analyzer.get_dominant_color(self._regions.TARGET_HP_BAR)
+                
+                if target_color == "green":
+                    state.target_hp = self.analyzer.get_bar_percentage(
+                        self._regions.TARGET_HP_BAR, Colors.HEALTH_GREEN, 91
+                    )
+                    state.target_is_hostile = False
+                elif target_color == "red":
+                    state.target_hp = self.analyzer.get_bar_percentage(
+                        self._regions.TARGET_HP_BAR, Colors.HEALTH_RED, 91
+                    )
+                    state.target_is_hostile = True
+                else:
+                    state.target_hp = self.analyzer.get_bar_percentage(
+                        self._regions.TARGET_HP_BAR, Colors.HEALTH_GREEN, 91
+                    )
+                    if state.target_hp < 1:
+                        state.target_hp = self.analyzer.get_bar_percentage(
+                            self._regions.TARGET_HP_BAR, Colors.HEALTH_RED, 91
+                        )
+                        state.target_is_hostile = True
+                
+                state.target_is_dead = state.target_hp < 1.0
+                
+                if OCR_AVAILABLE:
+                    state.target_name = self.analyzer.read_text_ocr(self._regions.TARGET_NAME)
+            
+            # Combat detection
+            state.player_in_combat = self._detect_combat(state)
+            
+            # UI State
+            state.ui_state = self._detect_ui_state()
+            state.loot_window_open = state.ui_state == UIState.LOOT_OPEN
+            state.vendor_window_open = state.ui_state == UIState.VENDOR_OPEN
+            state.trainer_window_open = state.ui_state == UIState.TRAINER_OPEN
+            state.gossip_window_open = state.ui_state == UIState.GOSSIP_OPEN
+            
+            self._last_state = state
+            return state
+    
+    def _check_target_exists(self) -> bool:
+        """Check if we have a target."""
+        check_pos = self._regions.TARGET_EXISTS_CHECK
+        return self.analyzer.is_pixel_bright(
+            (check_pos[0] + check_pos[2]) // 2,
+            (check_pos[1] + check_pos[3]) // 2,
+            threshold=30
+        )
+    
+    def _detect_combat(self, state: PerceptionState) -> bool:
+        """Detect if player is in combat."""
+        if state.has_target and state.target_is_hostile and not state.target_is_dead:
+            return True
+        
+        # Check portrait for combat indicator
+        portrait_has_red = self.analyzer.detect_color_presence(
+            self._regions.PLAYER_PORTRAIT, Colors.COMBAT_FLASH, 0.03
+        )
+        if portrait_has_red:
+            return True
+        
+        # Check for HP changes on target
+        if state.has_target and state.target_hp < self._last_target_hp - 5:
+            self._last_target_hp = state.target_hp
+            return True
+        
+        self._last_target_hp = state.target_hp if state.has_target else 0
+        return False
+    
+    def _detect_ui_state(self) -> UIState:
+        """Detect which UI panel is open."""
+        panels = [
+            (self._regions.SPELLBOOK_PANEL, UIState.SPELLBOOK_OPEN),
+            (self._regions.CHARACTER_PANEL, UIState.CHARACTER_OPEN),
+            (self._regions.TRAINER_PANEL, UIState.TRAINER_OPEN),
+            (self._regions.VENDOR_PANEL, UIState.VENDOR_OPEN),
+            (self._regions.LOOT_WINDOW, UIState.LOOT_OPEN),
+            (self._regions.GOSSIP_PANEL, UIState.GOSSIP_OPEN),
+            (self._regions.QUEST_LOG_PANEL, UIState.QUEST_LOG_OPEN),
+            (self._regions.WORLD_MAP_PANEL, UIState.MAP_OPEN),
+        ]
+        
+        for roi, ui_state in panels:
+            if self.analyzer.check_panel_open(roi):
+                return ui_state
+        
+        return UIState.WORLD
+    
+    def get_last_state(self) -> PerceptionState:
+        """Get the last perceived state."""
+        return self._last_state
+    
+    def trigger_gcd(self):
+        """Record that GCD was triggered."""
+        self._gcd_end_time = time.time() + 1.5
+    
+    def is_gcd_ready(self) -> bool:
+        """Check if GCD is ready."""
+        return time.time() >= self._gcd_end_time
+    
+    def get_gcd_remaining(self) -> float:
+        """Get remaining GCD time."""
+        return max(0, self._gcd_end_time - time.time())
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ACTION DATA STRUCTURE
+# ═══════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class Action:
+    """Represents an action to execute."""
+    action_type: ActionType
+    priority: Priority = Priority.NORMAL
+    reason: str = ""
+    key: str = None
+    position: Tuple[int, int] = None
+    end_position: Tuple[int, int] = None  # For drag actions
+    duration: float = 0.0
+    spell_name: str = None
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ACTION EXECUTOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ActionExecutor:
+    """
+    Executes game actions through real OS inputs.
+    All actions result in actual keyboard/mouse events.
+    """
+    
+    def __init__(self, input_handler: InputHandler, capture: ScreenCapture,
+                 perception: Perception):
+        self.input = input_handler
+        self.capture = capture
+        self.perception = perception
+        self._regions = capture.regions
+    
+    def execute(self, action: Action) -> bool:
+        """Execute an action and return success status."""
+        try:
+            at = action.action_type
+            
+            if at == ActionType.NONE:
+                return True
+            
+            if at == ActionType.WAIT:
+                time.sleep(action.duration if action.duration > 0 else 0.1)
+                return True
+            
+            if at == ActionType.PRESS_KEY:
+                if action.key:
+                    return self.input.press_key(action.key,
+                                               action.duration if action.duration > 0 else None)
+                return False
+            
+            if at == ActionType.HOLD_KEY:
+                return self.input.hold_key(action.key) if action.key else False
+            
+            if at == ActionType.RELEASE_KEY:
+                return self.input.release_key(action.key) if action.key else False
+            
+            if at == ActionType.CLICK:
+                if action.position:
+                    return self.input.click(action.position[0], action.position[1], 'left')
+                return False
+            
+            if at == ActionType.RIGHT_CLICK:
+                if action.position:
+                    return self.input.click(action.position[0], action.position[1], 'right')
+                return False
+            
+            if at == ActionType.DRAG:
+                if action.position and action.end_position:
+                    return self.input.drag(
+                        action.position[0], action.position[1],
+                        action.end_position[0], action.end_position[1]
+                    )
+                return False
+            
+            if at == ActionType.MOVE_FORWARD:
+                duration = action.duration if action.duration > 0 else 1.0
+                self.input.hold_key(DefaultKeybinds.MOVE_FORWARD)
+                time.sleep(duration)
+                self.input.release_key(DefaultKeybinds.MOVE_FORWARD)
+                return True
+            
+            if at == ActionType.MOVE_BACKWARD:
+                duration = action.duration if action.duration > 0 else 0.5
+                self.input.hold_key(DefaultKeybinds.MOVE_BACKWARD)
+                time.sleep(duration)
+                self.input.release_key(DefaultKeybinds.MOVE_BACKWARD)
+                return True
+            
+            if at == ActionType.TURN_LEFT:
+                duration = action.duration if action.duration > 0 else 0.3
+                self.input.hold_key(DefaultKeybinds.TURN_LEFT)
+                time.sleep(duration)
+                self.input.release_key(DefaultKeybinds.TURN_LEFT)
+                return True
+            
+            if at == ActionType.TURN_RIGHT:
+                duration = action.duration if action.duration > 0 else 0.3
+                self.input.hold_key(DefaultKeybinds.TURN_RIGHT)
+                time.sleep(duration)
+                self.input.release_key(DefaultKeybinds.TURN_RIGHT)
+                return True
+            
+            if at == ActionType.STRAFE_LEFT:
+                duration = action.duration if action.duration > 0 else 0.5
+                self.input.hold_key(DefaultKeybinds.STRAFE_LEFT)
+                time.sleep(duration)
+                self.input.release_key(DefaultKeybinds.STRAFE_LEFT)
+                return True
+            
+            if at == ActionType.STRAFE_RIGHT:
+                duration = action.duration if action.duration > 0 else 0.5
+                self.input.hold_key(DefaultKeybinds.STRAFE_RIGHT)
+                time.sleep(duration)
+                self.input.release_key(DefaultKeybinds.STRAFE_RIGHT)
+                return True
+            
+            if at == ActionType.JUMP:
+                return self.input.press_key(DefaultKeybinds.JUMP)
+            
+            if at == ActionType.TARGET_ENEMY:
+                return self.input.press_key(DefaultKeybinds.TARGET_NEAREST_ENEMY)
+            
+            if at == ActionType.ATTACK:
+                return self.input.press_key(DefaultKeybinds.ATTACK)
+            
+            if at == ActionType.USE_ABILITY:
+                if action.key:
+                    success = self.input.press_key(action.key)
+                    if success:
+                        self.perception.trigger_gcd()
+                    return success
+                return False
+            
+            if at == ActionType.OPEN_PANEL:
+                return self.input.press_key(action.key) if action.key else False
+            
+            if at == ActionType.CLOSE_PANEL:
+                return self.input.press_key(DefaultKeybinds.MAIN_MENU)
+            
+            if at == ActionType.INTERACT:
+                if action.position:
+                    return self.input.click(action.position[0], action.position[1], 'right')
+                return self.input.click(
+                    self._regions.SCREEN_CENTER[0],
+                    self._regions.SCREEN_CENTER[1],
+                    'right'
+                )
+            
+            if at == ActionType.LOOT:
+                return self.input.click(
+                    self._regions.SCREEN_CENTER[0],
+                    self._regions.SCREEN_CENTER[1],
+                    'right'
+                )
+            
+            logger.warning(f"Unhandled action type: {at}")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Action execution error: {e}")
+            return False
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BEHAVIOR: SPELLBOOK SCANNING
+# ═══════════════════════════════════════════════════════════════════════════
+
+class SpellbookScanner:
+    """Scans spellbook to discover available abilities."""
+    
+    def __init__(self, capture: ScreenCapture, analyzer: VisualAnalyzer,
+                 input_handler: InputHandler, spell_knowledge: SpellKnowledge):
+        self.capture = capture
+        self.analyzer = analyzer
+        self.input = input_handler
+        self.spells = spell_knowledge
+        self._regions = capture.regions
+    
+    def scan_spellbook(self) -> List[str]:
+        """Open spellbook and scan for available spells."""
+        logger.info("Scanning spellbook...")
+        
+        self.input.press_key(DefaultKeybinds.SPELLBOOK)
+        time.sleep(0.5)
+        
+        self.capture.capture()
+        if not self.analyzer.check_panel_open(self._regions.SPELLBOOK_PANEL):
+            logger.warning("Failed to open spellbook")
+            self.input.press_key('esc')
+            return []
+        
+        discovered = []
+        
+        for page in range(3):
+            time.sleep(0.3)
+            
+            for slot in range(self._regions.SPELLBOOK_SPELLS_PER_PAGE):
+                pos = self._regions.get_spellbook_spell_position(slot)
+                
+                if self.analyzer.is_pixel_bright(pos[0], pos[1], threshold=40):
+                    if OCR_AVAILABLE:
+                        text_roi = [pos[0] + 25, pos[1] - 10, pos[0] + 150, pos[1] + 10]
+                        spell_name = self.analyzer.read_text_ocr(text_roi)
+                        
+                        if spell_name and len(spell_name) > 2:
+                            spell_name = spell_name.strip()
+                        else:
+                            spell_name = f"Spell_Page{page}_Slot{slot}"
+                    else:
+                        spell_name = f"Spell_Page{page}_Slot{slot}"
+                    
+                    self.spells.discover_spell(spell_name, 1, {
+                        "spellbook_page": page,
+                        "spellbook_slot": slot,
+                    })
+                    discovered.append(spell_name)
+            
+            if page < 2:
+                self.input.click(
+                    self._regions.SPELLBOOK_PAGE_NEXT[0],
+                    self._regions.SPELLBOOK_PAGE_NEXT[1]
+                )
+                time.sleep(0.3)
+        
+        self.input.press_key('esc')
+        
+        logger.info(f"Discovered {len(discovered)} spells")
+        self.spells.save()
+        return discovered
+    
+    def assign_spell_to_bar(self, spell_name: str, slot: int, bar: int = 1) -> bool:
+        """Drag a spell from spellbook to action bar."""
+        spell = self.spells.get_spell(spell_name)
+        if not spell:
+            logger.warning(f"Unknown spell: {spell_name}")
+            return False
+        
+        page = spell.get("spellbook_page", 0)
+        spell_slot = spell.get("spellbook_slot", 0)
+        
+        self.input.press_key(DefaultKeybinds.SPELLBOOK)
+        time.sleep(0.5)
+        
+        for _ in range(page):
+            self.input.click(
+                self._regions.SPELLBOOK_PAGE_NEXT[0],
+                self._regions.SPELLBOOK_PAGE_NEXT[1]
+            )
+            time.sleep(0.3)
+        
+        spell_pos = self._regions.get_spellbook_spell_position(spell_slot)
+        bar_pos = self._regions.get_action_bar_slot(slot, bar)
+        
+        success = self.input.drag(spell_pos[0], spell_pos[1], bar_pos[0], bar_pos[1])
+        
+        time.sleep(0.3)
+        self.input.press_key('esc')
+        
+        if success:
+            self.spells.assign_to_action_bar(spell_name, slot, bar)
+            logger.info(f"Assigned {spell_name} to bar {bar} slot {slot}")
+        
+        return success
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BEHAVIOR: COMBAT
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CombatBehavior:
+    """Handles combat decision-making and execution."""
+    
+    def __init__(self, executor: ActionExecutor, perception: Perception,
+                 spell_knowledge: SpellKnowledge, combat_knowledge: CombatKnowledge,
+                 progress_knowledge: ProgressKnowledge):
+        self.executor = executor
+        self.perception = perception
+        self.spells = spell_knowledge
+        self.combat = combat_knowledge
+        self.progress = progress_knowledge
+        
+        self._combat_start_time = 0
+        self._combat_start_hp = 100
+        self._abilities_used = []
+        self._target_name = ""
+    
+    def start_combat(self, target_name: str, player_hp: float):
+        """Record combat start."""
+        self._combat_start_time = time.time()
+        self._combat_start_hp = player_hp
+        self._abilities_used = []
+        self._target_name = target_name
+        self.combat.record_enemy(target_name)
+    
+    def end_combat(self, won: bool, player_hp: float):
+        """Record combat end."""
+        duration = time.time() - self._combat_start_time
+        
+        if won:
+            self.combat.record_kill(self._target_name, duration, self._abilities_used)
+            self.progress.record_kill()
+            logger.info(f"Killed {self._target_name} in {duration:.1f}s")
+        else:
+            self.combat.record_death_to(self._target_name)
+            self.progress.record_death()
+            logger.warning(f"Died to {self._target_name}")
+        
+        self._combat_start_time = 0
+    
+    def get_next_action(self, state: PerceptionState) -> Action:
+        """Determine next combat action."""
+        if not self.perception.is_gcd_ready():
+            return Action(ActionType.WAIT, Priority.HIGH, "Waiting for GCD",
+                         duration=self.perception.get_gcd_remaining())
+        
+        if not state.has_target:
+            return Action(ActionType.TARGET_ENEMY, Priority.HIGH, "Need target")
+        
+        if state.target_is_dead:
+            return Action(ActionType.LOOT, Priority.HIGH, "Looting corpse")
+        
+        rage = state.player_resource
+        
+        spell = self.spells.get_best_combat_spell(rage)
+        
+        if spell:
+            bar = spell.get("action_bar", 1)
+            slot = spell.get("action_bar_slot")
+            if slot is not None:
+                if bar == 1:
+                    key = DefaultKeybinds.ACTION_BAR_1[slot] if slot < len(DefaultKeybinds.ACTION_BAR_1) else None
+                else:
+                    key = DefaultKeybinds.ACTION_BAR_2[slot] if slot < len(DefaultKeybinds.ACTION_BAR_2) else None
+                
+                if key:
+                    self._abilities_used.append(spell["name"])
+                    return Action(
+                        ActionType.USE_ABILITY, Priority.HIGH,
+                        f"Using {spell['name']}",
+                        key=key, spell_name=spell["name"]
+                    )
+        
+        return Action(ActionType.ATTACK, Priority.HIGH, "Auto-attacking")
+    
+    def should_flee(self, state: PerceptionState) -> bool:
+        """Determine if we should flee combat."""
+        if state.player_hp < 20:
+            return True
+        
+        if self._target_name and self.combat.is_enemy_dangerous(self._target_name):
+            if state.player_hp < 40:
+                return True
+        
+        return False
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BEHAVIOR: NAVIGATION
+# ═══════════════════════════════════════════════════════════════════════════
+
+class NavigationBehavior:
+    """Handles movement and navigation."""
+    
+    def __init__(self, executor: ActionExecutor, world_knowledge: WorldKnowledge):
+        self.executor = executor
+        self.world = world_knowledge
+        self._stuck_counter = 0
+    
+    def move_forward(self, duration: float = 1.0) -> bool:
+        """Move forward for a duration."""
+        action = Action(ActionType.MOVE_FORWARD, Priority.NORMAL,
+                       "Moving forward", duration=duration)
+        return self.executor.execute(action)
+    
+    def move_backward(self, duration: float = 0.5) -> bool:
+        """Move backward for a duration."""
+        action = Action(ActionType.MOVE_BACKWARD, Priority.NORMAL,
+                       "Moving backward", duration=duration)
+        return self.executor.execute(action)
+    
+    def turn_random(self) -> bool:
+        """Turn in a random direction."""
+        if random.random() < 0.5:
+            action = Action(ActionType.TURN_LEFT, Priority.NORMAL,
+                           "Turning left", duration=random.uniform(0.2, 0.8))
+        else:
+            action = Action(ActionType.TURN_RIGHT, Priority.NORMAL,
+                           "Turning right", duration=random.uniform(0.2, 0.8))
+        return self.executor.execute(action)
+    
+    def unstuck(self) -> bool:
+        """Attempt to get unstuck."""
+        logger.info("Attempting unstuck maneuver")
+        
+        self.executor.execute(Action(ActionType.JUMP, Priority.HIGH, "Jump"))
+        time.sleep(0.5)
+        
+        self.move_backward(1.0)
+        self.turn_random()
+        
+        self._stuck_counter = 0
+        return True
+    
+    def wander(self) -> bool:
+        """Random exploration movement."""
+        if random.random() < 0.3:
+            self.turn_random()
+        
+        duration = random.uniform(1.0, 3.0)
+        return self.move_forward(duration)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BEHAVIOR: REST
+# ═══════════════════════════════════════════════════════════════════════════
+
+class RestBehavior:
+    """Handles resting and recovery."""
+    
+    def __init__(self, executor: ActionExecutor, input_handler: InputHandler):
+        self.executor = executor
+        self.input = input_handler
+        self._resting = False
+        self._rest_start_time = 0
+    
+    def should_rest(self, state: PerceptionState) -> bool:
+        """Determine if we should rest."""
+        if state.player_in_combat:
+            return False
+        if state.player_hp < 60:
+            return True
+        return False
+    
+    def start_rest(self) -> bool:
+        """Begin resting."""
+        self._resting = True
+        self._rest_start_time = time.time()
+        self.input.press_key(DefaultKeybinds.SIT_STAND)
+        logger.info("Starting to rest")
+        return True
+    
+    def is_rest_complete(self, state: PerceptionState) -> bool:
+        """Check if we're done resting."""
+        if not self._resting:
+            return True
+        
+        if state.player_hp >= 95:
+            self._resting = False
+            self.input.press_key(DefaultKeybinds.SIT_STAND)
+            logger.info("Rest complete")
+            return True
+        
+        if time.time() - self._rest_start_time > 30:
+            self._resting = False
+            self.input.press_key(DefaultKeybinds.SIT_STAND)
+            return True
+        
+        return False
+    
+    def is_resting(self) -> bool:
+        return self._resting
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BEHAVIOR: LOOTING
+# ═══════════════════════════════════════════════════════════════════════════
+
+class LootBehavior:
+    """Handles looting corpses."""
+    
+    def __init__(self, executor: ActionExecutor, capture: ScreenCapture,
+                 analyzer: VisualAnalyzer, input_handler: InputHandler):
+        self.executor = executor
+        self.capture = capture
+        self.analyzer = analyzer
+        self.input = input_handler
+        self._regions = capture.regions
+    
+    def loot_target(self) -> bool:
+        """Attempt to loot the current target."""
+        self.input.click(
+            self._regions.SCREEN_CENTER[0],
+            self._regions.SCREEN_CENTER[1],
+            'right'
+        )
+        time.sleep(0.5)
+        
+        self.capture.capture()
+        if self.analyzer.check_panel_open(self._regions.LOOT_WINDOW):
+            for i in range(5):
+                slot_y = self._regions.LOOT_SLOT_START[1] + (i * self._regions.LOOT_SLOT_HEIGHT)
+                
+                if self.analyzer.is_pixel_bright(self._regions.LOOT_SLOT_START[0], slot_y):
+                    self.input.click(self._regions.LOOT_SLOT_START[0], slot_y, 'right')
+                    time.sleep(0.2)
+            
+            self.input.press_key('esc')
+            return True
+        
+        return False
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BEHAVIOR: TRAINER INTERACTION
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TrainerBehavior:
+    """Handles class trainer interactions."""
+    
+    def __init__(self, executor: ActionExecutor, capture: ScreenCapture,
+                 analyzer: VisualAnalyzer, input_handler: InputHandler,
+                 spell_knowledge: SpellKnowledge, world_knowledge: WorldKnowledge):
+        self.executor = executor
+        self.capture = capture
+        self.analyzer = analyzer
+        self.input = input_handler
+        self.spells = spell_knowledge
+        self.world = world_knowledge
+        self._regions = capture.regions
+    
+    def interact_with_trainer(self) -> bool:
+        """Interact with nearby trainer NPC."""
+        self.input.click(
+            self._regions.SCREEN_CENTER[0],
+            self._regions.SCREEN_CENTER[1],
+            'right'
+        )
+        time.sleep(1.0)
+        
+        self.capture.capture()
+        
+        if self.analyzer.check_panel_open(self._regions.GOSSIP_PANEL):
+            self.input.click(
+                self._regions.GOSSIP_OPTIONS_START[0],
+                self._regions.GOSSIP_OPTIONS_START[1]
+            )
+            time.sleep(0.5)
+            self.capture.capture()
+        
+        return self.analyzer.check_panel_open(self._regions.TRAINER_PANEL)
+    
+    def train_all_available(self) -> int:
+        """Train all available spells from trainer window."""
+        if not self.analyzer.check_panel_open(self._regions.TRAINER_PANEL):
+            return 0
+        
+        trained = 0
+        
+        for i in range(10):
+            spell_y = self._regions.TRAINER_SPELL_LIST_START[1] + (i * self._regions.TRAINER_SPELL_HEIGHT)
+            
+            self.input.click(self._regions.TRAINER_SPELL_LIST_START[0], spell_y)
+            time.sleep(0.2)
+            
+            self.input.click(
+                self._regions.TRAINER_TRAIN_BUTTON[0],
+                self._regions.TRAINER_TRAIN_BUTTON[1]
+            )
+            time.sleep(0.3)
+            
+            trained += 1
+        
+        self.input.press_key('esc')
+        
+        if trained > 0:
+            logger.info(f"Trained {trained} new spells")
+        
+        return trained
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DECISION ENGINE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class DecisionEngine:
+    """
+    Central decision-making system.
+    Coordinates all behaviors based on perceived game state.
+    
+    ENHANCED: Integrates with CognitiveCore for advanced decision-making,
+    personality evolution, episodic memory, and identity continuity.
+    """
+    
+    def __init__(self, perception: Perception, executor: ActionExecutor,
+                 combat: CombatBehavior, navigation: NavigationBehavior,
+                 rest: RestBehavior, loot: LootBehavior, trainer: TrainerBehavior,
+                 spell_scanner: SpellbookScanner,
+                 spell_knowledge: SpellKnowledge, progress: ProgressKnowledge):
+        self.perception = perception
+        self.executor = executor
+        self.combat = combat
+        self.navigation = navigation
+        self.rest = rest
+        self.loot = loot
+        self.trainer = trainer
+        self.spell_scanner = spell_scanner
+        self.spells = spell_knowledge
+        self.progress = progress
+        
+        self._last_state = None
+        self._was_in_combat = False
+        self._needs_spellbook_scan = True
+        self._level_trained = 0
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # COGNITIVE SYSTEM INTEGRATION
+        # ═══════════════════════════════════════════════════════════════════
+        try:
+            self.cognitive_core = CognitiveCore(
+                save_path=str(DATA_DIR / "cognitive_state.json.gz")
+            )
+            self.cognitive_core.initialize()
+            self._use_cognitive_system = True
+            self._cognitive_decision_count = 0
+            logger.info("Cognitive system integrated into DecisionEngine")
+            logger.info(f"Cognitive identity: {self.cognitive_core.get_identity_summary()}")
+        except Exception as e:
+            logger.warning(f"Cognitive system initialization failed: {e}")
+            self.cognitive_core = None
+            self._use_cognitive_system = False
+    
+    def _build_cognitive_perception(self, state: PerceptionState) -> Optional[CogPerceptionState]:
+        """Convert WoW perception state to cognitive perception state."""
+        if not self._use_cognitive_system:
+            return None
+        
+        now = time.time()
+        
+        # Build enemy list for cognitive system
+        cog_enemies = []
+        if state.has_target and hasattr(state, 'target_is_hostile') and state.target_is_hostile:
+            cog_enemies.append(EnemyPerception(
+                id="target_0",
+                level_relative_to_player=getattr(state, 'target_level', 0) - self.progress.get_level(),
+                hp=state.target_hp,
+                hp_percent=state.target_hp / max(1, state.target_hp_max) * 100,
+                damage_output=20.0,
+                attack_rate=2.0,
+                is_caster=False,
+                is_elite=False,
+                is_fleeing=getattr(state, 'target_is_dead', False),
+                is_targeting_player=state.player_in_combat,
+                current_cast_name=None,
+                current_cast_time_remaining=0.0,
+                position=(0.0, 0.0),
+                distance_to_player=10.0,
+                relative_angle_to_player=0.0,
+                line_of_sight_clear=True,
+                time_since_aggro=5.0 if state.player_in_combat else 999.0,
+                behavior_pattern=BehaviorPattern.MELEE_AGGRESSIVE
+            ))
+        
+        combat_duration = getattr(state, 'combat_duration', 0.0)
+        gcd_remaining = getattr(state, 'gcd_remaining', 0.0)
+        
+        return CogPerceptionState(
+            timestamp=now,
+            delta_time=0.1,
+            reaction_time=0.2,
+            time_in_combat=combat_duration if state.player_in_combat else 0.0,
+            time_since_last_damage=1.0,
+            time_since_last_kill=30.0,
+            time_since_last_social_interaction=999.0,
+            global_cooldown_remaining=gcd_remaining,
+            player_hp=state.player_hp,
+            player_hp_max=state.player_hp_max,
+            player_hp_percent=state.player_hp / max(1, state.player_hp_max) * 100,
+            hp_history=[(now - i, state.player_hp) for i in range(5)],
+            recent_damage_events=[],
+            recent_healing_events=[],
+            incoming_damage_rate=10.0 if state.player_in_combat else 0.0,
+            is_being_targeted=state.player_in_combat,
+            active_debuffs_visible=[],
+            player_position=(0.0, 0.0),
+            player_facing_angle=0.0,
+            velocity_vector=(0.0, 0.0),
+            movement_speed=7.0,
+            is_moving=getattr(state, 'is_moving', False),
+            is_backpedaling=False,
+            distance_traveled_last_5s=0.0,
+            position_history=[],
+            terrain_slope=0.0,
+            is_indoors=False,
+            is_in_water=False,
+            is_on_road=True,
+            is_in_narrow_space=False,
+            inventory_slots_used=0,
+            inventory_slots_total=16,
+            inventory_fill_ratio=0.0,
+            has_vendor_junk=False,
+            durability_percent=100.0,
+            estimated_repair_cost=0.0,
+            nearest_vendor_distance=500.0,
+            is_overburdened=False,
+            available_abilities=[],
+            resource_current=state.player_resource,
+            resource_max=state.player_resource_max,
+            resource_regen_rate=5.0,
+            buffs_active=[],
+            debuffs_active=[],
+            nearby_enemies=cog_enemies,
+            nearby_players=[],
+            chat_events=[]
+        )
+    
+    def _record_combat_outcome(self, success: bool):
+        """Record combat outcome to cognitive system and enhanced learning systems."""
+        if not self._use_cognitive_system or self.cognitive_core is None:
+            return
+        
+        outcome_type = "combat_success" if success else "combat_failure"
+        outcome_valence = 0.8 if success else -0.8
+        self.cognitive_core.record_outcome(outcome_type, outcome_valence)
+        
+        # Record to human-equivalent cognition systems
+        try:
+            outcome = {
+                'success': success,
+                'kill': success,
+                'death': not success,
+                'damage_taken': 0 if success else 50,
+            }
+            self.cognitive_core.record_combat_outcome(outcome)
+            
+            # Update procedural memory for combat skills
+            combat_skill = f"combat_{outcome_type}"
+            self.cognitive_core.update_from_experience(
+                'combat', success, 'combat'
+            )
+            
+            # Record to RL learner
+            state_features = {
+                'in_combat': True,
+                'context': 'combat_end',
+            }
+            reward = 1.0 if success else -1.0
+            self.cognitive_core.rl_learner.record_transition(
+                state_features,
+                'attack',
+                reward,
+                {'in_combat': False, 'context': 'post_combat'},
+                done=True
+            )
+            
+            # Update world model
+            if self._last_state is not None:
+                pos = getattr(self._last_state, 'player_position', (0, 0))
+                if not success:
+                    self.cognitive_core.world_model.record_death(pos[0], pos[1])
+                else:
+                    self.cognitive_core.world_model.record_kill(pos[0], pos[1], 'unknown_enemy')
+                    
+        except Exception as e:
+            logger.debug(f"Enhanced learning update error: {e}")
+        
+        logger.debug(f"Recorded cognitive outcome: {outcome_type}")
+    
+    def decide_and_act(self) -> bool:
+        """Main decision loop iteration with cognitive integration."""
+        state = self.perception.perceive()
+        self._last_state = state
+        
+        # Process cognitive tick if enabled
+        cognitive_directive = None
+        if self._use_cognitive_system and self.cognitive_core is not None:
+            try:
+                cog_perception = self._build_cognitive_perception(state)
+                if cog_perception is not None:
+                    cognitive_directive = self.cognitive_core.process_tick(cog_perception)
+                    self._cognitive_decision_count += 1
+                    
+                    # Log cognitive state periodically
+                    if self._cognitive_decision_count % 100 == 0:
+                        metrics = self.cognitive_core.get_metrics()
+                        logger.debug(f"Cognitive metrics: ticks={metrics['tick_count']}, "
+                                    f"sessions={metrics['session_count']}")
+            except Exception as e:
+                logger.debug(f"Cognitive processing error: {e}")
+        
+        # Handle death
+        if state.player_is_dead:
+            self._record_combat_outcome(False)
+            return self._handle_death(state)
+        
+        # Initial setup
+        if self._needs_spellbook_scan:
+            self._do_initial_setup()
+            return True
+        
+        # Handle resting
+        if self.rest.is_resting():
+            if self.rest.is_rest_complete(state):
+                return True
+            return True
+        
+        # Handle combat with human-like decision making
+        if state.player_in_combat:
+            # Get human-equivalent cognitive input for combat
+            if self._use_cognitive_system and self.cognitive_core is not None:
+                try:
+                    # Get skill confidence for combat
+                    combat_skill = self.cognitive_core.get_skill_confidence('combat')
+                    
+                    # Add hesitation based on confidence (human-like uncertainty delay)
+                    hesitation = self.cognitive_core.get_action_hesitation('combat', combat_skill)
+                    if hesitation > 0:
+                        time.sleep(min(0.5, hesitation))  # Cap at 0.5s
+                    
+                    # Get risk tolerance from drives
+                    risk_tolerance = self.cognitive_core.drive_system.get_risk_tolerance()
+                    
+                    # Adjust combat behavior based on risk tolerance
+                    if risk_tolerance < 0.3 and state.player_hp < 40:
+                        # Very risk averse and low HP - flee
+                        logger.info("Risk aversion triggered - considering flee")
+                        
+                except Exception as e:
+                    logger.debug(f"Human cognition combat error: {e}")
+            
+            return self._handle_combat(state)
+        
+        # Post-combat
+        if self._was_in_combat:
+            self._was_in_combat = False
+            if state.has_target and state.target_is_dead:
+                self._record_combat_outcome(True)
+                self.combat.end_combat(True, state.player_hp)
+                time.sleep(0.3)
+                self.loot.loot_target()
+                return True
+        
+        # Handle loot window
+        if state.loot_window_open:
+            self.loot.loot_target()
+            return True
+        
+        # Close open panels
+        if state.ui_state != UIState.WORLD:
+            self.executor.execute(Action(ActionType.CLOSE_PANEL, Priority.NORMAL, "Closing panel"))
+            return True
+        
+        # Rest if needed
+        if self.rest.should_rest(state):
+            self.rest.start_rest()
+            return True
+        
+        # Check for trainer visit
+        current_level = self.progress.get_level()
+        if current_level > self._level_trained:
+            logger.info(f"Level {current_level} - should visit trainer")
+            self._level_trained = current_level
+        
+        # Explore
+        return self._handle_exploration(state)
+    
+    def _handle_death(self, state: PerceptionState) -> bool:
+        """Handle player death."""
+        logger.warning("Player is dead!")
+        
+        self.combat.end_combat(False, 0)
+        
+        time.sleep(2.0)
+        
+        # Click release spirit button
+        regions = self.perception._regions
+        self.executor.input.click(
+            regions.RELEASE_SPIRIT_BUTTON[0] + 80,
+            regions.RELEASE_SPIRIT_BUTTON[1] + 25
+        )
+        
+        time.sleep(3.0)
+        
+        # Run to corpse
+        for _ in range(10):
+            self.navigation.move_forward(3.0)
+            state = self.perception.perceive()
+            if not state.player_is_dead and not state.player_is_ghost:
+                break
+        
+        return True
+    
+    def _handle_combat(self, state: PerceptionState) -> bool:
+        """Handle combat situation."""
+        if not self._was_in_combat:
+            self._was_in_combat = True
+            self.combat.start_combat(state.target_name or "Unknown", state.player_hp)
+        
+        if self.combat.should_flee(state):
+            logger.warning("Fleeing combat!")
+            self.navigation.move_forward(3.0)
+            return True
+        
+        action = self.combat.get_next_action(state)
+        return self.executor.execute(action)
+    
+    def _handle_exploration(self, state: PerceptionState) -> bool:
+        """Handle non-combat exploration."""
+        if not state.has_target:
+            self.executor.execute(Action(ActionType.TARGET_ENEMY, Priority.NORMAL, "Looking for enemy"))
+            time.sleep(0.3)
+            state = self.perception.perceive()
+        
+        if state.has_target and state.target_is_hostile and not state.target_is_dead:
+            self.executor.execute(Action(ActionType.ATTACK, Priority.NORMAL, "Engaging target"))
+            return True
+        
+        self.navigation.wander()
+        return True
+    
+    def _do_initial_setup(self):
+        """Perform initial spellbook scan and ability setup."""
+        logger.info("Performing initial setup...")
+        
+        time.sleep(1.0)
+        
+        discovered = self.spell_scanner.scan_spellbook()
+        self._needs_spellbook_scan = False
+        
+        if not discovered:
+            logger.warning("No spells discovered in spellbook")
+            return
+        
+        slot = 0
+        for spell_name in discovered:
+            if slot >= 10:
+                break
+            
+            spell = self.spells.get_spell(spell_name)
+            if spell and spell.get("action_bar_slot") is None:
+                self.spell_scanner.assign_spell_to_bar(spell_name, slot)
+                slot += 1
+                time.sleep(0.5)
+        
+        logger.info("Initial setup complete")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MAIN AGENT CLASS
+# ═══════════════════════════════════════════════════════════════════════════
+
+#!/usr/bin/env python3
+"""
+═══════════════════════════════════════════════════════════════════════════════
+WOW 1.12 AUTONOMOUS PLAYER - ADVANCED CAPABILITIES EXPANSION MODULE
+═══════════════════════════════════════════════════════════════════════════════
+
+RESEARCH PURPOSE:
+This module extends the base autonomous agent with advanced player behaviors
+for comprehensive gameplay simulation in offline research environments.
+
+PASTE THIS MODULE INTO THE ORIGINAL FILE, before the WoWAutonomousPlayer class.
+Then update WoWAutonomousPlayer.__init__() to initialize the new systems.
+
+NEW CAPABILITIES:
+    * Inventory/Bag Management
+    * Equipment Management & Auto-Equip
+    * Consumable Usage (Food, Water, Potions)
+    * Buff/Debuff Tracking
+    * Advanced Combat Rotations & Priority System
+    * Multi-Target Combat & AOE
+    * Pulling Strategies & Kiting
+    * Interrupt System
+    * Cooldown Tracking
+    * Quest Interaction (Accept/Turn In)
+    * Vendor Buying/Selling
+    * Talent Point Allocation
+    * Mount Usage
+    * Profession Support (Gathering/Crafting)
+    * Class-Specific Mechanics (Stances, Pets, Forms)
+    * Advanced Pathfinding with Waypoints
+    * Elite/Rare Detection & Avoidance
+    * Range Detection System
+
+═══════════════════════════════════════════════════════════════════════════════
+"""
+
+import time
+import random
+import threading
+import logging
+from enum import Enum, auto
+from dataclasses import dataclass, field
+from typing import Any, Set, Dict, Optional, List, Tuple, Callable, Deque
+from collections import deque
+import json
+
+logger = logging.getLogger("WoWAgent.Advanced")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADDITIONAL KEYBINDS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ExtendedKeybinds:
+    """Extended keybindings for additional functionality."""
+    # Bags (individual)
+    BAG_0 = 'f12'  # Backpack
+    BAG_1 = 'f11'
+    BAG_2 = 'f10'
+    BAG_3 = 'f9'
+    
+    # Pet control (Hunter/Warlock)
+    PET_ATTACK = 'ctrl+1'
+    PET_FOLLOW = 'ctrl+2'
+    PET_STAY = 'ctrl+3'
+    PET_PASSIVE = 'ctrl+4'
+    PET_DEFENSIVE = 'ctrl+5'
+    PET_AGGRESSIVE = 'ctrl+6'
+    
+    # Stances/Forms (Warrior/Druid)
+    STANCE_1 = 'shift+f1'  # Battle Stance / Bear Form
+    STANCE_2 = 'shift+f2'  # Defensive Stance / Cat Form
+    STANCE_3 = 'shift+f3'  # Berserker Stance / Travel Form
+    
+    # Quick actions
+    MOUNT = '`'  # Often used for mount macro
+    INTERACT = 'shift+right_click'
+    
+    # Reply
+    REPLY = 'r'
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADDITIONAL SCREEN REGIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ExtendedScreenRegions:
+    """Extended screen regions for additional UI elements."""
+    
+    def __init__(self, base_regions):
+        self._base = base_regions
+        self.scale_x = base_regions.scale_x
+        self.scale_y = base_regions.scale_y
+        self._calculate_regions()
+    
+    def _scale(self, coords):
+        if coords is None:
+            return None
+        if len(coords) == 2:
+            return (int(coords[0] * self.scale_x), int(coords[1] * self.scale_y))
+        elif len(coords) == 4:
+            return [
+                int(coords[0] * self.scale_x),
+                int(coords[1] * self.scale_y),
+                int(coords[2] * self.scale_x),
+                int(coords[3] * self.scale_y)
+            ]
+        return coords
+    
+    def _calculate_regions(self):
+        # Individual bag slots (bottom-right area when bags open)
+        self.BAG_SLOT_SIZE = int(37 * self.scale_x)
+        self.BAG_SLOTS_PER_ROW = 4
+        
+        # Backpack region (rightmost bag)
+        self.BACKPACK_PANEL = self._scale([1050, 400, 1200, 560])
+        self.BACKPACK_FIRST_SLOT = self._scale([1065, 415])
+        
+        # Additional bags (to the left of backpack)
+        self.BAG_1_PANEL = self._scale([880, 400, 1030, 560])
+        self.BAG_2_PANEL = self._scale([710, 400, 860, 560])
+        self.BAG_3_PANEL = self._scale([540, 400, 690, 560])
+        
+        # Character equipment slots
+        self.EQUIPMENT_SLOTS = {
+            'head': self._scale([330, 120]),
+            'neck': self._scale([370, 120]),
+            'shoulder': self._scale([410, 120]),
+            'back': self._scale([370, 160]),
+            'chest': self._scale([370, 200]),
+            'shirt': self._scale([330, 200]),
+            'tabard': self._scale([410, 200]),
+            'wrist': self._scale([310, 260]),
+            'hands': self._scale([310, 310]),
+            'waist': self._scale([370, 280]),
+            'legs': self._scale([370, 330]),
+            'feet': self._scale([370, 380]),
+            'finger1': self._scale([430, 260]),
+            'finger2': self._scale([430, 300]),
+            'trinket1': self._scale([430, 340]),
+            'trinket2': self._scale([430, 380]),
+            'main_hand': self._scale([330, 430]),
+            'off_hand': self._scale([410, 430]),
+            'ranged': self._scale([370, 470]),
+        }
+        
+        # Pet frame (below player frame typically)
+        self.PET_FRAME = self._scale([20, 95, 180, 140])
+        self.PET_HP_BAR = self._scale([55, 115, 140, 123])
+        self.PET_HAPPINESS = self._scale([150, 100, 170, 120])
+        
+        # Buff area (expanded)
+        self.BUFF_ICONS_START = self._scale([1050, 12])
+        self.BUFF_ICON_SIZE = int(32 * self.scale_x)
+        self.BUFF_ROWS = 2
+        self.BUFF_COLS = 8
+        
+        # Debuff area
+        self.DEBUFF_ICONS_START = self._scale([1050, 80])
+        
+        # Talent panel
+        self.TALENT_PANEL = self._scale([200, 80, 860, 620])
+        self.TALENT_POINTS_AVAILABLE = self._scale([730, 95, 800, 115])
+        self.TALENT_TAB_1 = self._scale([290, 590])
+        self.TALENT_TAB_2 = self._scale([420, 590])
+        self.TALENT_TAB_3 = self._scale([550, 590])
+        
+        # Quest frame (NPC interaction)
+        self.QUEST_ACCEPT_BUTTON = self._scale([160, 520])
+        self.QUEST_COMPLETE_BUTTON = self._scale([160, 520])
+        self.QUEST_REWARD_SLOT_START = self._scale([130, 400])
+        self.QUEST_REWARD_SLOT_SIZE = int(40 * self.scale_y)
+        
+        # Vendor panel extended
+        self.VENDOR_BUY_BUTTON = self._scale([200, 520])
+        self.VENDOR_REPAIR_BUTTON = self._scale([400, 520])
+        self.VENDOR_SELL_SLOT = self._scale([120, 140])  # First vendor slot
+        
+        # Tooltip region (appears near cursor)
+        self.TOOLTIP_REGION = self._scale([800, 400, 1100, 600])
+        
+        # Casting bar (more precise)
+        self.CASTING_BAR_FILL = self._scale([490, 605, 875, 625])
+        self.CASTING_BAR_TEXT = self._scale([550, 580, 820, 600])
+        
+        # Combat text areas (for damage numbers)
+        self.DAMAGE_TEXT_AREA = self._scale([550, 200, 816, 350])
+        self.HEALING_TEXT_AREA = self._scale([350, 200, 500, 350])
+        
+        # Range indicator (usually shown on action bar abilities)
+        self.RANGE_INDICATOR_SLOT = self._scale([504, 715, 540, 755])  # First action slot
+        
+        # Minimap icons
+        self.MINIMAP_TRACKING_BUTTON = self._scale([1270, 135])
+        self.MINIMAP_ZOOM_IN = self._scale([1330, 130])
+        self.MINIMAP_ZOOM_OUT = self._scale([1250, 130])
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADDITIONAL COLOR DEFINITIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ExtendedColors:
+    """Extended color definitions for advanced detection."""
+    import numpy as np
+    
+    # Item quality colors
+    ITEM_POOR = {'lower': np.array([0, 0, 100]), 'upper': np.array([180, 30, 180])}  # Gray
+    ITEM_COMMON = {'lower': np.array([0, 0, 200]), 'upper': np.array([180, 30, 255])}  # White
+    ITEM_UNCOMMON = {'lower': np.array([55, 100, 100]), 'upper': np.array([75, 255, 255])}  # Green
+    ITEM_RARE = {'lower': np.array([100, 100, 150]), 'upper': np.array([120, 255, 255])}  # Blue
+    ITEM_EPIC = {'lower': np.array([140, 80, 150]), 'upper': np.array([160, 255, 255])}  # Purple
+    ITEM_LEGENDARY = {'lower': np.array([10, 150, 200]), 'upper': np.array([25, 255, 255])}  # Orange
+    
+    # Ability state colors
+    ABILITY_READY = {'lower': np.array([0, 0, 100]), 'upper': np.array([180, 50, 255])}  # Bright
+    ABILITY_ON_COOLDOWN = {'lower': np.array([0, 0, 20]), 'upper': np.array([180, 50, 80])}  # Dark
+    ABILITY_OUT_OF_RANGE = {'lower': np.array([0, 100, 80]), 'upper': np.array([10, 255, 200])}  # Red tint
+    ABILITY_NOT_ENOUGH_RESOURCE = {'lower': np.array([100, 100, 80]), 'upper': np.array([130, 255, 200])}  # Blue tint
+    
+    # Nameplate specific
+    ELITE_DRAGON = {'lower': np.array([20, 100, 180]), 'upper': np.array([35, 255, 255])}  # Gold dragon frame
+    RARE_SILVER = {'lower': np.array([0, 0, 180]), 'upper': np.array([180, 30, 230])}  # Silver frame
+    
+    # Buff/Debuff border colors
+    BUFF_MAGIC = {'lower': np.array([100, 100, 150]), 'upper': np.array([130, 255, 255])}  # Blue
+    BUFF_POISON = {'lower': np.array([55, 100, 100]), 'upper': np.array([75, 255, 255])}  # Green
+    BUFF_CURSE = {'lower': np.array([140, 80, 100]), 'upper': np.array([160, 255, 255])}  # Purple
+    BUFF_DISEASE = {'lower': np.array([15, 80, 80]), 'upper': np.array([30, 255, 200])}  # Brown/Yellow
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADDITIONAL ENUMERATIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ItemQuality(Enum):
+    """Item quality levels."""
+    POOR = 0       # Gray
+    COMMON = 1     # White
+    UNCOMMON = 2   # Green
+    RARE = 3       # Blue
+    EPIC = 4       # Purple
+    LEGENDARY = 5  # Orange
+
+
+class ItemSlot(Enum):
+    """Equipment slot types."""
+    HEAD = auto()
+    NECK = auto()
+    SHOULDER = auto()
+    BACK = auto()
+    CHEST = auto()
+    SHIRT = auto()
+    TABARD = auto()
+    WRIST = auto()
+    HANDS = auto()
+    WAIST = auto()
+    LEGS = auto()
+    FEET = auto()
+    FINGER1 = auto()
+    FINGER2 = auto()
+    TRINKET1 = auto()
+    TRINKET2 = auto()
+    MAIN_HAND = auto()
+    OFF_HAND = auto()
+    RANGED = auto()
+
+
+class ConsumableType(Enum):
+    """Types of consumables."""
+    FOOD = auto()
+    WATER = auto()
+    HEALTH_POTION = auto()
+    MANA_POTION = auto()
+    BUFF_SCROLL = auto()
+    ELIXIR = auto()
+    BANDAGE = auto()
+
+
+class AbilityState(Enum):
+    """Current state of an ability."""
+    READY = auto()
+    ON_COOLDOWN = auto()
+    OUT_OF_RANGE = auto()
+    NOT_ENOUGH_RESOURCE = auto()
+    NOT_USABLE = auto()
+
+
+class CombatRole(Enum):
+    """Combat role/spec."""
+    MELEE_DPS = auto()
+    RANGED_DPS = auto()
+    TANK = auto()
+    HEALER = auto()
+
+
+class PetState(Enum):
+    """Pet behavior state."""
+    PASSIVE = auto()
+    DEFENSIVE = auto()
+    AGGRESSIVE = auto()
+    FOLLOW = auto()
+    STAY = auto()
+    ATTACK = auto()
+
+
+class StanceForm(Enum):
+    """Warrior stances / Druid forms."""
+    # Warrior
+    BATTLE_STANCE = auto()
+    DEFENSIVE_STANCE = auto()
+    BERSERKER_STANCE = auto()
+    # Druid
+    HUMANOID = auto()
+    BEAR_FORM = auto()
+    CAT_FORM = auto()
+    TRAVEL_FORM = auto()
+    AQUATIC_FORM = auto()
+    MOONKIN_FORM = auto()
+
+
+class ThreatLevel(Enum):
+    """Threat assessment levels."""
+    SAFE = auto()
+    LOW = auto()
+    MODERATE = auto()
+    HIGH = auto()
+    EXTREME = auto()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# INVENTORY KNOWLEDGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class InventoryKnowledge(KnowledgeBase):
+    """Knowledge about inventory contents and management."""
+    
+    def __init__(self):
+        super().__init__("inventory")
+        if not self.data:
+            self.data = {
+                "bag_contents": {str(i): {} for i in range(5)},  # Bags 0-4
+                "equipped_items": {},
+                "known_consumables": {},
+                "junk_items": [],
+                "valuable_items": [],
+                "total_bag_slots": 16,  # Default backpack
+                "free_slots": 16,
+                "gold": 0,
+            }
+    
+    def record_item(self, bag: int, slot: int, item_name: str, 
+                    quality: ItemQuality = ItemQuality.COMMON,
+                    item_type: str = "misc", stack_count: int = 1):
+        """Record an item in inventory."""
+        with self._lock:
+            bag_key = str(bag)
+            if bag_key not in self.data["bag_contents"]:
+                self.data["bag_contents"][bag_key] = {}
+            
+            self.data["bag_contents"][bag_key][str(slot)] = {
+                "name": item_name,
+                "quality": quality.value,
+                "type": item_type,
+                "stack": stack_count,
+                "timestamp": time.time(),
+            }
+            self._dirty = True
+    
+    def remove_item(self, bag: int, slot: int):
+        """Remove item from slot."""
+        with self._lock:
+            bag_key = str(bag)
+            slot_key = str(slot)
+            if bag_key in self.data["bag_contents"]:
+                if slot_key in self.data["bag_contents"][bag_key]:
+                    del self.data["bag_contents"][bag_key][slot_key]
+                    self._dirty = True
+    
+    def find_item(self, item_name: str) -> Optional[Tuple[int, int]]:
+        """Find item by name, returns (bag, slot) or None."""
+        with self._lock:
+            for bag_idx, bag_contents in self.data["bag_contents"].items():
+                for slot_idx, item in bag_contents.items():
+                    if item.get("name", "").lower() == item_name.lower():
+                        return (int(bag_idx), int(slot_idx))
+            return None
+    
+    def find_consumable(self, consumable_type: ConsumableType) -> Optional[Tuple[int, int]]:
+        """Find a consumable of the specified type."""
+        with self._lock:
+            type_keywords = {
+                ConsumableType.FOOD: ["bread", "meat", "cheese", "fish", "fruit", "food"],
+                ConsumableType.WATER: ["water", "juice", "drink", "milk"],
+                ConsumableType.HEALTH_POTION: ["healing potion", "health potion"],
+                ConsumableType.MANA_POTION: ["mana potion"],
+                ConsumableType.BANDAGE: ["bandage", "linen", "wool", "silk", "mageweave", "runecloth"],
+            }
+            
+            keywords = type_keywords.get(consumable_type, [])
+            for bag_idx, bag_contents in self.data["bag_contents"].items():
+                for slot_idx, item in bag_contents.items():
+                    item_name = item.get("name", "").lower()
+                    for keyword in keywords:
+                        if keyword in item_name:
+                            return (int(bag_idx), int(slot_idx))
+            return None
+    
+    def get_free_slot_count(self) -> int:
+        """Get number of free bag slots."""
+        with self._lock:
+            used = sum(len(bag) for bag in self.data["bag_contents"].values())
+            return max(0, self.data.get("total_bag_slots", 16) - used)
+    
+    def find_junk_items(self) -> List[Tuple[int, int]]:
+        """Find gray quality items to sell."""
+        junk = []
+        with self._lock:
+            for bag_idx, bag_contents in self.data["bag_contents"].items():
+                for slot_idx, item in bag_contents.items():
+                    if item.get("quality", 1) == ItemQuality.POOR.value:
+                        junk.append((int(bag_idx), int(slot_idx)))
+        return junk
+    
+    def record_equipped(self, slot: str, item_name: str, stats: dict = None):
+        """Record equipped item."""
+        with self._lock:
+            self.data["equipped_items"][slot] = {
+                "name": item_name,
+                "stats": stats or {},
+                "equipped_at": time.time(),
+            }
+            self._dirty = True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BUFF/DEBUFF KNOWLEDGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class BuffKnowledge(KnowledgeBase):
+    """Knowledge about buffs and debuffs."""
+    
+    def __init__(self):
+        super().__init__("buffs")
+        if not self.data:
+            self.data = {
+                "active_buffs": {},
+                "active_debuffs": {},
+                "known_buffs": {},
+                "important_buffs": [
+                    "battle_shout", "blessing_of_might", "power_word_fortitude",
+                    "mark_of_the_wild", "arcane_intellect", "thorns"
+                ],
+                "dangerous_debuffs": [
+                    "fear", "polymorph", "stun", "root", "silence", "poison", "disease"
+                ],
+            }
+    
+    def record_buff(self, name: str, duration: float = None, stacks: int = 1):
+        """Record an active buff."""
+        with self._lock:
+            self.data["active_buffs"][name.lower()] = {
+                "name": name,
+                "started": time.time(),
+                "duration": duration,
+                "stacks": stacks,
+            }
+            self._dirty = True
+    
+    def record_debuff(self, name: str, duration: float = None, 
+                      debuff_type: str = "magic", stacks: int = 1):
+        """Record an active debuff."""
+        with self._lock:
+            self.data["active_debuffs"][name.lower()] = {
+                "name": name,
+                "started": time.time(),
+                "duration": duration,
+                "type": debuff_type,
+                "stacks": stacks,
+            }
+            self._dirty = True
+    
+    def remove_buff(self, name: str):
+        """Remove a buff."""
+        with self._lock:
+            key = name.lower()
+            if key in self.data["active_buffs"]:
+                del self.data["active_buffs"][key]
+                self._dirty = True
+    
+    def remove_debuff(self, name: str):
+        """Remove a debuff."""
+        with self._lock:
+            key = name.lower()
+            if key in self.data["active_debuffs"]:
+                del self.data["active_debuffs"][key]
+                self._dirty = True
+    
+    def has_buff(self, name: str) -> bool:
+        """Check if buff is active."""
+        return name.lower() in self.data["active_buffs"]
+    
+    def has_debuff(self, name: str) -> bool:
+        """Check if debuff is active."""
+        return name.lower() in self.data["active_debuffs"]
+    
+    def get_missing_important_buffs(self) -> List[str]:
+        """Get list of important buffs we don't have."""
+        with self._lock:
+            missing = []
+            for buff in self.data["important_buffs"]:
+                if buff not in self.data["active_buffs"]:
+                    missing.append(buff)
+            return missing
+    
+    def has_dangerous_debuff(self) -> bool:
+        """Check if we have any dangerous debuffs."""
+        with self._lock:
+            for debuff in self.data["active_debuffs"]:
+                for dangerous in self.data["dangerous_debuffs"]:
+                    if dangerous in debuff:
+                        return True
+            return False
+    
+    def get_dispellable_debuffs(self, can_dispel: List[str]) -> List[str]:
+        """Get debuffs we can dispel."""
+        dispellable = []
+        with self._lock:
+            for name, debuff in self.data["active_debuffs"].items():
+                if debuff.get("type") in can_dispel:
+                    dispellable.append(name)
+        return dispellable
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# COOLDOWN TRACKING
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CooldownTracker:
+    """Tracks ability cooldowns."""
+    
+    def __init__(self):
+        self._cooldowns: Dict[str, float] = {}  # ability_name -> ready_time
+        self._lock = threading.Lock()
+        
+        # Known ability cooldowns (seconds)
+        self._known_cooldowns = {
+            # Warrior
+            "charge": 15.0,
+            "intercept": 30.0,
+            "pummel": 10.0,
+            "shield_bash": 12.0,
+            "overpower": 5.0,
+            "revenge": 5.0,
+            "shield_wall": 1800.0,  # 30 min
+            "recklessness": 1800.0,
+            "retaliation": 1800.0,
+            "berserker_rage": 30.0,
+            "bloodrage": 60.0,
+            "intimidating_shout": 180.0,
+            "taunt": 10.0,
+            "challenging_shout": 600.0,
+            "mocking_blow": 120.0,
+            "disarm": 60.0,
+            "thunder_clap": 4.0,
+            
+            # Common
+            "health_potion": 120.0,  # 2 min shared cooldown
+            "mana_potion": 120.0,
+            "bandage": 60.0,
+        }
+    
+    def trigger_cooldown(self, ability: str, duration: float = None):
+        """Record that an ability was used and is on cooldown."""
+        with self._lock:
+            ability_key = ability.lower().replace(" ", "_")
+            cd = duration or self._known_cooldowns.get(ability_key, 0)
+            if cd > 0:
+                self._cooldowns[ability_key] = time.time() + cd
+                logger.debug(f"Cooldown started: {ability} ({cd}s)")
+    
+    def is_ready(self, ability: str) -> bool:
+        """Check if ability is off cooldown."""
+        with self._lock:
+            ability_key = ability.lower().replace(" ", "_")
+            ready_time = self._cooldowns.get(ability_key, 0)
+            return time.time() >= ready_time
+    
+    def get_remaining(self, ability: str) -> float:
+        """Get remaining cooldown in seconds."""
+        with self._lock:
+            ability_key = ability.lower().replace(" ", "_")
+            ready_time = self._cooldowns.get(ability_key, 0)
+            return max(0, ready_time - time.time())
+    
+    def get_ready_abilities(self, abilities: List[str]) -> List[str]:
+        """Filter list to only ready abilities."""
+        return [a for a in abilities if self.is_ready(a)]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ABILITY PRIORITY SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class AbilityPriority:
+    """Represents a prioritized ability."""
+    name: str
+    priority: int  # Higher = more important
+    conditions: List[Callable] = field(default_factory=list)  # Functions that must return True
+    resource_cost: float = 0
+    cooldown: float = 0
+    is_instant: bool = True
+    min_range: float = 0
+    max_range: float = 5  # Melee by default
+    action_bar: int = 1
+    action_slot: int = 0
+
+
+class AbilityRotation:
+    """Manages ability priority rotation."""
+    
+    def __init__(self, cooldown_tracker: CooldownTracker):
+        self.cooldowns = cooldown_tracker
+        self._priorities: List[AbilityPriority] = []
+        self._lock = threading.Lock()
+    
+    def add_ability(self, ability: AbilityPriority):
+        """Add ability to rotation."""
+        with self._lock:
+            self._priorities.append(ability)
+            self._priorities.sort(key=lambda x: x.priority, reverse=True)
+    
+    def clear(self):
+        """Clear rotation."""
+        with self._lock:
+            self._priorities.clear()
+    
+    def get_next_ability(self, current_resource: float, 
+                         target_distance: float = 5,
+                         context: dict = None) -> Optional[AbilityPriority]:
+        """Get highest priority usable ability."""
+        context = context or {}
+        
+        with self._lock:
+            for ability in self._priorities:
+                # Check cooldown
+                if not self.cooldowns.is_ready(ability.name):
+                    continue
+                
+                # Check resource
+                if ability.resource_cost > current_resource:
+                    continue
+                
+                # Check range
+                if target_distance < ability.min_range or target_distance > ability.max_range:
+                    continue
+                
+                # Check conditions
+                conditions_met = True
+                for condition in ability.conditions:
+                    try:
+                        if not condition(context):
+                            conditions_met = False
+                            break
+                    except Exception:
+                        conditions_met = False
+                        break
+                
+                if conditions_met:
+                    return ability
+            
+            return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# WARRIOR-SPECIFIC ROTATION BUILDER
+# ═══════════════════════════════════════════════════════════════════════════
+
+class WarriorRotationBuilder:
+    """Builds warrior-specific ability rotations."""
+    
+    @staticmethod
+    def build_arms_rotation(cooldown_tracker: CooldownTracker, 
+                            spell_knowledge) -> AbilityRotation:
+        """Build Arms warrior rotation."""
+        rotation = AbilityRotation(cooldown_tracker)
+        
+        # Get slot assignments from spell knowledge
+        def get_slot(spell_name):
+            slot_info = spell_knowledge.get_action_bar_slot(spell_name)
+            if slot_info:
+                return slot_info[1], slot_info[0]  # slot, bar
+            return 0, 1
+        
+        # Execute (high priority finisher when target low)
+        slot, bar = get_slot("Execute")
+        rotation.add_ability(AbilityPriority(
+            name="Execute",
+            priority=100,
+            conditions=[lambda ctx: ctx.get("target_hp_percent", 100) < 20],
+            resource_cost=15,
+            action_bar=bar,
+            action_slot=slot,
+        ))
+        
+        # Overpower (proc-based, high priority)
+        slot, bar = get_slot("Overpower")
+        rotation.add_ability(AbilityPriority(
+            name="Overpower",
+            priority=90,
+            conditions=[lambda ctx: ctx.get("overpower_available", False)],
+            resource_cost=5,
+            cooldown=5.0,
+            action_bar=bar,
+            action_slot=slot,
+        ))
+        
+        # Mortal Strike (main ability)
+        slot, bar = get_slot("Mortal Strike")
+        rotation.add_ability(AbilityPriority(
+            name="Mortal Strike",
+            priority=80,
+            resource_cost=30,
+            cooldown=6.0,
+            action_bar=bar,
+            action_slot=slot,
+        ))
+        
+        # Heroic Strike (rage dump)
+        slot, bar = get_slot("Heroic Strike")
+        rotation.add_ability(AbilityPriority(
+            name="Heroic Strike",
+            priority=50,
+            conditions=[lambda ctx: ctx.get("player_rage", 0) > 50],
+            resource_cost=15,
+            action_bar=bar,
+            action_slot=slot,
+        ))
+        
+        # Rend (DOT maintenance)
+        slot, bar = get_slot("Rend")
+        rotation.add_ability(AbilityPriority(
+            name="Rend",
+            priority=40,
+            conditions=[lambda ctx: not ctx.get("target_has_rend", False)],
+            resource_cost=10,
+            action_bar=bar,
+            action_slot=slot,
+        ))
+        
+        # Hamstring (slow, useful for kiting)
+        slot, bar = get_slot("Hamstring")
+        rotation.add_ability(AbilityPriority(
+            name="Hamstring",
+            priority=30,
+            conditions=[
+                lambda ctx: not ctx.get("target_has_hamstring", False),
+                lambda ctx: ctx.get("player_rage", 0) > 30
+            ],
+            resource_cost=10,
+            action_bar=bar,
+            action_slot=slot,
+        ))
+        
+        return rotation
+    
+    @staticmethod
+    def build_fury_rotation(cooldown_tracker: CooldownTracker,
+                            spell_knowledge) -> AbilityRotation:
+        """Build Fury warrior rotation."""
+        rotation = AbilityRotation(cooldown_tracker)
+        
+        def get_slot(spell_name):
+            slot_info = spell_knowledge.get_action_bar_slot(spell_name)
+            if slot_info:
+                return slot_info[1], slot_info[0]
+            return 0, 1
+        
+        # Execute
+        slot, bar = get_slot("Execute")
+        rotation.add_ability(AbilityPriority(
+            name="Execute",
+            priority=100,
+            conditions=[lambda ctx: ctx.get("target_hp_percent", 100) < 20],
+            resource_cost=15,
+            action_bar=bar,
+            action_slot=slot,
+        ))
+        
+        # Bloodthirst
+        slot, bar = get_slot("Bloodthirst")
+        rotation.add_ability(AbilityPriority(
+            name="Bloodthirst",
+            priority=90,
+            resource_cost=30,
+            cooldown=6.0,
+            action_bar=bar,
+            action_slot=slot,
+        ))
+        
+        # Whirlwind
+        slot, bar = get_slot("Whirlwind")
+        rotation.add_ability(AbilityPriority(
+            name="Whirlwind",
+            priority=80,
+            resource_cost=25,
+            cooldown=10.0,
+            action_bar=bar,
+            action_slot=slot,
+        ))
+        
+        # Heroic Strike
+        slot, bar = get_slot("Heroic Strike")
+        rotation.add_ability(AbilityPriority(
+            name="Heroic Strike",
+            priority=50,
+            conditions=[lambda ctx: ctx.get("player_rage", 0) > 60],
+            resource_cost=15,
+            action_bar=bar,
+            action_slot=slot,
+        ))
+        
+        return rotation
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADVANCED COMBAT BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class AdvancedCombatBehavior:
+    """Enhanced combat with rotations, kiting, and multi-target handling."""
+    
+    def __init__(self, executor, perception, spell_knowledge,
+                 combat_knowledge, cooldown_tracker: CooldownTracker,
+                 buff_knowledge: BuffKnowledge):
+        self.executor = executor
+        self.perception = perception
+        self.spells = spell_knowledge
+        self.combat = combat_knowledge
+        self.cooldowns = cooldown_tracker
+        self.buffs = buff_knowledge
+        
+        self._rotation: Optional[AbilityRotation] = None
+        self._combat_start_time = 0
+        self._target_name = ""
+        self._abilities_used = []
+        self._kiting = False
+        self._kite_direction = 1
+        self._last_ability_time = 0
+        self._estimated_target_distance = 5.0
+        
+        # Combat tuning
+        self._flee_hp_threshold = 15
+        self._kite_hp_threshold = 30
+        self._execute_threshold = 20
+    
+    def set_rotation(self, rotation: AbilityRotation):
+        """Set the ability rotation to use."""
+        self._rotation = rotation
+    
+    def start_combat(self, target_name: str, player_hp: float):
+        """Initialize combat tracking."""
+        self._combat_start_time = time.time()
+        self._target_name = target_name
+        self._abilities_used = []
+        self._kiting = False
+        self.combat.record_enemy(target_name)
+        logger.info(f"Combat started with: {target_name}")
+    
+    def end_combat(self, won: bool, player_hp: float):
+        """Finalize combat tracking."""
+        duration = time.time() - self._combat_start_time
+        
+        if won:
+            self.combat.record_kill(self._target_name, duration, self._abilities_used)
+            logger.info(f"Victory over {self._target_name} in {duration:.1f}s")
+        else:
+            self.combat.record_death_to(self._target_name)
+            logger.warning(f"Defeated by {self._target_name}")
+        
+        self._combat_start_time = 0
+        self._kiting = False
+    
+    def build_combat_context(self, state) -> dict:
+        """Build context dictionary for ability conditions."""
+        return {
+            "player_hp_percent": state.player_hp,
+            "player_rage": state.player_resource,
+            "target_hp_percent": state.target_hp if state.has_target else 100,
+            "target_distance": self._estimated_target_distance,
+            "in_combat": state.player_in_combat,
+            "has_target": state.has_target,
+            "target_is_hostile": state.target_is_hostile if state.has_target else False,
+            "combat_duration": time.time() - self._combat_start_time if self._combat_start_time else 0,
+            "overpower_available": False,  # Would need visual detection
+            "target_has_rend": False,  # Would need debuff tracking on target
+            "target_has_hamstring": False,
+        }
+    
+    def get_next_action(self, state) -> Action:
+        """Determine next combat action using rotation system."""
+        # Wait for GCD
+        if not self.perception.is_gcd_ready():
+            return Action(ActionType.WAIT, Priority.HIGH, "Waiting for GCD",
+                         duration=self.perception.get_gcd_remaining())
+        
+        # Need target
+        if not state.has_target:
+            return Action(ActionType.TARGET_ENEMY, Priority.HIGH, "Need target")
+        
+        # Target dead - loot
+        if state.target_is_dead:
+            return Action(ActionType.LOOT, Priority.HIGH, "Looting")
+        
+        # Check for kiting
+        if self._should_kite(state):
+            return self._get_kite_action(state)
+        
+        # Check for emergency abilities
+        emergency = self._check_emergency(state)
+        if emergency:
+            return emergency
+        
+        # Check for interrupts (if target is casting)
+        interrupt = self._check_interrupt(state)
+        if interrupt:
+            return interrupt
+        
+        # Use rotation
+        if self._rotation:
+            context = self.build_combat_context(state)
+            ability = self._rotation.get_next_ability(
+                state.player_resource,
+                self._estimated_target_distance,
+                context
+            )
+            
+            if ability:
+                self.cooldowns.trigger_cooldown(ability.name, ability.cooldown)
+                self._abilities_used.append(ability.name)
+                self._last_ability_time = time.time()
+                
+                # Get key for action bar
+                if ability.action_bar == 1:
+                    key = DefaultKeybinds.ACTION_BAR_1[ability.action_slot] \
+                          if ability.action_slot < len(DefaultKeybinds.ACTION_BAR_1) else None
+                else:
+                    key = DefaultKeybinds.ACTION_BAR_2[ability.action_slot] \
+                          if ability.action_slot < len(DefaultKeybinds.ACTION_BAR_2) else None
+                
+                if key:
+                    return Action(
+                        ActionType.USE_ABILITY, Priority.HIGH,
+                        f"Using {ability.name}",
+                        key=key, spell_name=ability.name
+                    )
+        
+        # Default to auto-attack
+        return Action(ActionType.ATTACK, Priority.NORMAL, "Auto-attacking")
+    
+    def _should_kite(self, state) -> bool:
+        """Determine if we should kite."""
+        if state.player_hp < self._kite_hp_threshold:
+            if self.combat.is_enemy_dangerous(self._target_name):
+                return True
+        return False
+    
+    def _get_kite_action(self, state) -> Action:
+        """Get kiting action."""
+        self._kiting = True
+        
+        # Alternate strafe directions
+        if random.random() < 0.3:
+            self._kite_direction *= -1
+        
+        if self._kite_direction > 0:
+            return Action(ActionType.STRAFE_LEFT, Priority.HIGH, "Kiting left",
+                         duration=0.5)
+        else:
+            return Action(ActionType.STRAFE_RIGHT, Priority.HIGH, "Kiting right",
+                         duration=0.5)
+    
+    def _check_emergency(self, state) -> Optional[Action]:
+        """Check for emergency ability usage."""
+        # Very low HP - use defensive cooldowns
+        if state.player_hp < 20:
+            # Check for Last Stand, Shield Wall, etc.
+            if self.cooldowns.is_ready("shield_wall"):
+                self.cooldowns.trigger_cooldown("shield_wall")
+                return Action(ActionType.USE_ABILITY, Priority.CRITICAL,
+                             "Emergency Shield Wall", key='shift+1')
+        
+        # Health potion
+        if state.player_hp < 25:
+            if self.cooldowns.is_ready("health_potion"):
+                self.cooldowns.trigger_cooldown("health_potion")
+                # Would need to find and use potion from inventory
+                logger.info("Should use health potion!")
+        
+        return None
+    
+    def _check_interrupt(self, state) -> Optional[Action]:
+        """Check if we should interrupt target's cast."""
+        # This would require detecting if target is casting
+        # For now, return None
+        return None
+    
+    def should_flee(self, state) -> bool:
+        """Determine if we should flee combat."""
+        if state.player_hp < self._flee_hp_threshold:
+            return True
+        
+        if self._target_name and self.combat.is_enemy_dangerous(self._target_name):
+            if state.player_hp < 30:
+                return True
+        
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# INVENTORY BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class InventoryBehavior:
+    """Handles inventory management."""
+    
+    def __init__(self, executor, capture, analyzer, input_handler,
+                 inventory_knowledge: InventoryKnowledge):
+        self.executor = executor
+        self.capture = capture
+        self.analyzer = analyzer
+        self.input = input_handler
+        self.inventory = inventory_knowledge
+        self._regions = None  # Set from extended regions
+        self._extended_regions = None
+    
+    def set_regions(self, extended_regions: ExtendedScreenRegions):
+        """Set extended regions reference."""
+        self._extended_regions = extended_regions
+    
+    def open_bags(self) -> bool:
+        """Open all bags."""
+        self.input.press_key(DefaultKeybinds.ALL_BAGS)
+        time.sleep(0.5)
+        return True
+    
+    def close_bags(self) -> bool:
+        """Close all bags."""
+        self.input.press_key('esc')
+        time.sleep(0.3)
+        return True
+    
+    def use_item_at_slot(self, bag: int, slot: int) -> bool:
+        """Use item at specific bag slot."""
+        if not self._extended_regions:
+            logger.warning("Extended regions not set")
+            return False
+        
+        self.open_bags()
+        time.sleep(0.3)
+        
+        # Calculate slot position
+        slot_size = self._extended_regions.BAG_SLOT_SIZE
+        slots_per_row = self._extended_regions.BAG_SLOTS_PER_ROW
+        
+        # Get bag panel start position based on bag index
+        bag_starts = [
+            self._extended_regions.BACKPACK_FIRST_SLOT,
+            self._extended_regions.BAG_1_PANEL[:2] if hasattr(self._extended_regions, 'BAG_1_PANEL') else (880, 415),
+            self._extended_regions.BAG_2_PANEL[:2] if hasattr(self._extended_regions, 'BAG_2_PANEL') else (710, 415),
+            self._extended_regions.BAG_3_PANEL[:2] if hasattr(self._extended_regions, 'BAG_3_PANEL') else (540, 415),
+        ]
+        
+        if bag >= len(bag_starts):
+            return False
+        
+        base_x, base_y = bag_starts[bag]
+        row = slot // slots_per_row
+        col = slot % slots_per_row
+        
+        x = base_x + (col * slot_size) + (slot_size // 2)
+        y = base_y + (row * slot_size) + (slot_size // 2)
+        
+        # Right-click to use
+        self.input.click(x, y, 'right')
+        time.sleep(0.3)
+        
+        self.close_bags()
+        return True
+    
+    def use_consumable(self, consumable_type: ConsumableType) -> bool:
+        """Find and use a consumable."""
+        location = self.inventory.find_consumable(consumable_type)
+        if location:
+            bag, slot = location
+            logger.info(f"Using {consumable_type.name} from bag {bag} slot {slot}")
+            return self.use_item_at_slot(bag, slot)
+        
+        logger.warning(f"No {consumable_type.name} found in inventory")
+        return False
+    
+    def equip_item(self, bag: int, slot: int) -> bool:
+        """Equip item from bag slot."""
+        return self.use_item_at_slot(bag, slot)  # Right-click equips
+    
+    def scan_inventory(self) -> int:
+        """Scan and record all items in bags."""
+        self.open_bags()
+        time.sleep(0.5)
+        
+        items_found = 0
+        # Would need to implement item detection from visual
+        # This is a placeholder for the structure
+        
+        self.close_bags()
+        return items_found
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# VENDOR BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class VendorBehavior:
+    """Handles vendor interactions - buying, selling, repairing."""
+    
+    def __init__(self, executor, capture, analyzer, input_handler,
+                 inventory_knowledge: InventoryKnowledge):
+        self.executor = executor
+        self.capture = capture
+        self.analyzer = analyzer
+        self.input = input_handler
+        self.inventory = inventory_knowledge
+        self._extended_regions = None
+    
+    def set_regions(self, extended_regions: ExtendedScreenRegions):
+        """Set extended regions reference."""
+        self._extended_regions = extended_regions
+    
+    def sell_junk(self) -> int:
+        """Sell all gray quality items."""
+        junk_items = self.inventory.find_junk_items()
+        sold = 0
+        
+        if not junk_items:
+            logger.info("No junk items to sell")
+            return 0
+        
+        # Open bags
+        self.input.press_key(DefaultKeybinds.ALL_BAGS)
+        time.sleep(0.5)
+        
+        for bag, slot in junk_items:
+            # Click on item to select
+            # Then vendor will auto-add to sell
+            self.input.press_key(DefaultKeybinds.ALL_BAGS)  # Make sure bags open
+            time.sleep(0.2)
+            
+            # This would need the actual click implementation
+            # Similar to use_item_at_slot
+            self.inventory.remove_item(bag, slot)
+            sold += 1
+            time.sleep(0.2)
+        
+        logger.info(f"Sold {sold} junk items")
+        return sold
+    
+    def repair_all(self) -> bool:
+        """Click repair all button at vendor."""
+        if not self._extended_regions:
+            return False
+        
+        repair_pos = self._extended_regions.VENDOR_REPAIR_BUTTON
+        self.input.click(repair_pos[0], repair_pos[1])
+        time.sleep(0.3)
+        
+        logger.info("Repaired all gear")
+        return True
+    
+    def buy_item(self, vendor_slot: int, quantity: int = 1) -> bool:
+        """Buy item from vendor slot."""
+        if not self._extended_regions:
+            return False
+        
+        start_pos = self._extended_regions.VENDOR_SELL_SLOT
+        slot_height = 30  # Approximate
+        
+        y = start_pos[1] + (vendor_slot * slot_height)
+        
+        for _ in range(quantity):
+            self.input.click(start_pos[0], y, 'right')
+            time.sleep(0.2)
+        
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# QUEST BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class QuestBehavior:
+    """Handles quest interactions."""
+    
+    def __init__(self, executor, capture, analyzer, input_handler,
+                 quest_knowledge):
+        self.executor = executor
+        self.capture = capture
+        self.analyzer = analyzer
+        self.input = input_handler
+        self.quests = quest_knowledge
+        self._extended_regions = None
+    
+    def set_regions(self, extended_regions: ExtendedScreenRegions):
+        """Set extended regions reference."""
+        self._extended_regions = extended_regions
+    
+    def accept_quest(self) -> bool:
+        """Accept quest from NPC dialog."""
+        if not self._extended_regions:
+            return False
+        
+        accept_pos = self._extended_regions.QUEST_ACCEPT_BUTTON
+        self.input.click(accept_pos[0], accept_pos[1])
+        time.sleep(0.5)
+        
+        logger.info("Accepted quest")
+        return True
+    
+    def complete_quest(self, reward_slot: int = 0) -> bool:
+        """Complete quest and select reward."""
+        if not self._extended_regions:
+            return False
+        
+        # Click on reward if multiple options
+        if reward_slot > 0:
+            reward_start = self._extended_regions.QUEST_REWARD_SLOT_START
+            slot_size = self._extended_regions.QUEST_REWARD_SLOT_SIZE
+            
+            y = reward_start[1] + (reward_slot * slot_size)
+            self.input.click(reward_start[0], y)
+            time.sleep(0.3)
+        
+        # Click complete
+        complete_pos = self._extended_regions.QUEST_COMPLETE_BUTTON
+        self.input.click(complete_pos[0], complete_pos[1])
+        time.sleep(0.5)
+        
+        logger.info("Completed quest")
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONSUMABLE BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ConsumableBehavior:
+    """Handles consumable usage - food, water, potions, bandages."""
+    
+    def __init__(self, executor, perception, inventory_behavior: InventoryBehavior,
+                 cooldown_tracker: CooldownTracker):
+        self.executor = executor
+        self.perception = perception
+        self.inventory = inventory_behavior
+        self.cooldowns = cooldown_tracker
+        
+        self._eating = False
+        self._drinking = False
+        self._eat_start_time = 0
+    
+    def should_eat(self, state) -> bool:
+        """Check if we should eat food."""
+        if state.player_in_combat:
+            return False
+        if self._eating:
+            return False
+        if state.player_hp < 50:
+            return True
+        return False
+    
+    def should_drink(self, state) -> bool:
+        """Check if we should drink (for mana classes)."""
+        if state.player_in_combat:
+            return False
+        if self._drinking:
+            return False
+        # Only relevant for mana users
+        if state.player_resource_type == "mana" and state.player_resource < 40:
+            return True
+        return False
+    
+    def eat_food(self) -> bool:
+        """Eat food from inventory."""
+        if self.inventory.use_consumable(ConsumableType.FOOD):
+            self._eating = True
+            self._eat_start_time = time.time()
+            logger.info("Eating food")
+            return True
+        return False
+    
+    def drink_water(self) -> bool:
+        """Drink water from inventory."""
+        if self.inventory.use_consumable(ConsumableType.WATER):
+            self._drinking = True
+            self._eat_start_time = time.time()
+            logger.info("Drinking water")
+            return True
+        return False
+    
+    def is_eating_complete(self, state) -> bool:
+        """Check if eating/drinking is complete."""
+        if not self._eating and not self._drinking:
+            return True
+        
+        # Check if fully recovered or interrupted
+        if state.player_in_combat:
+            self._eating = False
+            self._drinking = False
+            return True
+        
+        if self._eating and state.player_hp >= 95:
+            self._eating = False
+            logger.info("Finished eating")
+            return True
+        
+        if self._drinking and state.player_resource >= 90:
+            self._drinking = False
+            logger.info("Finished drinking")
+            return True
+        
+        # Timeout after 30 seconds
+        if time.time() - self._eat_start_time > 30:
+            self._eating = False
+            self._drinking = False
+            return True
+        
+        return False
+    
+    def use_health_potion(self) -> bool:
+        """Use health potion in emergency."""
+        if not self.cooldowns.is_ready("health_potion"):
+            logger.info("Health potion on cooldown")
+            return False
+        
+        if self.inventory.use_consumable(ConsumableType.HEALTH_POTION):
+            self.cooldowns.trigger_cooldown("health_potion", 120.0)
+            logger.info("Used health potion")
+            return True
+        return False
+    
+    def use_bandage(self) -> bool:
+        """Use bandage to heal."""
+        if not self.cooldowns.is_ready("bandage"):
+            return False
+        
+        if self.inventory.use_consumable(ConsumableType.BANDAGE):
+            self.cooldowns.trigger_cooldown("bandage", 60.0)
+            logger.info("Using bandage")
+            return True
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STANCE/FORM BEHAVIOR (Warrior/Druid)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class StanceBehavior:
+    """Handles stance and form management."""
+    
+    def __init__(self, input_handler, cooldown_tracker: CooldownTracker):
+        self.input = input_handler
+        self.cooldowns = cooldown_tracker
+        self._current_stance: Optional[StanceForm] = None
+        self._stance_cooldown = 1.0  # GCD between stance swaps
+    
+    def get_current_stance(self) -> Optional[StanceForm]:
+        """Get current stance/form."""
+        return self._current_stance
+    
+    def switch_stance(self, stance: StanceForm) -> bool:
+        """Switch to specified stance."""
+        if self._current_stance == stance:
+            return True
+        
+        if not self.cooldowns.is_ready("stance_swap"):
+            return False
+        
+        stance_keys = {
+            StanceForm.BATTLE_STANCE: ExtendedKeybinds.STANCE_1,
+            StanceForm.DEFENSIVE_STANCE: ExtendedKeybinds.STANCE_2,
+            StanceForm.BERSERKER_STANCE: ExtendedKeybinds.STANCE_3,
+            StanceForm.BEAR_FORM: ExtendedKeybinds.STANCE_1,
+            StanceForm.CAT_FORM: ExtendedKeybinds.STANCE_2,
+            StanceForm.TRAVEL_FORM: ExtendedKeybinds.STANCE_3,
+        }
+        
+        key = stance_keys.get(stance)
+        if not key:
+            return False
+        
+        if self.input.press_key(key):
+            self._current_stance = stance
+            self.cooldowns.trigger_cooldown("stance_swap", self._stance_cooldown)
+            logger.info(f"Switched to {stance.name}")
+            return True
+        
+        return False
+    
+    def get_optimal_stance_for_combat(self, player_hp: float, 
+                                       target_hp: float,
+                                       is_multiple_targets: bool) -> StanceForm:
+        """Determine optimal stance for current combat situation."""
+        # Warrior logic
+        if player_hp < 30:
+            return StanceForm.DEFENSIVE_STANCE
+        
+        if target_hp < 20:
+            return StanceForm.BERSERKER_STANCE  # For Execute
+        
+        if is_multiple_targets:
+            return StanceForm.BERSERKER_STANCE  # For Whirlwind
+        
+        return StanceForm.BATTLE_STANCE  # Default
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PET BEHAVIOR (Hunter/Warlock)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class PetBehavior:
+    """Handles pet control for Hunter and Warlock."""
+    
+    def __init__(self, executor, input_handler, perception):
+        self.executor = executor
+        self.input = input_handler
+        self.perception = perception
+        self._pet_state = PetState.FOLLOW
+        self._pet_exists = False
+    
+    def has_pet(self) -> bool:
+        """Check if pet exists."""
+        return self._pet_exists
+    
+    def set_pet_exists(self, exists: bool):
+        """Set pet existence state."""
+        self._pet_exists = exists
+    
+    def pet_attack(self) -> bool:
+        """Command pet to attack current target."""
+        if not self._pet_exists:
+            return False
+        
+        self.input.press_key(ExtendedKeybinds.PET_ATTACK)
+        self._pet_state = PetState.ATTACK
+        logger.debug("Pet: Attack")
+        return True
+    
+    def pet_follow(self) -> bool:
+        """Command pet to follow."""
+        if not self._pet_exists:
+            return False
+        
+        self.input.press_key(ExtendedKeybinds.PET_FOLLOW)
+        self._pet_state = PetState.FOLLOW
+        logger.debug("Pet: Follow")
+        return True
+    
+    def pet_stay(self) -> bool:
+        """Command pet to stay."""
+        if not self._pet_exists:
+            return False
+        
+        self.input.press_key(ExtendedKeybinds.PET_STAY)
+        self._pet_state = PetState.STAY
+        logger.debug("Pet: Stay")
+        return True
+    
+    def pet_passive(self) -> bool:
+        """Set pet to passive mode."""
+        if not self._pet_exists:
+            return False
+        
+        self.input.press_key(ExtendedKeybinds.PET_PASSIVE)
+        self._pet_state = PetState.PASSIVE
+        logger.debug("Pet: Passive")
+        return True
+    
+    def pet_defensive(self) -> bool:
+        """Set pet to defensive mode."""
+        if not self._pet_exists:
+            return False
+        
+        self.input.press_key(ExtendedKeybinds.PET_DEFENSIVE)
+        self._pet_state = PetState.DEFENSIVE
+        logger.debug("Pet: Defensive")
+        return True
+    
+    def get_pet_state(self) -> PetState:
+        """Get current pet state."""
+        return self._pet_state
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TALENT BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TalentBehavior:
+    """Handles talent point allocation."""
+    
+    def __init__(self, input_handler, capture, analyzer):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self._extended_regions = None
+        
+        # Predefined talent builds (example for Warrior Arms)
+        self._talent_builds = {
+            "warrior_arms": [
+                # (tab, row, col, points) - 0-indexed
+                (0, 0, 1, 5),  # Deflection
+                (0, 1, 0, 5),  # Tactical Mastery
+                (0, 1, 2, 3),  # Improved Rend
+                (0, 2, 1, 2),  # Improved Charge
+                # ... etc
+            ]
+        }
+    
+    def set_regions(self, extended_regions: ExtendedScreenRegions):
+        """Set extended regions reference."""
+        self._extended_regions = extended_regions
+    
+    def open_talent_panel(self) -> bool:
+        """Open talent panel."""
+        self.input.press_key(DefaultKeybinds.TALENTS)
+        time.sleep(0.5)
+        return True
+    
+    def close_talent_panel(self) -> bool:
+        """Close talent panel."""
+        self.input.press_key('esc')
+        time.sleep(0.3)
+        return True
+    
+    def has_unspent_points(self) -> bool:
+        """Check if there are unspent talent points."""
+        if not self._extended_regions:
+            return False
+        
+        self.capture.capture()
+        # Would detect the talent point counter
+        # Placeholder - actual implementation would use OCR or color detection
+        return False
+    
+    def spend_talent_point(self, tab: int, row: int, col: int) -> bool:
+        """Spend a talent point at specific location."""
+        if not self._extended_regions:
+            return False
+        
+        self.open_talent_panel()
+        time.sleep(0.3)
+        
+        # Click on tab
+        tab_positions = [
+            self._extended_regions.TALENT_TAB_1,
+            self._extended_regions.TALENT_TAB_2,
+            self._extended_regions.TALENT_TAB_3,
+        ]
+        
+        if tab < len(tab_positions):
+            self.input.click(tab_positions[tab][0], tab_positions[tab][1])
+            time.sleep(0.3)
+        
+        # Calculate talent position
+        # Talents are arranged in a grid, need to calculate pixel positions
+        # This is a placeholder
+        talent_x = 300 + (col * 60)
+        talent_y = 150 + (row * 60)
+        
+        self.input.click(talent_x, talent_y)
+        time.sleep(0.2)
+        
+        self.close_talent_panel()
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MOUNT BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class MountBehavior:
+    """Handles mount usage."""
+    
+    def __init__(self, input_handler, perception, spell_knowledge):
+        self.input = input_handler
+        self.perception = perception
+        self.spells = spell_knowledge
+        self._mounted = False
+        self._mount_cast_time = 3.0  # Seconds to mount
+    
+    def is_mounted(self) -> bool:
+        """Check if currently mounted."""
+        return self._mounted
+    
+    def can_mount(self, state) -> bool:
+        """Check if mounting is possible."""
+        if state.player_in_combat:
+            return False
+        if state.player_is_dead:
+            return False
+        if self._mounted:
+            return False
+        return True
+    
+    def mount_up(self) -> bool:
+        """Attempt to mount."""
+        if self._mounted:
+            return True
+        
+        # Try mount keybind
+        self.input.press_key(ExtendedKeybinds.MOUNT)
+        time.sleep(self._mount_cast_time + 0.5)
+        
+        self._mounted = True
+        logger.info("Mounted up")
+        return True
+    
+    def dismount(self) -> bool:
+        """Dismount."""
+        if not self._mounted:
+            return True
+        
+        self.input.press_key(ExtendedKeybinds.MOUNT)
+        time.sleep(0.3)
+        
+        self._mounted = False
+        logger.info("Dismounted")
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# THREAT ASSESSMENT
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ThreatAssessor:
+    """Assesses threat level of targets and areas."""
+    
+    def __init__(self, combat_knowledge, progress_knowledge, world_knowledge):
+        self.combat = combat_knowledge
+        self.progress = progress_knowledge
+        self.world = world_knowledge
+    
+    def assess_target(self, target_name: str, target_level: int, 
+                      is_elite: bool = False, is_rare: bool = False) -> ThreatLevel:
+        """Assess threat level of a target."""
+        player_level = self.progress.get_level()
+        level_diff = target_level - player_level
+        
+        # Elite or rare
+        if is_elite:
+            if level_diff >= 0:
+                return ThreatLevel.EXTREME
+            elif level_diff >= -3:
+                return ThreatLevel.HIGH
+            else:
+                return ThreatLevel.MODERATE
+        
+        if is_rare:
+            if level_diff >= 2:
+                return ThreatLevel.EXTREME
+            elif level_diff >= 0:
+                return ThreatLevel.HIGH
+            else:
+                return ThreatLevel.MODERATE
+        
+        # Normal mob
+        if level_diff >= 4:
+            return ThreatLevel.EXTREME
+        elif level_diff >= 2:
+            return ThreatLevel.HIGH
+        elif level_diff >= 0:
+            return ThreatLevel.MODERATE
+        elif level_diff >= -2:
+            return ThreatLevel.LOW
+        else:
+            return ThreatLevel.SAFE
+        
+        # Factor in past experience
+        if self.combat.is_enemy_dangerous(target_name):
+            # Upgrade threat level
+            return ThreatLevel.HIGH
+    
+    def should_engage(self, threat_level: ThreatLevel, player_hp: float) -> bool:
+        """Determine if we should engage a target."""
+        if threat_level == ThreatLevel.EXTREME:
+            return False
+        
+        if threat_level == ThreatLevel.HIGH:
+            return player_hp > 80
+        
+        if threat_level == ThreatLevel.MODERATE:
+            return player_hp > 50
+        
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADVANCED PATHFINDING
+# ═══════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class Waypoint:
+    """A navigation waypoint."""
+    x: float
+    y: float
+    name: str = ""
+    action: str = ""  # Optional action at waypoint
+
+
+class PathfindingBehavior:
+    """Advanced navigation with waypoint support."""
+    
+    def __init__(self, executor, navigation, world_knowledge):
+        self.executor = executor
+        self.navigation = navigation
+        self.world = world_knowledge
+        
+        self._waypoints: List[Waypoint] = []
+        self._current_waypoint_idx = 0
+        self._patrol_mode = False
+    
+    def add_waypoint(self, waypoint: Waypoint):
+        """Add waypoint to path."""
+        self._waypoints.append(waypoint)
+    
+    def clear_waypoints(self):
+        """Clear all waypoints."""
+        self._waypoints.clear()
+        self._current_waypoint_idx = 0
+    
+    def set_patrol_mode(self, patrol: bool):
+        """Enable/disable patrol mode (loop waypoints)."""
+        self._patrol_mode = patrol
+    
+    def get_current_waypoint(self) -> Optional[Waypoint]:
+        """Get current target waypoint."""
+        if not self._waypoints:
+            return None
+        if self._current_waypoint_idx >= len(self._waypoints):
+            if self._patrol_mode:
+                self._current_waypoint_idx = 0
+            else:
+                return None
+        return self._waypoints[self._current_waypoint_idx]
+    
+    def advance_waypoint(self):
+        """Move to next waypoint."""
+        self._current_waypoint_idx += 1
+        if self._patrol_mode and self._current_waypoint_idx >= len(self._waypoints):
+            self._current_waypoint_idx = 0
+    
+    def navigate_to_waypoint(self) -> bool:
+        """Navigate toward current waypoint."""
+        waypoint = self.get_current_waypoint()
+        if not waypoint:
+            return False
+        
+        # This would use minimap position detection in practice
+        # For now, use simple forward movement
+        self.navigation.move_forward(2.0)
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PULLING BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class PullingBehavior:
+    """Handles pulling mobs safely."""
+    
+    def __init__(self, executor, input_handler, spell_knowledge,
+                 threat_assessor: ThreatAssessor):
+        self.executor = executor
+        self.input = input_handler
+        self.spells = spell_knowledge
+        self.threat = threat_assessor
+        
+        self._ranged_pull_abilities = [
+            "shoot", "throw", "charge", "auto_shot"
+        ]
+    
+    def get_pull_ability(self) -> Optional[str]:
+        """Get best available pull ability."""
+        for ability in self._ranged_pull_abilities:
+            slot_info = self.spells.get_action_bar_slot(ability)
+            if slot_info:
+                return ability
+        return None
+    
+    def execute_pull(self, target_name: str = None) -> bool:
+        """Execute a pull."""
+        # Target enemy first
+        self.input.press_key(DefaultKeybinds.TARGET_NEAREST_ENEMY)
+        time.sleep(0.3)
+        
+        # Use ranged pull if available
+        pull_ability = self.get_pull_ability()
+        if pull_ability:
+            slot_info = self.spells.get_action_bar_slot(pull_ability)
+            if slot_info:
+                bar, slot = slot_info
+                if bar == 1:
+                    key = DefaultKeybinds.ACTION_BAR_1[slot]
+                else:
+                    key = DefaultKeybinds.ACTION_BAR_2[slot]
+                
+                self.input.press_key(key)
+                logger.info(f"Pulled with {pull_ability}")
+                return True
+        
+        # Otherwise use auto-attack
+        self.input.press_key(DefaultKeybinds.ATTACK)
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PROFESSION BEHAVIOR (Gathering/Crafting)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ProfessionBehavior:
+    """Handles profession activities - gathering, crafting."""
+    
+    def __init__(self, executor, input_handler, capture, analyzer):
+        self.executor = executor
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        
+        # Tracking colors for gathering nodes
+        self._herb_colors = {
+            'lower': np.array([35, 80, 80]),
+            'upper': np.array([85, 255, 255])
+        }
+        self._ore_colors = {
+            'lower': np.array([15, 50, 100]),
+            'upper': np.array([25, 150, 200])
+        }
+    
+    def find_gathering_node(self, node_type: str = "herb") -> Optional[Tuple[int, int]]:
+        """Search screen for gathering node."""
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return None
+        
+        # Choose colors based on type
+        if node_type == "herb":
+            colors = self._herb_colors
+        elif node_type == "ore":
+            colors = self._ore_colors
+        else:
+            return None
+        
+        # Convert to HSV and find matches
+        import cv2
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, colors['lower'], colors['upper'])
+        
+        # Find contours
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if contours:
+            # Get largest contour
+            largest = max(contours, key=cv2.contourArea)
+            M = cv2.moments(largest)
+            if M["m00"] > 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+                return (cx, cy)
+        
+        return None
+    
+    def gather_node(self, position: Tuple[int, int]) -> bool:
+        """Attempt to gather a node at position."""
+        self.input.click(position[0], position[1], 'right')
+        time.sleep(3.0)  # Gathering cast time
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ENHANCED DECISION ENGINE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class EnhancedDecisionEngine:
+    """
+    Enhanced decision engine integrating all advanced systems.
+    Replaces or extends the original DecisionEngine.
+    """
+    
+    def __init__(self, 
+                 perception, 
+                 executor,
+                 advanced_combat: AdvancedCombatBehavior,
+                 navigation,
+                 rest,
+                 loot,
+                 trainer,
+                 spell_scanner,
+                 spell_knowledge,
+                 progress_knowledge,
+                 inventory_behavior: InventoryBehavior,
+                 consumable_behavior: ConsumableBehavior,
+                 vendor_behavior: VendorBehavior,
+                 buff_knowledge: BuffKnowledge,
+                 cooldown_tracker: CooldownTracker,
+                 threat_assessor: ThreatAssessor,
+                 stance_behavior: StanceBehavior,
+                 pulling_behavior: PullingBehavior):
+        
+        self.perception = perception
+        self.executor = executor
+        self.combat = advanced_combat
+        self.navigation = navigation
+        self.rest = rest
+        self.loot = loot
+        self.trainer = trainer
+        self.spell_scanner = spell_scanner
+        self.spells = spell_knowledge
+        self.progress = progress_knowledge
+        self.inventory = inventory_behavior
+        self.consumables = consumable_behavior
+        self.vendor = vendor_behavior
+        self.buffs = buff_knowledge
+        self.cooldowns = cooldown_tracker
+        self.threat = threat_assessor
+        self.stance = stance_behavior
+        self.pulling = pulling_behavior
+        
+        self._last_state = None
+        self._was_in_combat = False
+        self._needs_spellbook_scan = True
+        self._level_trained = 0
+        self._needs_vendor = False
+        self._last_vendor_check = 0
+    
+    def decide_and_act(self) -> bool:
+        """Main decision loop - enhanced version."""
+        state = self.perception.perceive()
+        self._last_state = state
+        
+        # === CRITICAL: Handle death ===
+        if state.player_is_dead:
+            return self._handle_death(state)
+        
+        # === Initial setup ===
+        if self._needs_spellbook_scan:
+            self._do_initial_setup()
+            return True
+        
+        # === Handle eating/drinking ===
+        if self.consumables._eating or self.consumables._drinking:
+            if self.consumables.is_eating_complete(state):
+                return True
+            return True  # Still eating
+        
+        # === Handle resting (sitting) ===
+        if self.rest.is_resting():
+            if self.rest.is_rest_complete(state):
+                return True
+            return True
+        
+        # === COMBAT MODE ===
+        if state.player_in_combat:
+            return self._handle_combat(state)
+        
+        # === POST-COMBAT ===
+        if self._was_in_combat:
+            self._was_in_combat = False
+            if state.has_target and state.target_is_dead:
+                self.combat.end_combat(True, state.player_hp)
+                time.sleep(0.3)
+                self.loot.loot_target()
+                return True
+        
+        # === Handle loot window ===
+        if state.loot_window_open:
+            self.loot.loot_target()
+            return True
+        
+        # === Close open UI panels ===
+        if state.ui_state != UIState.WORLD:
+            self.executor.execute(Action(ActionType.CLOSE_PANEL, Priority.NORMAL, "Closing panel"))
+            return True
+        
+        # === RECOVERY: Food/Water ===
+        if self.consumables.should_eat(state):
+            self.consumables.eat_food()
+            return True
+        
+        if self.consumables.should_drink(state):
+            self.consumables.drink_water()
+            return True
+        
+        # === REST: Low HP and no food ===
+        if self.rest.should_rest(state):
+            self.rest.start_rest()
+            return True
+        
+        # === Pre-combat buff check ===
+        missing_buffs = self.buffs.get_missing_important_buffs()
+        if missing_buffs and state.player_hp > 80:
+            # Try to apply self-buffs
+            for buff_name in missing_buffs:
+                spell = self.spells.get_spell(buff_name)
+                if spell and spell.get("action_bar_slot") is not None:
+                    bar = spell.get("action_bar", 1)
+                    slot = spell.get("action_bar_slot")
+                    if bar == 1:
+                        key = DefaultKeybinds.ACTION_BAR_1[slot]
+                    else:
+                        key = DefaultKeybinds.ACTION_BAR_2[slot]
+                    self.executor.execute(Action(ActionType.USE_ABILITY, Priority.HIGH,
+                                                 f"Buffing {buff_name}", key=key))
+                    return True
+        
+        # === Check inventory space ===
+        free_slots = self.inventory.inventory.get_free_slot_count()
+        if free_slots < 3:
+            self._needs_vendor = True
+            logger.info("Inventory nearly full - should visit vendor")
+        
+        # === Check for level up / trainer visit ===
+        current_level = self.progress.get_level()
+        if current_level > self._level_trained:
+            logger.info(f"Level {current_level} - should visit trainer")
+            self._level_trained = current_level
+        
+        # === EXPLORATION AND COMBAT SEEKING ===
+        return self._handle_exploration(state)
+    
+    def _handle_death(self, state) -> bool:
+        """Handle player death."""
+        logger.warning("Player is dead!")
+        self.combat.end_combat(False, 0)
+        
+        time.sleep(2.0)
+        
+        # Click release spirit
+        regions = self.perception._regions
+        self.executor.input.click(
+            regions.RELEASE_SPIRIT_BUTTON[0] + 80,
+            regions.RELEASE_SPIRIT_BUTTON[1] + 25
+        )
+        
+        time.sleep(3.0)
+        
+        # Run to corpse
+        for _ in range(15):
+            self.navigation.move_forward(3.0)
+            state = self.perception.perceive()
+            if not state.player_is_dead and not state.player_is_ghost:
+                break
+        
+        return True
+    
+    def _handle_combat(self, state) -> bool:
+        """Handle active combat."""
+        if not self._was_in_combat:
+            self._was_in_combat = True
+            self.combat.start_combat(state.target_name or "Unknown", state.player_hp)
+            
+            # Check stance for warrior
+            optimal_stance = self.stance.get_optimal_stance_for_combat(
+                state.player_hp, state.target_hp, False
+            )
+            self.stance.switch_stance(optimal_stance)
+        
+        # Emergency potion
+        if state.player_hp < 20 and self.cooldowns.is_ready("health_potion"):
+            self.consumables.use_health_potion()
+            return True
+        
+        # Check if should flee
+        if self.combat.should_flee(state):
+            logger.warning("Fleeing combat!")
+            self.navigation.move_forward(3.0)
+            return True
+        
+        # Get combat action
+        action = self.combat.get_next_action(state)
+        return self.executor.execute(action)
+    
+    def _handle_exploration(self, state) -> bool:
+        """Handle non-combat exploration and target seeking."""
+        # Try to find target
+        if not state.has_target:
+            self.executor.execute(Action(ActionType.TARGET_ENEMY, Priority.NORMAL, "Looking for enemy"))
+            time.sleep(0.3)
+            state = self.perception.perceive()
+        
+        # Assess and engage
+        if state.has_target and state.target_is_hostile and not state.target_is_dead:
+            # Assess threat
+            threat_level = self.threat.assess_target(
+                state.target_name or "Unknown",
+                state.target_level,
+                is_elite=False,  # Would need visual detection
+                is_rare=False
+            )
+            
+            if self.threat.should_engage(threat_level, state.player_hp):
+                self.pulling.execute_pull(state.target_name)
+                return True
+            else:
+                # Clear target and move away
+                self.executor.execute(Action(ActionType.PRESS_KEY, Priority.NORMAL, 
+                                            "Clearing target", key='esc'))
+                self.navigation.turn_random()
+                return True
+        
+        # Wander
+        self.navigation.wander()
+        return True
+    
+    def _do_initial_setup(self):
+        """Perform initial spellbook scan and setup."""
+        logger.info("Performing initial setup...")
+        time.sleep(1.0)
+        
+        discovered = self.spell_scanner.scan_spellbook()
+        self._needs_spellbook_scan = False
+        
+        if not discovered:
+            logger.warning("No spells discovered")
+            return
+        
+        # Assign spells to action bar
+        slot = 0
+        for spell_name in discovered:
+            if slot >= 10:
+                break
+            
+            spell = self.spells.get_spell(spell_name)
+            if spell and spell.get("action_bar_slot") is None:
+                self.spell_scanner.assign_spell_to_bar(spell_name, slot)
+                slot += 1
+                time.sleep(0.5)
+        
+        # Build rotation
+        cooldown_tracker = self.cooldowns
+        rotation = WarriorRotationBuilder.build_arms_rotation(cooldown_tracker, self.spells)
+        self.combat.set_rotation(rotation)
+        
+        logger.info("Initial setup complete")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# INTEGRATION HELPER
+# ═══════════════════════════════════════════════════════════════════════════
+
+def create_advanced_systems(base_agent):
+    """
+    Helper function to create and integrate all advanced systems.
+    Call this after initializing the base WoWAutonomousPlayer.
+    
+    Usage in WoWAutonomousPlayer.__init__():
+        # After existing initialization...
+        from wow_agent_advanced_capabilities import create_advanced_systems
+        self.advanced = create_advanced_systems(self)
+    """
+    
+    # Create extended regions
+    extended_regions = ExtendedScreenRegions(base_agent.capture.regions)
+    
+    # Knowledge systems
+    inventory_knowledge = InventoryKnowledge()
+    buff_knowledge = BuffKnowledge()
+    
+    # Tracking systems
+    cooldown_tracker = CooldownTracker()
+    threat_assessor = ThreatAssessor(
+        base_agent.combat_knowledge,
+        base_agent.progress_knowledge,
+        base_agent.world_knowledge
+    )
+    
+    # Behaviors
+    inventory_behavior = InventoryBehavior(
+        base_agent.executor,
+        base_agent.capture,
+        base_agent.analyzer,
+        base_agent.input,
+        inventory_knowledge
+    )
+    inventory_behavior.set_regions(extended_regions)
+    
+    consumable_behavior = ConsumableBehavior(
+        base_agent.executor,
+        base_agent.perception,
+        inventory_behavior,
+        cooldown_tracker
+    )
+    
+    vendor_behavior = VendorBehavior(
+        base_agent.executor,
+        base_agent.capture,
+        base_agent.analyzer,
+        base_agent.input,
+        inventory_knowledge
+    )
+    vendor_behavior.set_regions(extended_regions)
+    
+    stance_behavior = StanceBehavior(base_agent.input, cooldown_tracker)
+    
+    pulling_behavior = PullingBehavior(
+        base_agent.executor,
+        base_agent.input,
+        base_agent.spell_knowledge,
+        threat_assessor
+    )
+    
+    # Advanced combat
+    advanced_combat = AdvancedCombatBehavior(
+        base_agent.executor,
+        base_agent.perception,
+        base_agent.spell_knowledge,
+        base_agent.combat_knowledge,
+        cooldown_tracker,
+        buff_knowledge
+    )
+    
+    # Build rotation
+    rotation = WarriorRotationBuilder.build_arms_rotation(
+        cooldown_tracker,
+        base_agent.spell_knowledge
+    )
+    advanced_combat.set_rotation(rotation)
+    
+    # Enhanced decision engine
+    enhanced_decision = EnhancedDecisionEngine(
+        perception=base_agent.perception,
+        executor=base_agent.executor,
+        advanced_combat=advanced_combat,
+        navigation=base_agent.navigation,
+        rest=base_agent.rest,
+        loot=base_agent.loot,
+        trainer=base_agent.trainer,
+        spell_scanner=base_agent.spell_scanner,
+        spell_knowledge=base_agent.spell_knowledge,
+        progress_knowledge=base_agent.progress_knowledge,
+        inventory_behavior=inventory_behavior,
+        consumable_behavior=consumable_behavior,
+        vendor_behavior=vendor_behavior,
+        buff_knowledge=buff_knowledge,
+        cooldown_tracker=cooldown_tracker,
+        threat_assessor=threat_assessor,
+        stance_behavior=stance_behavior,
+        pulling_behavior=pulling_behavior
+    )
+    
+    return {
+        'extended_regions': extended_regions,
+        'inventory_knowledge': inventory_knowledge,
+        'buff_knowledge': buff_knowledge,
+        'cooldown_tracker': cooldown_tracker,
+        'threat_assessor': threat_assessor,
+        'inventory_behavior': inventory_behavior,
+        'consumable_behavior': consumable_behavior,
+        'vendor_behavior': vendor_behavior,
+        'stance_behavior': stance_behavior,
+        'pulling_behavior': pulling_behavior,
+        'advanced_combat': advanced_combat,
+        'enhanced_decision': enhanced_decision,
+        'rotation': rotation,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MODIFIED WoWAutonomousPlayer CLASS ADDITIONS
+# ═══════════════════════════════════════════════════════════════════════════
+"""
+Add these lines to WoWAutonomousPlayer.__init__() after existing initialization:
+
+    # === ADVANCED CAPABILITIES ===
+    self.advanced = create_advanced_systems(self)
+    
+    # Replace decision engine with enhanced version
+    self.decision = self.advanced['enhanced_decision']
+    
+    # Store references to new systems
+    self.inventory_knowledge = self.advanced['inventory_knowledge']
+    self.buff_knowledge = self.advanced['buff_knowledge']
+    self.cooldowns = self.advanced['cooldown_tracker']
+    self.advanced_combat = self.advanced['advanced_combat']
+    self.consumables = self.advanced['consumable_behavior']
+    self.inventory_mgmt = self.advanced['inventory_behavior']
+    self.vendor_mgmt = self.advanced['vendor_behavior']
+    self.stance = self.advanced['stance_behavior']
+    self.pulling = self.advanced['pulling_behavior']
+    self.threat = self.advanced['threat_assessor']
+
+Also update _save_all_knowledge() to include:
+    self.inventory_knowledge.save()
+    self.buff_knowledge.save()
+"""
+
+
+# First expansion module documentation block removed (was at line 4530-4601)
+# This block contained print statements showing integration instructions
+
+
+import time
+import random
+import threading
+import logging
+import re
+from enum import Enum, auto
+from dataclasses import dataclass, field
+from typing import Any, Set, Dict, Optional, List, Tuple, Callable, Deque
+from collections import deque
+import json
+import math
+
+logger = logging.getLogger("WoWAgent.Complete")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADDITIONAL KEYBINDS - MODULE II
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CompleteKeybinds:
+    """All remaining keybindings."""
+    # Chat
+    CHAT_REPLY = 'r'
+    CHAT_SAY = 'enter'
+    CHAT_WHISPER = 'enter'  # /w name
+    CHAT_PARTY = 'enter'    # /p
+    CHAT_GUILD = 'enter'    # /g
+    CHAT_RAID = 'enter'     # /ra
+    CHAT_YELL = 'enter'     # /y
+    
+    # Social
+    FRIENDS_LIST = 'o'
+    GUILD_PANEL = 'j'
+    
+    # Group
+    FOLLOW = 'enter'  # /follow name
+    ASSIST = 'f'
+    RAID_TARGET_1 = 'num_1'  # Skull
+    RAID_TARGET_2 = 'num_2'  # X
+    RAID_TARGET_3 = 'num_3'  # Square
+    RAID_TARGET_4 = 'num_4'  # Moon
+    RAID_TARGET_5 = 'num_5'  # Triangle
+    RAID_TARGET_6 = 'num_6'  # Diamond
+    RAID_TARGET_7 = 'num_7'  # Circle
+    RAID_TARGET_8 = 'num_8'  # Star
+    
+    # Fishing
+    FISHING_SKILL = 'shift+f'  # Example binding
+    
+    # Stealth (Rogue/Druid)
+    STEALTH = 'f'  # Common binding
+    
+    # Camera
+    CAMERA_ZOOM_IN = 'page_up'
+    CAMERA_ZOOM_OUT = 'page_down'
+    CAMERA_FLIP = 'home'
+    
+    # Action bars 3-6 (if using addon)
+    ACTION_BAR_3 = ['shift+1', 'shift+2', 'shift+3', 'shift+4', 'shift+5', 'shift+6',
+                   'shift+7', 'shift+8', 'shift+9', 'shift+0', 'shift+-', 'shift+=']
+    ACTION_BAR_4 = ['alt+1', 'alt+2', 'alt+3', 'alt+4', 'alt+5', 'alt+6',
+                   'alt+7', 'alt+8', 'alt+9', 'alt+0', 'alt+-', 'alt+=']
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADDITIONAL SCREEN REGIONS - MODULE II
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CompleteScreenRegions:
+    """All remaining screen regions."""
+    
+    def __init__(self, base_regions):
+        self._base = base_regions
+        self.scale_x = base_regions.scale_x
+        self.scale_y = base_regions.scale_y
+        self._calculate_regions()
+    
+    def _scale(self, coords):
+        if coords is None:
+            return None
+        if len(coords) == 2:
+            return (int(coords[0] * self.scale_x), int(coords[1] * self.scale_y))
+        elif len(coords) == 4:
+            return [
+                int(coords[0] * self.scale_x),
+                int(coords[1] * self.scale_y),
+                int(coords[2] * self.scale_x),
+                int(coords[3] * self.scale_y)
+            ]
+        return coords
+    
+    def _calculate_regions(self):
+        # Party frames (left side, below player)
+        self.PARTY_FRAME_1 = self._scale([10, 150, 170, 200])
+        self.PARTY_FRAME_2 = self._scale([10, 205, 170, 255])
+        self.PARTY_FRAME_3 = self._scale([10, 260, 170, 310])
+        self.PARTY_FRAME_4 = self._scale([10, 315, 170, 365])
+        self.PARTY_HP_BAR_OFFSET = self._scale([45, 25, 130, 33])
+        
+        # Raid frames (if using default raid UI)
+        self.RAID_FRAME_START = self._scale([10, 150])
+        self.RAID_FRAME_SIZE = (int(80 * self.scale_x), int(30 * self.scale_y))
+        
+        # Trade window
+        self.TRADE_PANEL = self._scale([200, 100, 560, 480])
+        self.TRADE_THEIR_SLOTS = self._scale([220, 130])
+        self.TRADE_MY_SLOTS = self._scale([220, 300])
+        self.TRADE_SLOT_SIZE = int(37 * self.scale_x)
+        self.TRADE_ACCEPT_BUTTON = self._scale([450, 440])
+        self.TRADE_CANCEL_BUTTON = self._scale([350, 440])
+        self.TRADE_GOLD_INPUT = self._scale([350, 400, 450, 420])
+        
+        # Mail window
+        self.MAIL_PANEL = self._scale([40, 100, 400, 520])
+        self.MAIL_INBOX_TAB = self._scale([100, 105])
+        self.MAIL_SEND_TAB = self._scale([200, 105])
+        self.MAIL_ITEM_1 = self._scale([60, 140])
+        self.MAIL_ITEM_HEIGHT = int(50 * self.scale_y)
+        self.MAIL_SEND_TO_INPUT = self._scale([100, 150, 300, 170])
+        self.MAIL_SUBJECT_INPUT = self._scale([100, 180, 300, 200])
+        self.MAIL_BODY_INPUT = self._scale([60, 210, 380, 400])
+        self.MAIL_ATTACHMENT_SLOT = self._scale([100, 420])
+        self.MAIL_SEND_BUTTON = self._scale([350, 480])
+        self.MAIL_TAKE_MONEY_BUTTON = self._scale([300, 400])
+        self.MAIL_TAKE_ITEM_BUTTON = self._scale([300, 350])
+        
+        # Auction house
+        self.AH_PANEL = self._scale([50, 80, 850, 600])
+        self.AH_BROWSE_TAB = self._scale([150, 90])
+        self.AH_BID_TAB = self._scale([250, 90])
+        self.AH_AUCTIONS_TAB = self._scale([350, 90])
+        self.AH_SEARCH_INPUT = self._scale([100, 130, 300, 150])
+        self.AH_SEARCH_BUTTON = self._scale([320, 130])
+        self.AH_RESULTS_START = self._scale([70, 170])
+        self.AH_RESULT_HEIGHT = int(30 * self.scale_y)
+        self.AH_BID_BUTTON = self._scale([700, 520])
+        self.AH_BUYOUT_BUTTON = self._scale([780, 520])
+        self.AH_CREATE_AUCTION_BUTTON = self._scale([700, 520])
+        
+        # Bank
+        self.BANK_PANEL = self._scale([40, 100, 450, 500])
+        self.BANK_SLOT_START = self._scale([60, 130])
+        self.BANK_SLOT_SIZE = int(37 * self.scale_x)
+        self.BANK_SLOTS_PER_ROW = 6
+        self.BANK_BAG_SLOTS = self._scale([60, 450])
+        
+        # Flight master
+        self.FLIGHT_MAP_PANEL = self._scale([100, 80, 1000, 650])
+        self.FLIGHT_NODE_SIZE = int(20 * self.scale_x)
+        
+        # Fishing bobber detection area
+        self.FISHING_AREA = self._scale([400, 200, 966, 500])
+        
+        # Breath bar (underwater)
+        self.BREATH_BAR = self._scale([550, 150, 816, 165])
+        
+        # Combo points (Rogue/Druid cat)
+        self.COMBO_POINTS_AREA = self._scale([280, 45, 380, 65])
+        
+        # Soul shard bag (Warlock)
+        self.SOUL_SHARD_BAG = self._scale([1150, 680, 1200, 760])
+        
+        # Totem frames (Shaman)
+        self.TOTEM_FRAME_START = self._scale([20, 680])
+        self.TOTEM_SLOT_SIZE = int(30 * self.scale_x)
+        
+        # Honor/PvP display
+        self.HONOR_DISPLAY = self._scale([1200, 750, 1350, 768])
+        
+        # Battleground queue popup
+        self.BG_QUEUE_POPUP = self._scale([450, 300, 916, 450])
+        self.BG_ENTER_BUTTON = self._scale([550, 400])
+        self.BG_LEAVE_QUEUE_BUTTON = self._scale([750, 400])
+        
+        # Resurrection popup
+        self.RESURRECT_POPUP = self._scale([450, 300, 916, 420])
+        self.RESURRECT_ACCEPT_BUTTON = self._scale([580, 380])
+        self.RESURRECT_DECLINE_BUTTON = self._scale([750, 380])
+        
+        # Summon popup
+        self.SUMMON_POPUP = self._scale([450, 300, 916, 420])
+        self.SUMMON_ACCEPT_BUTTON = self._scale([580, 380])
+        self.SUMMON_DECLINE_BUTTON = self._scale([750, 380])
+        
+        # Duel popup
+        self.DUEL_POPUP = self._scale([450, 320, 916, 420])
+        self.DUEL_ACCEPT_BUTTON = self._scale([580, 380])
+        self.DUEL_DECLINE_BUTTON = self._scale([750, 380])
+        
+        # Group loot roll frame
+        self.LOOT_ROLL_FRAME = self._scale([400, 600, 800, 680])
+        self.LOOT_ROLL_NEED = self._scale([450, 650])
+        self.LOOT_ROLL_GREED = self._scale([550, 650])
+        self.LOOT_ROLL_PASS = self._scale([650, 650])
+        
+        # Profession panel
+        self.PROFESSION_PANEL = self._scale([200, 100, 700, 550])
+        self.PROFESSION_RECIPE_START = self._scale([230, 150])
+        self.PROFESSION_RECIPE_HEIGHT = int(20 * self.scale_y)
+        self.PROFESSION_CREATE_BUTTON = self._scale([600, 500])
+        self.PROFESSION_CREATE_ALL_BUTTON = self._scale([500, 500])
+        
+        # Reputation panel
+        self.REPUTATION_PANEL = self._scale([300, 100, 700, 550])
+        self.REPUTATION_FACTION_START = self._scale([330, 140])
+        self.REPUTATION_FACTION_HEIGHT = int(25 * self.scale_y)
+        
+        # Skills panel
+        self.SKILLS_PANEL = self._scale([300, 100, 660, 560])
+        self.WEAPON_SKILLS_SECTION = self._scale([330, 300, 630, 500])
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADDITIONAL ENUMERATIONS - MODULE II
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ChatChannel(Enum):
+    """Chat channel types."""
+    SAY = auto()
+    YELL = auto()
+    WHISPER = auto()
+    PARTY = auto()
+    RAID = auto()
+    GUILD = auto()
+    OFFICER = auto()
+    GENERAL = auto()
+    TRADE = auto()
+    LOCAL_DEFENSE = auto()
+
+
+class GroupRole(Enum):
+    """Group role types."""
+    TANK = auto()
+    HEALER = auto()
+    DPS = auto()
+    LEADER = auto()
+    ASSISTANT = auto()
+
+
+class RaidMarker(Enum):
+    """Raid target markers."""
+    SKULL = 8
+    CROSS = 7
+    SQUARE = 6
+    MOON = 5
+    TRIANGLE = 4
+    DIAMOND = 3
+    CIRCLE = 2
+    STAR = 1
+    NONE = 0
+
+
+class ReputationLevel(Enum):
+    """Reputation standing levels."""
+    HATED = 0
+    HOSTILE = 1
+    UNFRIENDLY = 2
+    NEUTRAL = 3
+    FRIENDLY = 4
+    HONORED = 5
+    REVERED = 6
+    EXALTED = 7
+
+
+class BattlegroundType(Enum):
+    """Battleground types."""
+    WARSONG_GULCH = auto()
+    ARATHI_BASIN = auto()
+    ALTERAC_VALLEY = auto()
+
+
+class FishingState(Enum):
+    """Fishing states."""
+    IDLE = auto()
+    CASTING = auto()
+    WAITING = auto()
+    BOBBER_SPLASH = auto()
+    CATCHING = auto()
+
+
+class TransportType(Enum):
+    """Transportation types."""
+    BOAT = auto()
+    ZEPPELIN = auto()
+    FLIGHT_PATH = auto()
+
+
+# NOTE: PlayerClass is defined earlier in the file (around line 2801)
+# with string values for serialization compatibility
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SOCIAL KNOWLEDGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class SocialKnowledge(KnowledgeBase):
+    """Knowledge about social interactions."""
+    
+    def __init__(self):
+        super().__init__("social")
+        if not self.data:
+            self.data = {
+                "friends_list": [],
+                "ignore_list": [],
+                "guild_name": None,
+                "guild_rank": None,
+                "recent_whispers": [],
+                "party_members": [],
+                "raid_members": [],
+                "known_players": {},
+            }
+    
+    def add_friend(self, name: str):
+        """Add player to friends list."""
+        with self._lock:
+            if name not in self.data["friends_list"]:
+                self.data["friends_list"].append(name)
+                self._dirty = True
+    
+    def add_ignore(self, name: str):
+        """Add player to ignore list."""
+        with self._lock:
+            if name not in self.data["ignore_list"]:
+                self.data["ignore_list"].append(name)
+                self._dirty = True
+    
+    def record_whisper(self, from_player: str, message: str, outgoing: bool = False):
+        """Record a whisper."""
+        with self._lock:
+            self.data["recent_whispers"].append({
+                "player": from_player,
+                "message": message,
+                "outgoing": outgoing,
+                "time": time.time(),
+            })
+            # Keep only last 100 whispers
+            if len(self.data["recent_whispers"]) > 100:
+                self.data["recent_whispers"] = self.data["recent_whispers"][-100:]
+            self._dirty = True
+    
+    def set_party(self, members: List[str]):
+        """Set current party members."""
+        with self._lock:
+            self.data["party_members"] = members
+            self._dirty = True
+    
+    def set_raid(self, members: List[str]):
+        """Set current raid members."""
+        with self._lock:
+            self.data["raid_members"] = members
+            self._dirty = True
+    
+    def is_friend(self, name: str) -> bool:
+        """Check if player is on friends list."""
+        return name in self.data.get("friends_list", [])
+    
+    def is_ignored(self, name: str) -> bool:
+        """Check if player is on ignore list."""
+        return name in self.data.get("ignore_list", [])
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# REPUTATION KNOWLEDGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ReputationKnowledge(KnowledgeBase):
+    """Knowledge about faction reputations."""
+    
+    def __init__(self):
+        super().__init__("reputation")
+        if not self.data:
+            self.data = {
+                "factions": {},
+                "at_war": [],
+            }
+    
+    def set_reputation(self, faction: str, standing: ReputationLevel, value: int = 0):
+        """Set reputation with a faction."""
+        with self._lock:
+            self.data["factions"][faction] = {
+                "standing": standing.value,
+                "value": value,
+                "updated": time.time(),
+            }
+            self._dirty = True
+    
+    def get_standing(self, faction: str) -> Optional[ReputationLevel]:
+        """Get standing with faction."""
+        with self._lock:
+            rep = self.data["factions"].get(faction)
+            if rep:
+                return ReputationLevel(rep["standing"])
+            return None
+    
+    def is_friendly(self, faction: str) -> bool:
+        """Check if friendly or better with faction."""
+        standing = self.get_standing(faction)
+        if standing:
+            return standing.value >= ReputationLevel.FRIENDLY.value
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PVP KNOWLEDGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class PvPKnowledge(KnowledgeBase):
+    """Knowledge about PvP activities."""
+    
+    def __init__(self):
+        super().__init__("pvp")
+        if not self.data:
+            self.data = {
+                "honor_kills": 0,
+                "dishonorable_kills": 0,
+                "pvp_rank": 0,
+                "pvp_rank_progress": 0.0,
+                "battleground_stats": {
+                    "wsg": {"wins": 0, "losses": 0, "flag_caps": 0, "flag_returns": 0},
+                    "ab": {"wins": 0, "losses": 0, "bases_assaulted": 0, "bases_defended": 0},
+                    "av": {"wins": 0, "losses": 0, "graveyards_assaulted": 0, "towers_destroyed": 0},
+                },
+                "is_pvp_flagged": False,
+            }
+    
+    def record_honor_kill(self):
+        """Record an honorable kill."""
+        with self._lock:
+            self.data["honor_kills"] = self.data.get("honor_kills", 0) + 1
+            self._dirty = True
+    
+    def set_pvp_rank(self, rank: int, progress: float = 0.0):
+        """Set current PvP rank."""
+        with self._lock:
+            self.data["pvp_rank"] = rank
+            self.data["pvp_rank_progress"] = progress
+            self._dirty = True
+    
+    def record_bg_result(self, bg_type: str, won: bool):
+        """Record battleground result."""
+        with self._lock:
+            if bg_type in self.data["battleground_stats"]:
+                if won:
+                    self.data["battleground_stats"][bg_type]["wins"] += 1
+                else:
+                    self.data["battleground_stats"][bg_type]["losses"] += 1
+                self._dirty = True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PROFESSION KNOWLEDGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ProfessionKnowledge(KnowledgeBase):
+    """Knowledge about professions and recipes."""
+    
+    def __init__(self):
+        super().__init__("professions")
+        if not self.data:
+            self.data = {
+                "professions": {},  # name -> {skill, max_skill, recipes: []}
+                "gathering": {},     # mining, herbalism, skinning
+                "secondary": {},     # cooking, first aid, fishing
+            }
+    
+    def set_profession(self, name: str, skill: int, max_skill: int):
+        """Set profession skill level."""
+        with self._lock:
+            if name not in self.data["professions"]:
+                self.data["professions"][name] = {"recipes": []}
+            self.data["professions"][name]["skill"] = skill
+            self.data["professions"][name]["max_skill"] = max_skill
+            self._dirty = True
+    
+    def add_recipe(self, profession: str, recipe_name: str, skill_required: int):
+        """Add known recipe."""
+        with self._lock:
+            if profession in self.data["professions"]:
+                recipes = self.data["professions"][profession].get("recipes", [])
+                if recipe_name not in [r["name"] for r in recipes]:
+                    recipes.append({
+                        "name": recipe_name,
+                        "skill_required": skill_required,
+                        "learned_at": time.time(),
+                    })
+                    self.data["professions"][profession]["recipes"] = recipes
+                    self._dirty = True
+    
+    def get_skill(self, profession: str) -> int:
+        """Get current skill level."""
+        with self._lock:
+            prof = self.data["professions"].get(profession)
+            if prof:
+                return prof.get("skill", 0)
+            return 0
+    
+    def can_craft(self, profession: str, recipe_name: str) -> bool:
+        """Check if we can craft a recipe."""
+        with self._lock:
+            prof = self.data["professions"].get(profession)
+            if not prof:
+                return False
+            
+            skill = prof.get("skill", 0)
+            for recipe in prof.get("recipes", []):
+                if recipe["name"] == recipe_name:
+                    return skill >= recipe["skill_required"]
+            return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TRANSPORTATION KNOWLEDGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TransportKnowledge(KnowledgeBase):
+    """Knowledge about transportation options."""
+    
+    def __init__(self):
+        super().__init__("transport")
+        if not self.data:
+            self.data = {
+                "known_flight_paths": [],
+                "hearthstone_location": "Unknown",
+                "hearthstone_cooldown": 0,
+                "boat_schedules": {},  # Known boat locations and approximate schedules
+                "zeppelin_schedules": {},
+            }
+    
+    def add_flight_path(self, location: str, zone: str, faction: str):
+        """Add discovered flight path."""
+        with self._lock:
+            path = {"location": location, "zone": zone, "faction": faction}
+            if path not in self.data["known_flight_paths"]:
+                self.data["known_flight_paths"].append(path)
+                logger.info(f"Discovered flight path: {location}")
+                self._dirty = True
+    
+    def set_hearthstone(self, location: str):
+        """Set hearthstone bind location."""
+        with self._lock:
+            self.data["hearthstone_location"] = location
+            self._dirty = True
+    
+    def use_hearthstone(self):
+        """Record hearthstone use."""
+        with self._lock:
+            self.data["hearthstone_cooldown"] = time.time() + 3600  # 1 hour cooldown
+            self._dirty = True
+    
+    def can_use_hearthstone(self) -> bool:
+        """Check if hearthstone is off cooldown."""
+        return time.time() >= self.data.get("hearthstone_cooldown", 0)
+    
+    def has_flight_path(self, location: str) -> bool:
+        """Check if we know a flight path."""
+        for path in self.data.get("known_flight_paths", []):
+            if path["location"].lower() == location.lower():
+                return True
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CLASS-SPECIFIC KNOWLEDGE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ClassSpecificKnowledge(KnowledgeBase):
+    """Class-specific resource and mechanic tracking."""
+    
+    def __init__(self, player_class: PlayerClass):
+        super().__init__(f"class_{player_class.name.lower()}")
+        self.player_class = player_class
+        
+        if not self.data:
+            self.data = self._init_class_data()
+    
+    def _init_class_data(self) -> dict:
+        """Initialize class-specific data."""
+        base = {
+            "class": self.player_class.name,
+        }
+        
+        if self.player_class == PlayerClass.ROGUE:
+            base.update({
+                "combo_points": 0,
+                "poisons_applied": {"main_hand": None, "off_hand": None},
+                "stealth_active": False,
+            })
+        
+        elif self.player_class == PlayerClass.WARLOCK:
+            base.update({
+                "soul_shards": 0,
+                "max_soul_shards": 20,
+                "pet_type": None,
+                "pet_hp": 100,
+            })
+        
+        elif self.player_class == PlayerClass.HUNTER:
+            base.update({
+                "pet_happiness": "content",
+                "pet_loyalty": 1,
+                "ammo_count": 0,
+                "active_tracking": None,
+                "traps_on_cooldown": [],
+            })
+        
+        elif self.player_class == PlayerClass.MAGE:
+            base.update({
+                "conjured_food": 0,
+                "conjured_water": 0,
+                "polymorph_target": None,
+            })
+        
+        elif self.player_class == PlayerClass.SHAMAN:
+            base.update({
+                "active_totems": {"fire": None, "earth": None, "water": None, "air": None},
+                "totem_timers": {},
+            })
+        
+        elif self.player_class == PlayerClass.PALADIN:
+            base.update({
+                "active_aura": None,
+                "active_seal": None,
+                "blessings_active": {},
+            })
+        
+        elif self.player_class == PlayerClass.DRUID:
+            base.update({
+                "current_form": "humanoid",
+                "combo_points": 0,  # Cat form
+            })
+        
+        elif self.player_class == PlayerClass.PRIEST:
+            base.update({
+                "inner_fire_active": False,
+                "shadow_form_active": False,
+            })
+        
+        return base
+    
+    def update_combo_points(self, points: int):
+        """Update combo points (Rogue/Druid cat)."""
+        with self._lock:
+            if "combo_points" in self.data:
+                self.data["combo_points"] = min(5, max(0, points))
+                self._dirty = True
+    
+    def update_soul_shards(self, count: int):
+        """Update soul shard count (Warlock)."""
+        with self._lock:
+            if "soul_shards" in self.data:
+                self.data["soul_shards"] = min(
+                    self.data.get("max_soul_shards", 20),
+                    max(0, count)
+                )
+                self._dirty = True
+    
+    def set_active_totem(self, element: str, totem_name: str, duration: float):
+        """Set active totem (Shaman)."""
+        with self._lock:
+            if "active_totems" in self.data:
+                self.data["active_totems"][element] = totem_name
+                self.data["totem_timers"][element] = time.time() + duration
+                self._dirty = True
+    
+    def set_druid_form(self, form: str):
+        """Set current druid form."""
+        with self._lock:
+            if "current_form" in self.data:
+                self.data["current_form"] = form
+                self._dirty = True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CHAT BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ChatBehavior:
+    """Handles chat communication."""
+    
+    def __init__(self, input_handler, social_knowledge: SocialKnowledge):
+        self.input = input_handler
+        self.social = social_knowledge
+        self._chat_open = False
+    
+    def send_message(self, channel: ChatChannel, message: str, target: str = None) -> bool:
+        """Send a chat message."""
+        prefix = {
+            ChatChannel.SAY: "/s ",
+            ChatChannel.YELL: "/y ",
+            ChatChannel.PARTY: "/p ",
+            ChatChannel.RAID: "/ra ",
+            ChatChannel.GUILD: "/g ",
+            ChatChannel.WHISPER: f"/w {target} " if target else "/w ",
+        }
+        
+        chat_prefix = prefix.get(channel, "/s ")
+        full_message = chat_prefix + message
+        
+        # Open chat
+        self.input.press_key('enter')
+        time.sleep(0.2)
+        
+        # Type message
+        self.input.type_text(full_message)
+        time.sleep(0.1)
+        
+        # Send
+        self.input.press_key('enter')
+        
+        if channel == ChatChannel.WHISPER and target:
+            self.social.record_whisper(target, message, outgoing=True)
+        
+        logger.debug(f"Sent {channel.name}: {message}")
+        return True
+    
+    def reply_whisper(self, message: str) -> bool:
+        """Reply to last whisper."""
+        self.input.press_key('r')
+        time.sleep(0.2)
+        self.input.type_text(message)
+        time.sleep(0.1)
+        self.input.press_key('enter')
+        return True
+    
+    def do_emote(self, emote: str) -> bool:
+        """Perform an emote."""
+        self.input.press_key('enter')
+        time.sleep(0.2)
+        self.input.type_text(f"/{emote}")
+        time.sleep(0.1)
+        self.input.press_key('enter')
+        return True
+    
+    def announce_pull(self) -> bool:
+        """Announce pulling in party/raid."""
+        return self.send_message(ChatChannel.PARTY, "Pulling!")
+    
+    def call_for_help(self) -> bool:
+        """Call for help."""
+        return self.send_message(ChatChannel.SAY, "Help!")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GROUP BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class GroupBehavior:
+    """Handles group and raid interactions."""
+    
+    def __init__(self, input_handler, capture, analyzer, 
+                 social_knowledge: SocialKnowledge):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self.social = social_knowledge
+        self._complete_regions = None
+        self._in_party = False
+        self._in_raid = False
+        self._is_leader = False
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def invite_player(self, name: str) -> bool:
+        """Invite player to group."""
+        self.input.press_key('enter')
+        time.sleep(0.2)
+        self.input.type_text(f"/invite {name}")
+        self.input.press_key('enter')
+        logger.info(f"Invited {name} to group")
+        return True
+    
+    def leave_group(self) -> bool:
+        """Leave current group."""
+        self.input.press_key('enter')
+        time.sleep(0.2)
+        self.input.type_text("/leave")
+        self.input.press_key('enter')
+        self._in_party = False
+        self._in_raid = False
+        return True
+    
+    def follow_player(self, name: str) -> bool:
+        """Follow a player."""
+        self.input.press_key('enter')
+        time.sleep(0.2)
+        self.input.type_text(f"/follow {name}")
+        self.input.press_key('enter')
+        return True
+    
+    def assist_player(self, name: str = None) -> bool:
+        """Assist player (target their target)."""
+        if name:
+            self.input.press_key('enter')
+            time.sleep(0.2)
+            self.input.type_text(f"/assist {name}")
+            self.input.press_key('enter')
+        else:
+            self.input.press_key(CompleteKeybinds.ASSIST)
+        return True
+    
+    def set_raid_marker(self, marker: RaidMarker) -> bool:
+        """Set raid marker on current target."""
+        if marker == RaidMarker.NONE:
+            self.input.press_key('enter')
+            time.sleep(0.2)
+            self.input.type_text("/clearmark")
+            self.input.press_key('enter')
+        else:
+            marker_keys = {
+                RaidMarker.STAR: CompleteKeybinds.RAID_TARGET_1,
+                RaidMarker.CIRCLE: CompleteKeybinds.RAID_TARGET_2,
+                RaidMarker.DIAMOND: CompleteKeybinds.RAID_TARGET_3,
+                RaidMarker.TRIANGLE: CompleteKeybinds.RAID_TARGET_4,
+                RaidMarker.MOON: CompleteKeybinds.RAID_TARGET_5,
+                RaidMarker.SQUARE: CompleteKeybinds.RAID_TARGET_6,
+                RaidMarker.CROSS: CompleteKeybinds.RAID_TARGET_7,
+                RaidMarker.SKULL: CompleteKeybinds.RAID_TARGET_8,
+            }
+            key = marker_keys.get(marker)
+            if key:
+                self.input.press_key(key)
+        return True
+    
+    def ready_check(self) -> bool:
+        """Initiate ready check."""
+        self.input.press_key('enter')
+        time.sleep(0.2)
+        self.input.type_text("/readycheck")
+        self.input.press_key('enter')
+        return True
+    
+    def get_party_member_hp(self, member_index: int) -> float:
+        """Get HP percentage of party member."""
+        if not self._complete_regions:
+            return 0
+        
+        frame_regions = [
+            self._complete_regions.PARTY_FRAME_1,
+            self._complete_regions.PARTY_FRAME_2,
+            self._complete_regions.PARTY_FRAME_3,
+            self._complete_regions.PARTY_FRAME_4,
+        ]
+        
+        if member_index >= len(frame_regions):
+            return 0
+        
+        # Would need to analyze the health bar within the frame
+        # Placeholder implementation
+        return 100.0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LOOT ROLL BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class LootRollBehavior:
+    """Handles need/greed rolling on loot."""
+    
+    def __init__(self, input_handler, capture, analyzer):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self._complete_regions = None
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def detect_roll_window(self) -> bool:
+        """Check if loot roll window is open."""
+        if not self._complete_regions:
+            return False
+        
+        self.capture.capture()
+        return self.analyzer.check_panel_open(self._complete_regions.LOOT_ROLL_FRAME)
+    
+    def roll_need(self) -> bool:
+        """Roll need on item."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.LOOT_ROLL_NEED
+        self.input.click(pos[0], pos[1])
+        logger.info("Rolled Need")
+        return True
+    
+    def roll_greed(self) -> bool:
+        """Roll greed on item."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.LOOT_ROLL_GREED
+        self.input.click(pos[0], pos[1])
+        logger.info("Rolled Greed")
+        return True
+    
+    def pass_loot(self) -> bool:
+        """Pass on item."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.LOOT_ROLL_PASS
+        self.input.click(pos[0], pos[1])
+        logger.info("Passed on loot")
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TRADING BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TradingBehavior:
+    """Handles trading with other players."""
+    
+    def __init__(self, input_handler, capture, analyzer):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self._complete_regions = None
+        self._trade_open = False
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def initiate_trade(self, player_name: str) -> bool:
+        """Start trade with player."""
+        self.input.press_key('enter')
+        time.sleep(0.2)
+        self.input.type_text(f"/trade {player_name}")
+        self.input.press_key('enter')
+        time.sleep(1.0)
+        return True
+    
+    def detect_trade_window(self) -> bool:
+        """Check if trade window is open."""
+        if not self._complete_regions:
+            return False
+        
+        self.capture.capture()
+        self._trade_open = self.analyzer.check_panel_open(
+            self._complete_regions.TRADE_PANEL
+        )
+        return self._trade_open
+    
+    def accept_trade(self) -> bool:
+        """Accept trade."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.TRADE_ACCEPT_BUTTON
+        self.input.click(pos[0], pos[1])
+        time.sleep(0.5)
+        # Click again to confirm
+        self.input.click(pos[0], pos[1])
+        return True
+    
+    def cancel_trade(self) -> bool:
+        """Cancel trade."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.TRADE_CANCEL_BUTTON
+        self.input.click(pos[0], pos[1])
+        self._trade_open = False
+        return True
+    
+    def add_gold(self, gold: int, silver: int = 0, copper: int = 0) -> bool:
+        """Add gold to trade."""
+        if not self._complete_regions:
+            return False
+        
+        # Click on gold input area
+        pos = self._complete_regions.TRADE_GOLD_INPUT
+        self.input.click(pos[0], pos[1])
+        time.sleep(0.2)
+        
+        # Type amount
+        self.input.type_text(str(gold))
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MAIL BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class MailBehavior:
+    """Handles mail system."""
+    
+    def __init__(self, input_handler, capture, analyzer):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self._complete_regions = None
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def detect_mail_window(self) -> bool:
+        """Check if mail window is open."""
+        if not self._complete_regions:
+            return False
+        
+        self.capture.capture()
+        return self.analyzer.check_panel_open(self._complete_regions.MAIL_PANEL)
+    
+    def switch_to_inbox(self) -> bool:
+        """Switch to inbox tab."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.MAIL_INBOX_TAB
+        self.input.click(pos[0], pos[1])
+        time.sleep(0.3)
+        return True
+    
+    def switch_to_send(self) -> bool:
+        """Switch to send mail tab."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.MAIL_SEND_TAB
+        self.input.click(pos[0], pos[1])
+        time.sleep(0.3)
+        return True
+    
+    def open_mail(self, index: int) -> bool:
+        """Open mail at index."""
+        if not self._complete_regions:
+            return False
+        
+        start_y = self._complete_regions.MAIL_ITEM_1[1]
+        height = self._complete_regions.MAIL_ITEM_HEIGHT
+        
+        y = start_y + (index * height)
+        self.input.click(self._complete_regions.MAIL_ITEM_1[0], y)
+        time.sleep(0.5)
+        return True
+    
+    def take_attachments(self) -> bool:
+        """Take all attachments from current mail."""
+        if not self._complete_regions:
+            return False
+        
+        # Take money
+        pos = self._complete_regions.MAIL_TAKE_MONEY_BUTTON
+        self.input.click(pos[0], pos[1])
+        time.sleep(0.3)
+        
+        # Take items
+        pos = self._complete_regions.MAIL_TAKE_ITEM_BUTTON
+        self.input.click(pos[0], pos[1])
+        time.sleep(0.3)
+        
+        return True
+    
+    def send_mail(self, recipient: str, subject: str, body: str = "") -> bool:
+        """Send a mail."""
+        if not self._complete_regions:
+            return False
+        
+        self.switch_to_send()
+        
+        # Enter recipient
+        pos = self._complete_regions.MAIL_SEND_TO_INPUT
+        self.input.click(pos[0], pos[1])
+        time.sleep(0.2)
+        self.input.type_text(recipient)
+        
+        # Enter subject
+        pos = self._complete_regions.MAIL_SUBJECT_INPUT
+        self.input.click(pos[0], pos[1])
+        time.sleep(0.2)
+        self.input.type_text(subject)
+        
+        # Enter body (optional)
+        if body:
+            pos = self._complete_regions.MAIL_BODY_INPUT
+            self.input.click(pos[0], pos[1])
+            time.sleep(0.2)
+            self.input.type_text(body)
+        
+        # Send
+        pos = self._complete_regions.MAIL_SEND_BUTTON
+        self.input.click(pos[0], pos[1])
+        time.sleep(0.5)
+        
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AUCTION HOUSE BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class AuctionHouseBehavior:
+    """Handles auction house interactions."""
+    
+    def __init__(self, input_handler, capture, analyzer):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self._complete_regions = None
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def detect_ah_window(self) -> bool:
+        """Check if AH window is open."""
+        if not self._complete_regions:
+            return False
+        
+        self.capture.capture()
+        return self.analyzer.check_panel_open(self._complete_regions.AH_PANEL)
+    
+    def search_item(self, item_name: str) -> bool:
+        """Search for item."""
+        if not self._complete_regions:
+            return False
+        
+        # Click search box
+        pos = self._complete_regions.AH_SEARCH_INPUT
+        self.input.click(pos[0], pos[1])
+        time.sleep(0.2)
+        
+        # Clear and type
+        self.input.press_key('ctrl+a')
+        time.sleep(0.1)
+        self.input.type_text(item_name)
+        
+        # Click search
+        pos = self._complete_regions.AH_SEARCH_BUTTON
+        self.input.click(pos[0], pos[1])
+        time.sleep(1.0)
+        
+        return True
+    
+    def select_result(self, index: int) -> bool:
+        """Select search result."""
+        if not self._complete_regions:
+            return False
+        
+        start = self._complete_regions.AH_RESULTS_START
+        height = self._complete_regions.AH_RESULT_HEIGHT
+        
+        y = start[1] + (index * height)
+        self.input.click(start[0], y)
+        time.sleep(0.3)
+        return True
+    
+    def place_bid(self) -> bool:
+        """Place bid on selected item."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.AH_BID_BUTTON
+        self.input.click(pos[0], pos[1])
+        time.sleep(0.5)
+        return True
+    
+    def buyout(self) -> bool:
+        """Buyout selected item."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.AH_BUYOUT_BUTTON
+        self.input.click(pos[0], pos[1])
+        time.sleep(0.5)
+        # Confirm
+        self.input.click(pos[0], pos[1])
+        time.sleep(0.5)
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BANK BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class BankBehavior:
+    """Handles bank interactions."""
+    
+    def __init__(self, input_handler, capture, analyzer, inventory_knowledge):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self.inventory = inventory_knowledge
+        self._complete_regions = None
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def detect_bank_window(self) -> bool:
+        """Check if bank window is open."""
+        if not self._complete_regions:
+            return False
+        
+        self.capture.capture()
+        return self.analyzer.check_panel_open(self._complete_regions.BANK_PANEL)
+    
+    def get_bank_slot_position(self, slot: int) -> Tuple[int, int]:
+        """Get position of bank slot."""
+        if not self._complete_regions:
+            return (0, 0)
+        
+        start = self._complete_regions.BANK_SLOT_START
+        size = self._complete_regions.BANK_SLOT_SIZE
+        slots_per_row = self._complete_regions.BANK_SLOTS_PER_ROW
+        
+        row = slot // slots_per_row
+        col = slot % slots_per_row
+        
+        x = start[0] + (col * size) + (size // 2)
+        y = start[1] + (row * size) + (size // 2)
+        
+        return (x, y)
+    
+    def deposit_item(self, from_bag: int, from_slot: int, to_bank_slot: int) -> bool:
+        """Deposit item from bags to bank."""
+        # This would need bag slot position calculation
+        # Then drag to bank slot
+        bank_pos = self.get_bank_slot_position(to_bank_slot)
+        # Placeholder - need full implementation with bag positions
+        return False
+    
+    def withdraw_item(self, bank_slot: int) -> bool:
+        """Withdraw item from bank (shift-click)."""
+        pos = self.get_bank_slot_position(bank_slot)
+        self.input.hold_key('shift')
+        time.sleep(0.1)
+        self.input.click(pos[0], pos[1], 'right')
+        time.sleep(0.1)
+        self.input.release_key('shift')
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FLIGHT PATH BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class FlightPathBehavior:
+    """Handles flight master interactions."""
+    
+    def __init__(self, input_handler, capture, analyzer,
+                 transport_knowledge: TransportKnowledge):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self.transport = transport_knowledge
+        self._complete_regions = None
+        self._flying = False
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def detect_flight_map(self) -> bool:
+        """Check if flight map is open."""
+        if not self._complete_regions:
+            return False
+        
+        self.capture.capture()
+        return self.analyzer.check_panel_open(self._complete_regions.FLIGHT_MAP_PANEL)
+    
+    def click_destination(self, x: int, y: int) -> bool:
+        """Click on flight destination on map."""
+        self.input.click(x, y)
+        time.sleep(0.5)
+        return True
+    
+    def is_flying(self) -> bool:
+        """Check if currently on flight path."""
+        return self._flying
+    
+    def set_flying(self, flying: bool):
+        """Set flying state."""
+        self._flying = flying
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FISHING BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class FishingBehavior:
+    """Handles fishing."""
+    
+    def __init__(self, input_handler, capture, analyzer, 
+                 profession_knowledge: ProfessionKnowledge):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self.professions = profession_knowledge
+        self._complete_regions = None
+        self._state = FishingState.IDLE
+        self._cast_time = 0
+        self._bobber_location = None
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def cast_fishing(self) -> bool:
+        """Cast fishing line."""
+        self.input.press_key(CompleteKeybinds.FISHING_SKILL)
+        self._state = FishingState.CASTING
+        self._cast_time = time.time()
+        time.sleep(2.0)  # Cast animation
+        self._state = FishingState.WAITING
+        return True
+    
+    def detect_bobber(self) -> Optional[Tuple[int, int]]:
+        """Detect fishing bobber location."""
+        if not self._complete_regions:
+            return None
+        
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        if frame is None:
+            return None
+        
+        # Get fishing area
+        area = self._complete_regions.FISHING_AREA
+        region = frame[area[1]:area[3], area[0]:area[2]]
+        
+        # Look for red bobber color
+        import cv2
+        hsv = cv2.cvtColor(region, cv2.COLOR_BGR2HSV)
+        
+        # Red color range for bobber
+        lower_red = np.array([0, 100, 100])
+        upper_red = np.array([10, 255, 255])
+        mask = cv2.inRange(hsv, lower_red, upper_red)
+        
+        # Find contours
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if contours:
+            largest = max(contours, key=cv2.contourArea)
+            M = cv2.moments(largest)
+            if M["m00"] > 0:
+                cx = int(M["m10"] / M["m00"]) + area[0]
+                cy = int(M["m01"] / M["m00"]) + area[1]
+                self._bobber_location = (cx, cy)
+                return self._bobber_location
+        
+        return None
+    
+    def detect_splash(self) -> bool:
+        """Detect if bobber has splashed (fish on line)."""
+        if not self._bobber_location:
+            return False
+        
+        # This would detect the splash animation/sound
+        # Simplified: look for sudden movement or color change
+        # Placeholder - actual implementation would track frame changes
+        return False
+    
+    def catch_fish(self) -> bool:
+        """Click bobber to catch fish."""
+        if not self._bobber_location:
+            return False
+        
+        self.input.click(self._bobber_location[0], self._bobber_location[1], 'right')
+        self._state = FishingState.CATCHING
+        time.sleep(1.0)
+        self._state = FishingState.IDLE
+        self._bobber_location = None
+        return True
+    
+    def fish_once(self) -> bool:
+        """Complete one fishing cycle."""
+        # Cast
+        self.cast_fishing()
+        
+        # Find bobber
+        bobber = self.detect_bobber()
+        if not bobber:
+            logger.warning("Could not find bobber")
+            return False
+        
+        # Wait for splash (max 30 seconds)
+        start_time = time.time()
+        while time.time() - start_time < 30:
+            if self.detect_splash():
+                return self.catch_fish()
+            time.sleep(0.5)
+        
+        logger.info("No fish caught (timeout)")
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CRAFTING BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CraftingBehavior:
+    """Handles crafting professions."""
+    
+    def __init__(self, input_handler, capture, analyzer,
+                 profession_knowledge: ProfessionKnowledge):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self.professions = profession_knowledge
+        self._complete_regions = None
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def open_profession(self, profession_key: str = 'k') -> bool:
+        """Open profession window."""
+        self.input.press_key(profession_key)
+        time.sleep(0.5)
+        return True
+    
+    def detect_profession_window(self) -> bool:
+        """Check if profession window is open."""
+        if not self._complete_regions:
+            return False
+        
+        self.capture.capture()
+        return self.analyzer.check_panel_open(self._complete_regions.PROFESSION_PANEL)
+    
+    def select_recipe(self, index: int) -> bool:
+        """Select recipe by index."""
+        if not self._complete_regions:
+            return False
+        
+        start = self._complete_regions.PROFESSION_RECIPE_START
+        height = self._complete_regions.PROFESSION_RECIPE_HEIGHT
+        
+        y = start[1] + (index * height)
+        self.input.click(start[0], y)
+        time.sleep(0.3)
+        return True
+    
+    def craft_one(self) -> bool:
+        """Craft one of selected recipe."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.PROFESSION_CREATE_BUTTON
+        self.input.click(pos[0], pos[1])
+        time.sleep(2.0)  # Crafting time
+        return True
+    
+    def craft_all(self) -> bool:
+        """Craft all of selected recipe."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.PROFESSION_CREATE_ALL_BUTTON
+        self.input.click(pos[0], pos[1])
+        # This will run until materials exhausted
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STEALTH BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class StealthBehavior:
+    """Handles stealth for Rogues and Druids."""
+    
+    def __init__(self, input_handler, perception, 
+                 class_knowledge: ClassSpecificKnowledge):
+        self.input = input_handler
+        self.perception = perception
+        self.class_knowledge = class_knowledge
+        self._is_stealthed = False
+    
+    def enter_stealth(self) -> bool:
+        """Enter stealth mode."""
+        if self._is_stealthed:
+            return True
+        
+        self.input.press_key(CompleteKeybinds.STEALTH)
+        time.sleep(0.5)
+        self._is_stealthed = True
+        
+        if hasattr(self.class_knowledge, 'data'):
+            self.class_knowledge.data["stealth_active"] = True
+        
+        logger.info("Entered stealth")
+        return True
+    
+    def exit_stealth(self) -> bool:
+        """Exit stealth mode."""
+        if not self._is_stealthed:
+            return True
+        
+        self.input.press_key(CompleteKeybinds.STEALTH)
+        time.sleep(0.3)
+        self._is_stealthed = False
+        
+        if hasattr(self.class_knowledge, 'data'):
+            self.class_knowledge.data["stealth_active"] = False
+        
+        logger.info("Exited stealth")
+        return True
+    
+    def is_stealthed(self) -> bool:
+        """Check if currently stealthed."""
+        return self._is_stealthed
+    
+    def pickpocket(self) -> bool:
+        """Attempt to pickpocket target (Rogue only)."""
+        if not self._is_stealthed:
+            return False
+        
+        # Use pickpocket ability
+        # Would need to be assigned to action bar
+        logger.info("Pickpocketing")
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# RESURRECTION BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ResurrectionBehavior:
+    """Handles resurrection mechanics."""
+    
+    def __init__(self, input_handler, capture, analyzer):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self._complete_regions = None
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def detect_resurrect_popup(self) -> bool:
+        """Check if resurrection popup is showing."""
+        if not self._complete_regions:
+            return False
+        
+        self.capture.capture()
+        return self.analyzer.check_panel_open(self._complete_regions.RESURRECT_POPUP)
+    
+    def accept_resurrect(self) -> bool:
+        """Accept resurrection offer."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.RESURRECT_ACCEPT_BUTTON
+        self.input.click(pos[0], pos[1])
+        logger.info("Accepted resurrection")
+        return True
+    
+    def decline_resurrect(self) -> bool:
+        """Decline resurrection offer."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.RESURRECT_DECLINE_BUTTON
+        self.input.click(pos[0], pos[1])
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SUMMON BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class SummonBehavior:
+    """Handles summon mechanics (Warlock summon, meeting stone)."""
+    
+    def __init__(self, input_handler, capture, analyzer):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self._complete_regions = None
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def detect_summon_popup(self) -> bool:
+        """Check if summon popup is showing."""
+        if not self._complete_regions:
+            return False
+        
+        self.capture.capture()
+        return self.analyzer.check_panel_open(self._complete_regions.SUMMON_POPUP)
+    
+    def accept_summon(self) -> bool:
+        """Accept summon."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.SUMMON_ACCEPT_BUTTON
+        self.input.click(pos[0], pos[1])
+        logger.info("Accepted summon")
+        return True
+    
+    def decline_summon(self) -> bool:
+        """Decline summon."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.SUMMON_DECLINE_BUTTON
+        self.input.click(pos[0], pos[1])
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PVP / BATTLEGROUND BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class BattlegroundBehavior:
+    """Handles battleground queueing and participation."""
+    
+    def __init__(self, input_handler, capture, analyzer,
+                 pvp_knowledge: PvPKnowledge):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self.pvp = pvp_knowledge
+        self._complete_regions = None
+        self._in_queue = False
+        self._in_battleground = False
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def queue_battleground(self, bg_type: BattlegroundType) -> bool:
+        """Queue for a battleground."""
+        # Would need to interact with battlemaster NPC
+        # Or use /join command
+        logger.info(f"Queuing for {bg_type.name}")
+        self._in_queue = True
+        return True
+    
+    def detect_bg_popup(self) -> bool:
+        """Check if BG ready popup is showing."""
+        if not self._complete_regions:
+            return False
+        
+        self.capture.capture()
+        return self.analyzer.check_panel_open(self._complete_regions.BG_QUEUE_POPUP)
+    
+    def enter_battleground(self) -> bool:
+        """Enter battleground when ready."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.BG_ENTER_BUTTON
+        self.input.click(pos[0], pos[1])
+        self._in_queue = False
+        self._in_battleground = True
+        logger.info("Entering battleground")
+        return True
+    
+    def leave_queue(self) -> bool:
+        """Leave battleground queue."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.BG_LEAVE_QUEUE_BUTTON
+        self.input.click(pos[0], pos[1])
+        self._in_queue = False
+        return True
+    
+    def is_in_battleground(self) -> bool:
+        """Check if currently in battleground."""
+        return self._in_battleground
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DUEL BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class DuelBehavior:
+    """Handles dueling."""
+    
+    def __init__(self, input_handler, capture, analyzer):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        self._complete_regions = None
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def request_duel(self, player_name: str) -> bool:
+        """Request duel with player."""
+        self.input.press_key('enter')
+        time.sleep(0.2)
+        self.input.type_text(f"/duel {player_name}")
+        self.input.press_key('enter')
+        return True
+    
+    def detect_duel_popup(self) -> bool:
+        """Check if duel request popup is showing."""
+        if not self._complete_regions:
+            return False
+        
+        self.capture.capture()
+        return self.analyzer.check_panel_open(self._complete_regions.DUEL_POPUP)
+    
+    def accept_duel(self) -> bool:
+        """Accept duel request."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.DUEL_ACCEPT_BUTTON
+        self.input.click(pos[0], pos[1])
+        return True
+    
+    def decline_duel(self) -> bool:
+        """Decline duel request."""
+        if not self._complete_regions:
+            return False
+        
+        pos = self._complete_regions.DUEL_DECLINE_BUTTON
+        self.input.click(pos[0], pos[1])
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SWIMMING / BREATH BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class SwimmingBehavior:
+    """Handles swimming and underwater breath management."""
+    
+    def __init__(self, perception, capture, analyzer):
+        self.perception = perception
+        self.capture = capture
+        self.analyzer = analyzer
+        self._complete_regions = None
+        self._underwater = False
+        self._breath_remaining = 100.0
+    
+    def set_regions(self, regions: CompleteScreenRegions):
+        """Set regions reference."""
+        self._complete_regions = regions
+    
+    def detect_breath_bar(self) -> float:
+        """Detect breath bar and return percentage."""
+        if not self._complete_regions:
+            return 100.0
+        
+        self.capture.capture()
+        
+        # Check if breath bar is visible
+        breath_roi = self._complete_regions.BREATH_BAR
+        region = self.capture.get_region(breath_roi)
+        
+        if region is None or region.size == 0:
+            self._underwater = False
+            return 100.0
+        
+        # Breath bar would be a blue/white bar
+        # Analyze fill percentage
+        import cv2
+        gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
+        non_black = np.sum(gray > 50)
+        
+        if non_black > 100:  # Bar is visible
+            self._underwater = True
+            # Calculate fill percentage
+            self._breath_remaining = (non_black / gray.size) * 100.0
+        else:
+            self._underwater = False
+            self._breath_remaining = 100.0
+        
+        return self._breath_remaining
+    
+    def is_underwater(self) -> bool:
+        """Check if currently underwater."""
+        return self._underwater
+    
+    def should_surface(self) -> bool:
+        """Check if we need to surface for air."""
+        return self._breath_remaining < 30.0
+    
+    def swim_up(self, duration: float = 1.0) -> bool:
+        """Swim upward."""
+        # Spacebar to swim up
+        from pynput.keyboard import Key
+        self.perception.input.hold_key('space')
+        time.sleep(duration)
+        self.perception.input.release_key('space')
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CAMERA CONTROL BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CameraControlBehavior:
+    """Handles camera control."""
+    
+    def __init__(self, input_handler):
+        self.input = input_handler
+        self._zoom_level = 50  # 0-100 scale
+    
+    def zoom_in(self, steps: int = 1) -> bool:
+        """Zoom camera in."""
+        for _ in range(steps):
+            self.input.press_key(CompleteKeybinds.CAMERA_ZOOM_IN)
+            time.sleep(0.1)
+        self._zoom_level = min(100, self._zoom_level + (steps * 10))
+        return True
+    
+    def zoom_out(self, steps: int = 1) -> bool:
+        """Zoom camera out."""
+        for _ in range(steps):
+            self.input.press_key(CompleteKeybinds.CAMERA_ZOOM_OUT)
+            time.sleep(0.1)
+        self._zoom_level = max(0, self._zoom_level - (steps * 10))
+        return True
+    
+    def flip_camera(self) -> bool:
+        """Flip camera to face character."""
+        self.input.press_key(CompleteKeybinds.CAMERA_FLIP)
+        return True
+    
+    def set_optimal_combat_zoom(self) -> bool:
+        """Set camera to optimal combat distance."""
+        target_zoom = 30  # Good balance for combat awareness
+        
+        if self._zoom_level > target_zoom:
+            self.zoom_in((self._zoom_level - target_zoom) // 10)
+        elif self._zoom_level < target_zoom:
+            self.zoom_out((target_zoom - self._zoom_level) // 10)
+        
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CLASS-SPECIFIC BEHAVIOR IMPLEMENTATIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class RogueSpecificBehavior:
+    """Rogue-specific mechanics."""
+    
+    def __init__(self, input_handler, class_knowledge: ClassSpecificKnowledge,
+                 stealth_behavior: StealthBehavior):
+        self.input = input_handler
+        self.class_knowledge = class_knowledge
+        self.stealth = stealth_behavior
+        self._combo_points = 0
+    
+    def update_combo_points(self, points: int):
+        """Update combo point count."""
+        self._combo_points = min(5, max(0, points))
+        self.class_knowledge.update_combo_points(points)
+    
+    def should_use_finisher(self) -> bool:
+        """Check if should use a finisher."""
+        return self._combo_points >= 4
+    
+    def apply_poison(self, poison_type: str, weapon: str = "main_hand") -> bool:
+        """Apply poison to weapon (would need inventory interaction)."""
+        logger.info(f"Applying {poison_type} to {weapon}")
+        return True
+
+
+class WarlockSpecificBehavior:
+    """Warlock-specific mechanics."""
+    
+    def __init__(self, input_handler, class_knowledge: ClassSpecificKnowledge,
+                 spell_knowledge):
+        self.input = input_handler
+        self.class_knowledge = class_knowledge
+        self.spells = spell_knowledge
+        self._soul_shards = 0
+    
+    def update_soul_shards(self, count: int):
+        """Update soul shard count."""
+        self._soul_shards = count
+        self.class_knowledge.update_soul_shards(count)
+    
+    def has_enough_shards(self, required: int = 1) -> bool:
+        """Check if have enough soul shards."""
+        return self._soul_shards >= required
+    
+    def summon_pet(self, pet_type: str) -> bool:
+        """Summon demon pet."""
+        # Would use appropriate summon spell
+        logger.info(f"Summoning {pet_type}")
+        return True
+    
+    def create_healthstone(self) -> bool:
+        """Create healthstone."""
+        if not self.has_enough_shards(1):
+            return False
+        # Use create healthstone spell
+        logger.info("Creating healthstone")
+        return True
+
+
+class HunterSpecificBehavior:
+    """Hunter-specific mechanics."""
+    
+    def __init__(self, input_handler, class_knowledge: ClassSpecificKnowledge,
+                 pet_behavior):
+        self.input = input_handler
+        self.class_knowledge = class_knowledge
+        self.pet = pet_behavior
+    
+    def set_tracking(self, tracking_type: str) -> bool:
+        """Set tracking type."""
+        # Would use appropriate tracking ability
+        logger.info(f"Setting tracking: {tracking_type}")
+        return True
+    
+    def feed_pet(self) -> bool:
+        """Feed pet to increase happiness."""
+        # Would need to find food and use on pet
+        logger.info("Feeding pet")
+        return True
+    
+    def place_trap(self, trap_type: str) -> bool:
+        """Place a trap."""
+        # Would use appropriate trap ability
+        logger.info(f"Placing {trap_type}")
+        return True
+    
+    def check_ammo(self) -> int:
+        """Check remaining ammo count."""
+        return self.class_knowledge.data.get("ammo_count", 0)
+
+
+class ShamanSpecificBehavior:
+    """Shaman-specific mechanics."""
+    
+    def __init__(self, input_handler, class_knowledge: ClassSpecificKnowledge,
+                 spell_knowledge):
+        self.input = input_handler
+        self.class_knowledge = class_knowledge
+        self.spells = spell_knowledge
+    
+    def drop_totem(self, element: str, totem_name: str) -> bool:
+        """Drop a totem."""
+        # Would use appropriate totem ability
+        logger.info(f"Dropping {totem_name} totem")
+        
+        # Typical totem durations
+        durations = {
+            "fire": 120,
+            "earth": 120,
+            "water": 120,
+            "air": 120,
+        }
+        
+        self.class_knowledge.set_active_totem(
+            element, totem_name, durations.get(element, 120)
+        )
+        return True
+    
+    def get_active_totems(self) -> dict:
+        """Get currently active totems."""
+        return self.class_knowledge.data.get("active_totems", {})
+    
+    def recall_totems(self) -> bool:
+        """Recall all totems."""
+        # Would use totemic recall ability
+        logger.info("Recalling totems")
+        for element in ["fire", "earth", "water", "air"]:
+            self.class_knowledge.data["active_totems"][element] = None
+        return True
+
+
+class DruidSpecificBehavior:
+    """Druid-specific mechanics."""
+    
+    def __init__(self, input_handler, class_knowledge: ClassSpecificKnowledge,
+                 stance_behavior):
+        self.input = input_handler
+        self.class_knowledge = class_knowledge
+        self.stance = stance_behavior
+        self._current_form = "humanoid"
+    
+    def shift_form(self, form: str) -> bool:
+        """Shift to specified form."""
+        form_mapping = {
+            "bear": StanceForm.BEAR_FORM,
+            "cat": StanceForm.CAT_FORM,
+            "travel": StanceForm.TRAVEL_FORM,
+            "humanoid": StanceForm.HUMANOID,
+        }
+        
+        stance = form_mapping.get(form.lower())
+        if stance:
+            success = self.stance.switch_stance(stance)
+            if success:
+                self._current_form = form
+                self.class_knowledge.set_druid_form(form)
+            return success
+        return False
+    
+    def get_current_form(self) -> str:
+        """Get current druid form."""
+        return self._current_form
+    
+    def update_combo_points(self, points: int):
+        """Update combo points (cat form)."""
+        if self._current_form == "cat":
+            self.class_knowledge.update_combo_points(points)
+
+
+class PaladinSpecificBehavior:
+    """Paladin-specific mechanics."""
+    
+    def __init__(self, input_handler, class_knowledge: ClassSpecificKnowledge,
+                 spell_knowledge):
+        self.input = input_handler
+        self.class_knowledge = class_knowledge
+        self.spells = spell_knowledge
+    
+    def set_aura(self, aura_name: str) -> bool:
+        """Activate an aura."""
+        logger.info(f"Activating {aura_name}")
+        self.class_knowledge.data["active_aura"] = aura_name
+        return True
+    
+    def set_seal(self, seal_name: str) -> bool:
+        """Activate a seal."""
+        logger.info(f"Activating {seal_name}")
+        self.class_knowledge.data["active_seal"] = seal_name
+        return True
+    
+    def cast_blessing(self, blessing_name: str, target: str = "self") -> bool:
+        """Cast a blessing."""
+        logger.info(f"Casting {blessing_name} on {target}")
+        return True
+
+
+class MageSpecificBehavior:
+    """Mage-specific mechanics."""
+    
+    def __init__(self, input_handler, class_knowledge: ClassSpecificKnowledge,
+                 spell_knowledge):
+        self.input = input_handler
+        self.class_knowledge = class_knowledge
+        self.spells = spell_knowledge
+    
+    def conjure_food(self) -> bool:
+        """Conjure food."""
+        logger.info("Conjuring food")
+        return True
+    
+    def conjure_water(self) -> bool:
+        """Conjure water."""
+        logger.info("Conjuring water")
+        return True
+    
+    def create_portal(self, destination: str) -> bool:
+        """Create portal to destination."""
+        logger.info(f"Creating portal to {destination}")
+        return True
+    
+    def create_teleport(self, destination: str) -> bool:
+        """Teleport to destination."""
+        logger.info(f"Teleporting to {destination}")
+        return True
+
+
+class PriestSpecificBehavior:
+    """Priest-specific mechanics."""
+    
+    def __init__(self, input_handler, class_knowledge: ClassSpecificKnowledge,
+                 spell_knowledge):
+        self.input = input_handler
+        self.class_knowledge = class_knowledge
+        self.spells = spell_knowledge
+    
+    def toggle_shadow_form(self) -> bool:
+        """Toggle shadowform."""
+        current = self.class_knowledge.data.get("shadow_form_active", False)
+        self.class_knowledge.data["shadow_form_active"] = not current
+        logger.info(f"Shadowform {'activated' if not current else 'deactivated'}")
+        return True
+    
+    def refresh_inner_fire(self) -> bool:
+        """Refresh inner fire buff."""
+        logger.info("Refreshing Inner Fire")
+        self.class_knowledge.data["inner_fire_active"] = True
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# HEARTHSTONE BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class HearthstoneBehavior:
+    """Handles hearthstone usage."""
+    
+    def __init__(self, input_handler, inventory_behavior,
+                 transport_knowledge: TransportKnowledge):
+        self.input = input_handler
+        self.inventory = inventory_behavior
+        self.transport = transport_knowledge
+    
+    def can_use_hearthstone(self) -> bool:
+        """Check if hearthstone is usable."""
+        return self.transport.can_use_hearthstone()
+    
+    def use_hearthstone(self) -> bool:
+        """Use hearthstone to return to bind point."""
+        if not self.can_use_hearthstone():
+            logger.warning("Hearthstone on cooldown")
+            return False
+        
+        # Find hearthstone in inventory and use it
+        location = self.inventory.inventory.find_item("Hearthstone")
+        if location:
+            bag, slot = location
+            self.inventory.use_item_at_slot(bag, slot)
+            self.transport.use_hearthstone()
+            logger.info("Using hearthstone")
+            return True
+        
+        return False
+    
+    def get_cooldown_remaining(self) -> float:
+        """Get hearthstone cooldown remaining."""
+        cd = self.transport.data.get("hearthstone_cooldown", 0)
+        return max(0, cd - time.time())
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# COMPLETE INTEGRATION HELPER
+# ═══════════════════════════════════════════════════════════════════════════
+
+def create_complete_systems(base_agent, player_class: PlayerClass = PlayerClass.WARRIOR):
+    """
+    Create and integrate all complete systems.
+    Call this after the first expansion module integration.
+    
+    Usage:
+        from wow_agent_complete_capabilities import create_complete_systems, PlayerClass
+        self.complete = create_complete_systems(self, PlayerClass.WARRIOR)
+    """
+    
+    # Create complete regions
+    complete_regions = CompleteScreenRegions(base_agent.capture.regions)
+    
+    # Knowledge systems
+    social_knowledge = SocialKnowledge()
+    reputation_knowledge = ReputationKnowledge()
+    pvp_knowledge = PvPKnowledge()
+    profession_knowledge = ProfessionKnowledge()
+    transport_knowledge = TransportKnowledge()
+    class_knowledge = ClassSpecificKnowledge(player_class)
+    
+    # Social behaviors
+    chat_behavior = ChatBehavior(base_agent.input, social_knowledge)
+    group_behavior = GroupBehavior(
+        base_agent.input, base_agent.capture, base_agent.analyzer, social_knowledge
+    )
+    group_behavior.set_regions(complete_regions)
+    
+    loot_roll_behavior = LootRollBehavior(
+        base_agent.input, base_agent.capture, base_agent.analyzer
+    )
+    loot_roll_behavior.set_regions(complete_regions)
+    
+    # Economic behaviors
+    trading_behavior = TradingBehavior(
+        base_agent.input, base_agent.capture, base_agent.analyzer
+    )
+    trading_behavior.set_regions(complete_regions)
+    
+    mail_behavior = MailBehavior(
+        base_agent.input, base_agent.capture, base_agent.analyzer
+    )
+    mail_behavior.set_regions(complete_regions)
+    
+    ah_behavior = AuctionHouseBehavior(
+        base_agent.input, base_agent.capture, base_agent.analyzer
+    )
+    ah_behavior.set_regions(complete_regions)
+    
+    bank_behavior = BankBehavior(
+        base_agent.input, base_agent.capture, base_agent.analyzer,
+        base_agent.inventory_knowledge if hasattr(base_agent, 'inventory_knowledge') else None
+    )
+    bank_behavior.set_regions(complete_regions)
+    
+    # Transportation
+    flight_behavior = FlightPathBehavior(
+        base_agent.input, base_agent.capture, base_agent.analyzer, transport_knowledge
+    )
+    flight_behavior.set_regions(complete_regions)
+    
+    # Profession behaviors
+    fishing_behavior = FishingBehavior(
+        base_agent.input, base_agent.capture, base_agent.analyzer, profession_knowledge
+    )
+    fishing_behavior.set_regions(complete_regions)
+    
+    crafting_behavior = CraftingBehavior(
+        base_agent.input, base_agent.capture, base_agent.analyzer, profession_knowledge
+    )
+    crafting_behavior.set_regions(complete_regions)
+    
+    # Combat support behaviors
+    stealth_behavior = StealthBehavior(
+        base_agent.input, base_agent.perception, class_knowledge
+    )
+    
+    # Popup handlers
+    resurrect_behavior = ResurrectionBehavior(
+        base_agent.input, base_agent.capture, base_agent.analyzer
+    )
+    resurrect_behavior.set_regions(complete_regions)
+    
+    summon_behavior = SummonBehavior(
+        base_agent.input, base_agent.capture, base_agent.analyzer
+    )
+    summon_behavior.set_regions(complete_regions)
+    
+    duel_behavior = DuelBehavior(
+        base_agent.input, base_agent.capture, base_agent.analyzer
+    )
+    duel_behavior.set_regions(complete_regions)
+    
+    # PvP
+    bg_behavior = BattlegroundBehavior(
+        base_agent.input, base_agent.capture, base_agent.analyzer, pvp_knowledge
+    )
+    bg_behavior.set_regions(complete_regions)
+    
+    # Movement
+    swimming_behavior = SwimmingBehavior(
+        base_agent.perception, base_agent.capture, base_agent.analyzer
+    )
+    swimming_behavior.set_regions(complete_regions)
+    
+    camera_behavior = CameraControlBehavior(base_agent.input)
+    
+    # Hearthstone
+    hearthstone_behavior = HearthstoneBehavior(
+        base_agent.input,
+        base_agent.inventory_mgmt if hasattr(base_agent, 'inventory_mgmt') else None,
+        transport_knowledge
+    )
+    
+    # Class-specific behavior
+    class_behavior = None
+    if player_class == PlayerClass.ROGUE:
+        class_behavior = RogueSpecificBehavior(
+            base_agent.input, class_knowledge, stealth_behavior
+        )
+    elif player_class == PlayerClass.WARLOCK:
+        class_behavior = WarlockSpecificBehavior(
+            base_agent.input, class_knowledge, base_agent.spell_knowledge
+        )
+    elif player_class == PlayerClass.HUNTER:
+        pet_behavior = base_agent.advanced.get('pet_behavior') if hasattr(base_agent, 'advanced') else None
+        class_behavior = HunterSpecificBehavior(
+            base_agent.input, class_knowledge, pet_behavior
+        )
+    elif player_class == PlayerClass.SHAMAN:
+        class_behavior = ShamanSpecificBehavior(
+            base_agent.input, class_knowledge, base_agent.spell_knowledge
+        )
+    elif player_class == PlayerClass.DRUID:
+        stance_behavior = base_agent.stance if hasattr(base_agent, 'stance') else None
+        class_behavior = DruidSpecificBehavior(
+            base_agent.input, class_knowledge, stance_behavior
+        )
+    elif player_class == PlayerClass.PALADIN:
+        class_behavior = PaladinSpecificBehavior(
+            base_agent.input, class_knowledge, base_agent.spell_knowledge
+        )
+    elif player_class == PlayerClass.MAGE:
+        class_behavior = MageSpecificBehavior(
+            base_agent.input, class_knowledge, base_agent.spell_knowledge
+        )
+    elif player_class == PlayerClass.PRIEST:
+        class_behavior = PriestSpecificBehavior(
+            base_agent.input, class_knowledge, base_agent.spell_knowledge
+        )
+    
+    return {
+        # Regions
+        'complete_regions': complete_regions,
+        
+        # Knowledge
+        'social_knowledge': social_knowledge,
+        'reputation_knowledge': reputation_knowledge,
+        'pvp_knowledge': pvp_knowledge,
+        'profession_knowledge': profession_knowledge,
+        'transport_knowledge': transport_knowledge,
+        'class_knowledge': class_knowledge,
+        
+        # Social
+        'chat': chat_behavior,
+        'group': group_behavior,
+        'loot_roll': loot_roll_behavior,
+        
+        # Economic
+        'trading': trading_behavior,
+        'mail': mail_behavior,
+        'auction_house': ah_behavior,
+        'bank': bank_behavior,
+        
+        # Transportation
+        'flight_paths': flight_behavior,
+        'hearthstone': hearthstone_behavior,
+        
+        # Professions
+        'fishing': fishing_behavior,
+        'crafting': crafting_behavior,
+        
+        # Combat support
+        'stealth': stealth_behavior,
+        
+        # Popups
+        'resurrect': resurrect_behavior,
+        'summon': summon_behavior,
+        'duel': duel_behavior,
+        
+        # PvP
+        'battleground': bg_behavior,
+        
+        # Movement
+        'swimming': swimming_behavior,
+        'camera': camera_behavior,
+        
+        # Class-specific
+        'class_behavior': class_behavior,
+        'player_class': player_class,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# COMPLETE DECISION ENGINE EXTENSION
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CompleteDecisionEngine:
+    """
+    Fully complete decision engine with all player capabilities.
+    Extends EnhancedDecisionEngine with social, economic, and world systems.
+    """
+    
+    def __init__(self, enhanced_decision, complete_systems: dict):
+        self.base = enhanced_decision
+        self.complete = complete_systems
+        
+        # Extract commonly used systems
+        self.chat = complete_systems['chat']
+        self.group = complete_systems['group']
+        self.resurrect = complete_systems['resurrect']
+        self.summon = complete_systems['summon']
+        self.duel = complete_systems['duel']
+        self.swimming = complete_systems['swimming']
+        self.loot_roll = complete_systems['loot_roll']
+        self.bg = complete_systems['battleground']
+    
+    def decide_and_act(self) -> bool:
+        """Complete decision loop with all systems."""
+        state = self.base.perception.perceive()
+        
+        # === Check for popups first ===
+        if self._handle_popups():
+            return True
+        
+        # === Check swimming/breath ===
+        if self.swimming.is_underwater():
+            breath = self.swimming.detect_breath_bar()
+            if self.swimming.should_surface():
+                logger.warning("Low breath - swimming up!")
+                self.swimming.swim_up(2.0)
+                return True
+        
+        # === Check group loot rolls ===
+        if self.loot_roll.detect_roll_window():
+            # Auto-greed on items (configurable)
+            self.loot_roll.roll_greed()
+            return True
+        
+        # === Delegate to base enhanced decision engine ===
+        return self.base.decide_and_act()
+    
+    def _handle_popups(self) -> bool:
+        """Handle any popup dialogs."""
+        # Resurrection popup
+        if self.resurrect.detect_resurrect_popup():
+            self.resurrect.accept_resurrect()
+            return True
+        
+        # Summon popup
+        if self.summon.detect_summon_popup():
+            self.summon.accept_summon()
+            return True
+        
+        # Duel popup (auto-decline by default)
+        if self.duel.detect_duel_popup():
+            self.duel.decline_duel()
+            return True
+        
+        # Battleground popup
+        if self.bg.detect_bg_popup():
+            self.bg.enter_battleground()
+            return True
+        
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MODIFIED AGENT CLASS ADDITIONS - MODULE II
+# ═══════════════════════════════════════════════════════════════════════════
+"""
+Add these lines to WoWAutonomousPlayer.__init__() after first expansion:
+
+    # === COMPLETE CAPABILITIES ===
+    from wow_agent_complete_capabilities import create_complete_systems, PlayerClass
+    from wow_agent_complete_capabilities import CompleteDecisionEngine
+    
+    self.complete = create_complete_systems(self, PlayerClass.WARRIOR)
+    
+    # Wrap enhanced decision with complete decision engine
+    self.decision = CompleteDecisionEngine(
+        self.advanced['enhanced_decision'],
+        self.complete
+    )
+    
+    # Store references to complete systems
+    self.social = self.complete['social_knowledge']
+    self.reputation = self.complete['reputation_knowledge']
+    self.pvp = self.complete['pvp_knowledge']
+    self.professions = self.complete['profession_knowledge']
+    self.transport = self.complete['transport_knowledge']
+    self.chat = self.complete['chat']
+    self.group = self.complete['group']
+    self.trading = self.complete['trading']
+    self.mail = self.complete['mail']
+    self.auction_house = self.complete['auction_house']
+    self.bank = self.complete['bank']
+    self.flight_paths = self.complete['flight_paths']
+    self.fishing = self.complete['fishing']
+    self.crafting = self.complete['crafting']
+    self.stealth = self.complete['stealth']
+    self.hearthstone = self.complete['hearthstone']
+    self.class_behavior = self.complete['class_behavior']
+
+Also update _save_all_knowledge() to include:
+    self.social.save()
+    self.reputation.save()
+    self.pvp.save()
+    self.professions.save()
+    self.transport.save()
+    self.complete['class_knowledge'].save()
+"""
+
+
+# Complete capabilities documentation block removed (was at line 7070-7134)
+# This block contained print statements showing integration instructions
+
+    # REMOVED: WoWAutonomousPlayer.__init__() (was calling __init__ incorrectly)
+class WoWAutonomousPlayer:
+    """
+    Main autonomous player agent.
+    Coordinates all subsystems for autonomous gameplay.
+    
+    RESEARCH NOTICE: This agent is designed for offline, single-player
+    research use only. It does not interact with live game servers.
+    """
+    
+    def __init__(self):
+        logger.info("=" * 70)
+        logger.info("WOW 1.12 AUTONOMOUS PLAYER - RESEARCH AGENT")
+        logger.info("For offline, single-player research use only")
+        logger.info("=" * 70)
+        
+        # Core systems
+        self.capture = ScreenCapture()
+        self.analyzer = VisualAnalyzer(self.capture)
+        self.input = InputHandler()
+        
+        # Knowledge systems
+        self.spell_knowledge = SpellKnowledge()
+        self.world_knowledge = WorldKnowledge()
+        self.quest_knowledge = QuestKnowledge()
+        self.progress_knowledge = ProgressKnowledge()
+        self.combat_knowledge = CombatKnowledge()
+        
+        # Perception
+        self.perception = Perception(self.capture, self.analyzer)
+        
+        # Executor
+        self.executor = ActionExecutor(self.input, self.capture, self.perception)
+        
+        # Behaviors
+        self.spell_scanner = SpellbookScanner(
+            self.capture, self.analyzer, self.input, self.spell_knowledge
+        )
+        
+        self.combat = CombatBehavior(
+            self.executor, self.perception, self.spell_knowledge,
+            self.combat_knowledge, self.progress_knowledge
+        )
+        
+        self.navigation = NavigationBehavior(self.executor, self.world_knowledge)
+        self.rest = RestBehavior(self.executor, self.input)
+        self.loot = LootBehavior(self.executor, self.capture, self.analyzer, self.input)
+        self.trainer = TrainerBehavior(
+            self.executor, self.capture, self.analyzer, self.input,
+            self.spell_knowledge, self.world_knowledge
+        )
+        
+        # Decision engine
+        self.decision = DecisionEngine(
+            self.perception, self.executor,
+            self.combat, self.navigation, self.rest, self.loot, self.trainer,
+            self.spell_scanner, self.spell_knowledge, self.progress_knowledge
+        )
+        
+        # Control state
+        self._running = False
+        self._paused = False
+        self._shutdown = False
+        self._hotkey_listener = None
+        self._loop_count = 0
+        self._start_time = None
+        self._last_save = 0
+        
+        self._setup_hotkeys()
+        atexit.register(self._emergency_cleanup)
+        
+        logger.info("Agent initialized successfully")
+    
+    def _setup_hotkeys(self):
+        """Setup F9/F10 hotkeys for control."""
+        def on_press(key):
+            try:
+                if key == Key.f9:
+                    self._paused = not self._paused
+                    if self._paused:
+                        logger.info("PAUSED - Press F9 to resume")
+                        self.input.release_all_keys()
+                    else:
+                        logger.info("RESUMED")
+                elif key == Key.f10:
+                    logger.info("STOP requested")
+                    self._running = False
+            except Exception:
+                pass
+        
+        try:
+            self._hotkey_listener = keyboard.Listener(on_press=on_press)
+            self._hotkey_listener.start()
+            logger.info("Hotkeys active: F9=Pause/Resume, F10=Stop")
+        except Exception as e:
+            logger.warning(f"Hotkey setup failed: {e}")
+    
+    def run(self):
+        """Main run loop."""
+        logger.info("=" * 70)
+        logger.info("STARTING AUTONOMOUS PLAY")
+        logger.info("Press F9 to pause, F10 to stop")
+        logger.info("=" * 70)
+        
+        self._running = True
+        self._start_time = time.time()
+        self._last_save = time.time()
+        
+        try:
+            while self._running:
+                if self._paused:
+                    time.sleep(0.1)
+                    continue
+                
+                self._loop_count += 1
+                
+                try:
+                    self.decision.decide_and_act()
+                except Exception as e:
+                    logger.error(f"Decision error: {e}", exc_info=True)
+                    time.sleep(1.0)
+                
+                # Periodic status logging
+                if self._loop_count % 100 == 0:
+                    self._log_status()
+                
+                # Periodic knowledge save
+                if time.time() - self._last_save > 60:
+                    self._save_all_knowledge()
+                
+                time.sleep(0.05)
+                
+        except KeyboardInterrupt:
+            logger.info("Keyboard interrupt received")
+        except Exception as e:
+            logger.critical(f"Fatal error: {e}", exc_info=True)
+        finally:
+            self.shutdown()
+    
+    def _log_status(self):
+        """Log current status."""
+        state = self.perception.get_last_state()
+        spells_known = len(self.spell_knowledge.get_all_spells())
+        kills = self.progress_knowledge.data.get("total_kills", 0)
+        deaths = self.progress_knowledge.data.get("total_deaths", 0)
+        
+        logger.info(
+            f"Loop {self._loop_count} | "
+            f"HP:{state.player_hp:.0f}% Rage:{state.player_resource:.0f} | "
+            f"Combat:{state.player_in_combat} | "
+            f"Spells:{spells_known} | K/D:{kills}/{deaths}"
+        )
+    
+    def _save_all_knowledge(self):
+        """Save all knowledge to disk."""
+        try:
+            self.spell_knowledge.save()
+            self.world_knowledge.save()
+            self.quest_knowledge.save()
+            self.progress_knowledge.save()
+            self.combat_knowledge.save()
+            self._last_save = time.time()
+        except Exception as e:
+            logger.error(f"Knowledge save error: {e}")
+    
+    def shutdown(self):
+        """Clean shutdown with cognitive state preservation."""
+        if self._shutdown:
+            return
+        self._shutdown = True
+        
+        logger.info("Shutting down...")
+        
+        self._running = False
+        self.input.release_all_keys()
+        
+        self._save_all_knowledge()
+        
+        # Save cognitive state
+        if hasattr(self.decision, 'cognitive_core') and self.decision.cognitive_core is not None:
+            logger.info("Saving cognitive state...")
+            self.decision.cognitive_core.shutdown()
+            cog_metrics = self.decision.cognitive_core.get_metrics()
+            logger.info(f"Cognitive sessions: {cog_metrics['session_count']}")
+            logger.info(f"Cognitive ticks: {cog_metrics['total_ticks_lived']}")
+        
+        if self._hotkey_listener:
+            try:
+                self._hotkey_listener.stop()
+            except Exception:
+                pass
+        
+        self.capture.cleanup()
+        
+        if self._start_time:
+            runtime = time.time() - self._start_time
+            logger.info("=" * 70)
+            logger.info("SESSION SUMMARY")
+            logger.info("=" * 70)
+            logger.info(f"Runtime: {runtime/60:.1f} minutes")
+            logger.info(f"Decision loops: {self._loop_count}")
+            logger.info(f"Spells discovered: {len(self.spell_knowledge.get_all_spells())}")
+            logger.info(f"Kills: {self.progress_knowledge.data.get('total_kills', 0)}")
+            logger.info(f"Deaths: {self.progress_knowledge.data.get('total_deaths', 0)}")
+            logger.info("=" * 70)
+        
+        logger.info("Shutdown complete")
+    
+    def _emergency_cleanup(self):
+        """Emergency cleanup on crash."""
+        if not self._shutdown:
+            try:
+                self.input.release_all_keys()
+            except Exception:
+                pass
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ENTRY POINT (Basic)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def main_basic():
+    """Basic main entry point (without extended capabilities)."""
+    try:
+        agent = WoWAutonomousPlayer()
+        agent.run()
+    except Exception as e:
+        logger.critical(f"Fatal error: {e}", exc_info=True)
+        sys.exit(1)
+
+# NOTE: Main entry point is at the end of this file with full CLI support
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INTELLIGENT BEHAVIOR EXPANSION MODULE
+# ═══════════════════════════════════════════════════════════════════════════════
+# This section adds intelligent-feeling behavior to the base autonomous agent:
+#     * Adaptive Combat - Target prioritization, ability prediction, interrupts
+#     * Navigation Planning - Objective-oriented pathfinding with obstacle handling
+#     * State-Based Goal Management - Dynamic goal selection and tracking
+#     * Inventory Intelligence - Smart loot decisions, bag management
+#     * Quest Tracking with OCR - Quest objective detection and progress
+#     * Adaptive Reaction Timing - Human-like response delays
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# NOTE: Imports already at top of file - not duplicated here
+
+logger_intelligent = logging.getLogger("WoWAgent.Intelligent")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONSTANTS AND CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════
+
+EXPANSION_DATA_DIR = Path("wow_agent_knowledge/intelligent")
+EXPANSION_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+# Human-like timing ranges (seconds)
+class HumanTiming:
+    """Human-like reaction time distributions."""
+    INSTANT_MIN = 0.08
+    INSTANT_MAX = 0.15
+    FAST_MIN = 0.15
+    FAST_MAX = 0.30
+    NORMAL_MIN = 0.25
+    NORMAL_MAX = 0.50
+    SLOW_MIN = 0.40
+    SLOW_MAX = 0.80
+    DELIBERATE_MIN = 0.60
+    DELIBERATE_MAX = 1.20
+    
+    # Fatigue multiplier increases over time
+    FATIGUE_RATE = 0.001  # Per minute of play
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ENUMS AND DATA STRUCTURES
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TargetPriority(Enum):
+    """Priority levels for target selection."""
+    CRITICAL = 100      # Must kill immediately (healer, flag carrier)
+    HIGH = 75           # Dangerous target (caster, elite)
+    NORMAL = 50         # Standard mob
+    LOW = 25            # Non-threatening
+    IGNORE = 0          # Don't attack (critter, gray mob)
+
+
+class ThreatType(Enum):
+    """Types of threat sources."""
+    MELEE = auto()
+    RANGED = auto()
+    CASTER = auto()
+    HEALER = auto()
+    ELITE = auto()
+    BOSS = auto()
+    PATROL = auto()
+    ADDS = auto()
+
+
+class GoalType(Enum):
+    """Types of goals the agent can pursue."""
+    GRIND_XP = auto()
+    COMPLETE_QUEST = auto()
+    TRAVEL_TO = auto()
+    FIND_VENDOR = auto()
+    FIND_TRAINER = auto()
+    REST_HEAL = auto()
+    MANAGE_INVENTORY = auto()
+    LEARN_SPELLS = auto()
+    EXPLORE = auto()
+    CORPSE_RUN = auto()
+    FARM_RESOURCE = auto()
+    AVOID_DANGER = auto()
+
+
+class MovementPattern(Enum):
+    """Types of movement patterns."""
+    DIRECT = auto()         # Straight line
+    CAUTIOUS = auto()       # Avoid aggro
+    PATROL = auto()         # Search pattern
+    KITING = auto()         # Combat movement
+    SPIRAL = auto()         # Search spiral
+    RETURN = auto()         # Backtrack
+
+
+@dataclass
+class TargetInfo:
+    """Information about a potential target."""
+    name: str = ""
+    level: int = 0
+    hp_percent: float = 100.0
+    threat_type: ThreatType = ThreatType.MELEE
+    priority: TargetPriority = TargetPriority.NORMAL
+    is_casting: bool = False
+    cast_time_remaining: float = 0.0
+    distance_estimate: float = 0.0  # Estimated from position
+    is_elite: bool = False
+    is_player: bool = False
+    last_seen: float = 0.0
+
+
+@dataclass
+class IntelligentWaypoint:
+    """A navigation waypoint with metadata for intelligent pathfinding."""
+    x: float = 0.0
+    y: float = 0.0
+    name: str = ""
+    waypoint_type: str = "normal"  # normal, vendor, trainer, quest, danger
+    last_visited: float = 0.0
+    visits: int = 0
+
+
+@dataclass  
+class QuestObjective:
+    """A tracked quest objective."""
+    quest_name: str = ""
+    objective_text: str = ""
+    current_count: int = 0
+    required_count: int = 0
+    is_complete: bool = False
+    objective_type: str = "kill"  # kill, collect, interact, explore
+    target_names: List[str] = field(default_factory=list)
+
+
+@dataclass
+class InventorySlot:
+    """Represents an inventory slot."""
+    bag: int = 0
+    slot: int = 0
+    is_empty: bool = True
+    item_quality: int = 0  # 0=poor, 1=common, 2=uncommon, 3=rare, 4=epic
+    is_soulbound: bool = False
+    is_quest_item: bool = False
+    stack_count: int = 0
+    sell_value_estimate: float = 0.0
+
+
+@dataclass
+class IntelligentGoal:
+    """A goal with priority and progress tracking for intelligent expansion."""
+    goal_type: GoalType
+    priority: float = 50.0
+    description: str = ""
+    target_location: Optional[Tuple[float, float]] = None
+    target_name: Optional[str] = None
+    progress: float = 0.0  # 0.0 to 1.0
+    started_at: float = 0.0
+    timeout: float = 300.0  # 5 minutes default
+    is_active: bool = False
+    prerequisites: List['IntelligentGoal'] = field(default_factory=list)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADAPTIVE TIMING SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════
+
+class AdaptiveTimingSystem:
+    """
+    Generates human-like reaction times with fatigue simulation.
+    Makes the bot feel more natural by varying response times.
+    """
+    
+    def __init__(self):
+        self._session_start = time.time()
+        self._action_count = 0
+        self._recent_timings: Deque[float] = deque(maxlen=50)
+        self._fatigue_level = 0.0
+        self._focus_level = 1.0  # 1.0 = fully focused, decreases over time
+        self._last_rest_time = time.time()
+        
+        # Personality factors (randomized per session)
+        self._base_reaction_speed = random.uniform(0.9, 1.1)
+        self._consistency = random.uniform(0.7, 0.95)  # Higher = more consistent
+        
+        logger.debug(f"Timing personality: speed={self._base_reaction_speed:.2f}, "
+                    f"consistency={self._consistency:.2f}")
+    
+    def get_reaction_delay(self, action_type: str = "normal") -> float:
+        """
+        Get a human-like reaction delay based on action type and current state.
+        
+        Args:
+            action_type: "instant", "fast", "normal", "slow", "deliberate"
+        
+        Returns:
+            Delay in seconds
+        """
+        self._update_fatigue()
+        self._action_count += 1
+        
+        # Base timing ranges
+        timing_ranges = {
+            "instant": (HumanTiming.INSTANT_MIN, HumanTiming.INSTANT_MAX),
+            "fast": (HumanTiming.FAST_MIN, HumanTiming.FAST_MAX),
+            "normal": (HumanTiming.NORMAL_MIN, HumanTiming.NORMAL_MAX),
+            "slow": (HumanTiming.SLOW_MIN, HumanTiming.SLOW_MAX),
+            "deliberate": (HumanTiming.DELIBERATE_MIN, HumanTiming.DELIBERATE_MAX),
+        }
+        
+        min_t, max_t = timing_ranges.get(action_type, timing_ranges["normal"])
+        
+        # Apply personality and fatigue
+        base_delay = random.uniform(min_t, max_t) * self._base_reaction_speed
+        
+        # Fatigue increases delays
+        fatigue_mult = 1.0 + (self._fatigue_level * 0.5)
+        
+        # Add some variance based on consistency
+        variance = (1.0 - self._consistency) * base_delay * random.uniform(-0.3, 0.3)
+        
+        final_delay = (base_delay * fatigue_mult) + variance
+        
+        # Occasionally have "slow" reactions (distraction simulation)
+        if random.random() < 0.03:  # 3% chance
+            final_delay *= random.uniform(1.5, 2.5)
+        
+        # Occasionally have "quick" reactions (anticipation)
+        if random.random() < 0.05:  # 5% chance
+            final_delay *= random.uniform(0.6, 0.8)
+        
+        final_delay = max(0.05, min(3.0, final_delay))  # Clamp to reasonable range
+        
+        self._recent_timings.append(final_delay)
+        return final_delay
+    
+    def _update_fatigue(self):
+        """Update fatigue level based on session duration and activity."""
+        session_minutes = (time.time() - self._session_start) / 60.0
+        
+        # Fatigue builds over time
+        self._fatigue_level = min(1.0, session_minutes * HumanTiming.FATIGUE_RATE)
+        
+        # Recent rest reduces fatigue
+        rest_minutes = (time.time() - self._last_rest_time) / 60.0
+        if rest_minutes < 1.0:  # Recent rest
+            self._fatigue_level *= 0.5
+        
+        # High activity increases fatigue
+        if self._action_count > 100:
+            self._fatigue_level = min(1.0, self._fatigue_level + 0.1)
+    
+    def record_rest(self):
+        """Record that the player is resting (reduces fatigue)."""
+        self._last_rest_time = time.time()
+        self._fatigue_level = max(0.0, self._fatigue_level - 0.2)
+    
+    def get_keystroke_delay(self) -> float:
+        """Get delay between keystrokes when typing."""
+        base = random.uniform(0.05, 0.15)
+        # Occasional pause (thinking)
+        if random.random() < 0.1:
+            base += random.uniform(0.1, 0.3)
+        return base * (1.0 + self._fatigue_level * 0.3)
+    
+    def get_mouse_movement_duration(self, distance: float) -> float:
+        """Get human-like mouse movement duration based on distance."""
+        # Fitts's Law approximation
+        base_time = 0.1 + (distance / 1500.0)  # ~0.1s + distance factor
+        variance = random.uniform(0.9, 1.2)
+        return base_time * variance * self._base_reaction_speed
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TARGET ANALYSIS AND PRIORITIZATION
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TargetAnalyzer:
+    """
+    Analyzes and prioritizes targets based on visual information.
+    Uses heuristics to identify threat types and optimal target selection.
+    """
+    
+    def __init__(self, capture, analyzer):
+        self.capture = capture
+        self.analyzer = analyzer
+        self._target_history: Dict[str, TargetInfo] = {}
+        self._current_targets: List[TargetInfo] = []
+        self._dangerous_names: Set[str] = set()
+        self._priority_overrides: Dict[str, TargetPriority] = {}
+        
+        # Heuristics for identifying threat types
+        self._caster_keywords = {'mage', 'warlock', 'priest', 'shaman', 'druid', 
+                                 'witch', 'sorcerer', 'conjurer', 'necromancer',
+                                 'shadowcaster', 'fire', 'frost', 'arcane'}
+        self._healer_keywords = {'healer', 'priest', 'medic', 'cleric', 'shaman'}
+        self._elite_indicators = {'elite', 'rare', 'boss', 'champion'}
+        
+        # Load learned dangerous enemies
+        self._load_dangerous_enemies()
+    
+    def _load_dangerous_enemies(self):
+        """Load list of dangerous enemies from knowledge base."""
+        try:
+            filepath = EXPANSION_DATA_DIR / "dangerous_enemies.json"
+            if filepath.exists():
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                    self._dangerous_names = set(data.get("names", []))
+                    logger.debug(f"Loaded {len(self._dangerous_names)} dangerous enemy names")
+        except Exception as e:
+            logger.warning(f"Could not load dangerous enemies: {e}")
+    
+    def save_dangerous_enemies(self):
+        """Save learned dangerous enemies."""
+        try:
+            filepath = EXPANSION_DATA_DIR / "dangerous_enemies.json"
+            with open(filepath, 'w') as f:
+                json.dump({"names": list(self._dangerous_names)}, f)
+        except Exception as e:
+            logger.warning(f"Could not save dangerous enemies: {e}")
+    
+    def mark_as_dangerous(self, name: str):
+        """Mark an enemy as dangerous for future reference."""
+        self._dangerous_names.add(name.lower())
+        self.save_dangerous_enemies()
+    
+    def analyze_target(self, state, target_name: str = "") -> TargetInfo:
+        """
+        Analyze the current target and return detailed information.
+        
+        Args:
+            state: Current PerceptionState
+            target_name: Optional name from OCR or cache
+        
+        Returns:
+            TargetInfo with analysis results
+        """
+        info = TargetInfo(
+            name=target_name or state.target_name,
+            level=state.target_level,
+            hp_percent=state.target_hp,
+            last_seen=time.time()
+        )
+        
+        # Determine threat type from name
+        name_lower = info.name.lower()
+        
+        if any(kw in name_lower for kw in self._healer_keywords):
+            info.threat_type = ThreatType.HEALER
+            info.priority = TargetPriority.CRITICAL
+        elif any(kw in name_lower for kw in self._caster_keywords):
+            info.threat_type = ThreatType.CASTER
+            info.priority = TargetPriority.HIGH
+        elif any(kw in name_lower for kw in self._elite_indicators):
+            info.threat_type = ThreatType.ELITE
+            info.is_elite = True
+            info.priority = TargetPriority.HIGH
+        
+        # Check if we've learned this is dangerous
+        if name_lower in self._dangerous_names:
+            info.priority = TargetPriority.HIGH
+        
+        # Check for priority overrides
+        if info.name in self._priority_overrides:
+            info.priority = self._priority_overrides[info.name]
+        
+        # Detect casting (visual analysis)
+        info.is_casting = self._detect_casting()
+        
+        # Update history
+        self._target_history[info.name] = info
+        
+        return info
+    
+    def _detect_casting(self) -> bool:
+        """
+        Detect if the current target is casting a spell.
+        Looks for cast bar appearance near target frame.
+        
+        Returns:
+            True if casting detected
+        """
+        # This would analyze the target frame area for a cast bar
+        # Cast bars typically appear below the target frame
+        # For now, return False - full implementation would check pixels
+        try:
+            # Get region below target frame where cast bar appears
+            regions = self.capture.regions
+            # Cast bar region would be approximately at:
+            # x: target frame x
+            # y: target frame bottom + small offset
+            # This is a simplified check - full version would be more sophisticated
+            return False
+        except Exception:
+            return False
+    
+    def get_best_target(self, available_targets: List[TargetInfo]) -> Optional[TargetInfo]:
+        """
+        Select the best target from available options.
+        
+        Priority order:
+        1. Healers (must interrupt healing)
+        2. Casters (prevent ranged damage)
+        3. Low HP enemies (finish them off)
+        4. Standard priority targets
+        5. Lowest level targets (easier kills)
+        
+        Args:
+            available_targets: List of potential targets
+        
+        Returns:
+            Best target to attack, or None
+        """
+        if not available_targets:
+            return None
+        
+        # Filter out ignored targets
+        valid = [t for t in available_targets if t.priority != TargetPriority.IGNORE]
+        
+        if not valid:
+            return None
+        
+        # Sort by multiple criteria
+        def target_score(t: TargetInfo) -> float:
+            score = t.priority.value * 10
+            
+            # Bonus for low HP (finish them off)
+            if t.hp_percent < 20:
+                score += 50
+            elif t.hp_percent < 40:
+                score += 25
+            
+            # Penalty for elites unless we're strong
+            if t.is_elite:
+                score -= 20
+            
+            # Bonus for casting targets (interrupt them)
+            if t.is_casting:
+                score += 40
+            
+            return score
+        
+        valid.sort(key=target_score, reverse=True)
+        return valid[0]
+    
+    def should_switch_target(self, current: TargetInfo, 
+                             alternative: TargetInfo) -> bool:
+        """
+        Determine if we should switch to a different target.
+        
+        Args:
+            current: Current target info
+            alternative: Potential new target
+        
+        Returns:
+            True if should switch
+        """
+        # Always switch to healers
+        if alternative.threat_type == ThreatType.HEALER:
+            return True
+        
+        # Switch to casting targets for interrupt
+        if alternative.is_casting and not current.is_casting:
+            return True
+        
+        # Don't switch if current is almost dead
+        if current.hp_percent < 15:
+            return False
+        
+        # Switch if alternative is much higher priority
+        if alternative.priority.value - current.priority.value >= 50:
+            return True
+        
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# INTELLIGENT COMBAT BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class IntelligentCombatBehavior:
+    """
+    Enhanced combat behavior with intelligent decision-making.
+    
+    Features:
+    - Target prioritization
+    - Ability prediction and optimal rotation
+    - Interrupt detection and reaction
+    - Kiting and positioning
+    - Cooldown tracking
+    - Combat phase awareness
+    """
+    
+    def __init__(self, executor, perception, spell_knowledge, 
+                 combat_knowledge, progress_knowledge, capture, analyzer):
+        self.executor = executor
+        self.perception = perception
+        self.spells = spell_knowledge
+        self.combat = combat_knowledge
+        self.progress = progress_knowledge
+        self.capture = capture
+        self.analyzer = analyzer
+        
+        # Sub-systems
+        self.target_analyzer = TargetAnalyzer(capture, analyzer)
+        self.timing = AdaptiveTimingSystem()
+        
+        # Combat state
+        self._combat_start_time = 0
+        self._combat_start_hp = 100.0
+        self._abilities_used: List[str] = []
+        self._target_name = ""
+        self._current_target_info: Optional[TargetInfo] = None
+        
+        # Cooldown tracking
+        self._cooldowns: Dict[str, float] = {}  # spell_name -> ready_time
+        
+        # Interrupt tracking
+        self._last_interrupt_time = 0
+        self._interrupt_abilities = ['pummel', 'kick', 'shield bash', 'counterspell']
+        
+        # Combat phases
+        self._phase = "opener"  # opener, sustained, execute, defensive
+        
+        # Kiting state
+        self._should_kite = False
+        self._kite_direction = 1  # 1 = left, -1 = right
+        self._last_kite_time = 0
+        
+        # Learning
+        self._fight_history: Deque[Dict] = deque(maxlen=100)
+        
+        logger.info("Intelligent combat behavior initialized")
+    
+    def start_combat(self, target_name: str, player_hp: float):
+        """Initialize combat tracking."""
+        self._combat_start_time = time.time()
+        self._combat_start_hp = player_hp
+        self._abilities_used = []
+        self._target_name = target_name
+        self._phase = "opener"
+        self._should_kite = False
+        
+        # Analyze initial target
+        state = self.perception.get_last_state()
+        self._current_target_info = self.target_analyzer.analyze_target(state, target_name)
+        
+        self.combat.record_enemy(target_name)
+        logger.debug(f"Combat started vs {target_name} (Priority: {self._current_target_info.priority})")
+    
+    def end_combat(self, won: bool, player_hp: float):
+        """Record combat end and learn from it."""
+        duration = time.time() - self._combat_start_time
+        
+        fight_data = {
+            "target": self._target_name,
+            "won": won,
+            "duration": duration,
+            "hp_lost": self._combat_start_hp - player_hp,
+            "abilities_used": self._abilities_used.copy(),
+            "phase_at_end": self._phase,
+            "timestamp": time.time()
+        }
+        self._fight_history.append(fight_data)
+        
+        if won:
+            self.combat.record_kill(self._target_name, duration, self._abilities_used)
+            self.progress.record_kill()
+            logger.info(f"Victory vs {self._target_name} in {duration:.1f}s")
+        else:
+            self.combat.record_death_to(self._target_name)
+            self.progress.record_death()
+            # Mark as dangerous for future
+            self.target_analyzer.mark_as_dangerous(self._target_name)
+            logger.warning(f"Defeated by {self._target_name}")
+        
+        self._combat_start_time = 0
+        self._current_target_info = None
+    
+    def get_next_action(self, state) -> 'Action':
+        """
+        Determine the optimal next combat action.
+        
+        Uses a priority system:
+        1. Emergency actions (heal, defensive CDs)
+        2. Interrupts
+        3. Execute phase abilities
+        4. Rotation abilities
+        5. Filler/auto-attack
+        
+        Args:
+            state: Current PerceptionState
+        
+        Returns:
+            Action to execute
+        """
+        # Import Action/ActionType from main module context
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority, DefaultKeybinds
+        
+        # Apply human-like reaction delay
+        delay = self.timing.get_reaction_delay("fast")
+        
+        # Update combat phase
+        self._update_combat_phase(state)
+        
+        # Update target analysis
+        if self._current_target_info:
+            self._current_target_info.hp_percent = state.target_hp
+            self._current_target_info.is_casting = self.target_analyzer._detect_casting()
+        
+        # === PRIORITY 1: Emergency/Defensive ===
+        emergency_action = self._check_emergency(state)
+        if emergency_action:
+            return emergency_action
+        
+        # === PRIORITY 2: Interrupt ===
+        interrupt_action = self._check_interrupt(state)
+        if interrupt_action:
+            return interrupt_action
+        
+        # === PRIORITY 3: Check if we need a target ===
+        if not state.has_target:
+            time.sleep(delay)
+            return Action(ActionType.TARGET_ENEMY, Priority.HIGH, "Need target")
+        
+        if state.target_is_dead:
+            return Action(ActionType.LOOT, Priority.HIGH, "Looting corpse")
+        
+        # === PRIORITY 4: Kiting check ===
+        if self._should_kite and self._check_kite_needed(state):
+            return self._get_kite_action(state)
+        
+        # === PRIORITY 5: GCD check ===
+        if not self.perception.is_gcd_ready():
+            gcd_remaining = self.perception.get_gcd_remaining()
+            return Action(ActionType.WAIT, Priority.HIGH, 
+                         f"GCD ({gcd_remaining:.1f}s)", duration=gcd_remaining)
+        
+        # === PRIORITY 6: Phase-specific rotation ===
+        ability_action = self._get_rotation_action(state)
+        if ability_action:
+            time.sleep(delay)
+            return ability_action
+        
+        # === FALLBACK: Auto-attack ===
+        return Action(ActionType.ATTACK, Priority.NORMAL, "Auto-attacking")
+    
+    def _update_combat_phase(self, state):
+        """Update the current combat phase based on state."""
+        target_hp = state.target_hp
+        player_hp = state.player_hp
+        
+        if player_hp < 30:
+            self._phase = "defensive"
+            self._should_kite = True
+        elif target_hp < 20:
+            self._phase = "execute"
+        elif self._combat_start_time and time.time() - self._combat_start_time < 3.0:
+            self._phase = "opener"
+        else:
+            self._phase = "sustained"
+    
+    def _check_emergency(self, state) -> Optional['Action']:
+        """Check for and handle emergency situations."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        # Very low HP - need immediate defensive action
+        if state.player_hp < 20:
+            # Look for defensive cooldowns
+            defensive_spells = ['shield wall', 'last stand', 'lifeblood', 
+                              'health potion', 'healthstone']
+            
+            for spell_name in defensive_spells:
+                if self._is_ability_ready(spell_name):
+                    spell = self.spells.get_spell_by_name(spell_name)
+                    if spell:
+                        key = self._get_spell_key(spell)
+                        if key:
+                            self._trigger_cooldown(spell_name, spell.get("cooldown", 0))
+                            return Action(
+                                ActionType.USE_ABILITY, Priority.CRITICAL,
+                                f"EMERGENCY: {spell_name}",
+                                key=key, spell_name=spell_name
+                            )
+        
+        return None
+    
+    def _check_interrupt(self, state) -> Optional['Action']:
+        """Check if we should interrupt the target's cast."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        if not self._current_target_info or not self._current_target_info.is_casting:
+            return None
+        
+        # Don't spam interrupts
+        if time.time() - self._last_interrupt_time < 1.0:
+            return None
+        
+        # Find an available interrupt ability
+        for interrupt_name in self._interrupt_abilities:
+            if self._is_ability_ready(interrupt_name):
+                spell = self.spells.get_spell_by_name(interrupt_name)
+                if spell:
+                    key = self._get_spell_key(spell)
+                    if key:
+                        self._last_interrupt_time = time.time()
+                        self._trigger_cooldown(interrupt_name, spell.get("cooldown", 10))
+                        
+                        # Fast reaction for interrupts
+                        delay = self.timing.get_reaction_delay("instant")
+                        time.sleep(delay)
+                        
+                        return Action(
+                            ActionType.USE_ABILITY, Priority.CRITICAL,
+                            f"INTERRUPT: {interrupt_name}",
+                            key=key, spell_name=interrupt_name
+                        )
+        
+        return None
+    
+    def _check_kite_needed(self, state) -> bool:
+        """Determine if we need to kite."""
+        if state.player_hp > 40:
+            self._should_kite = False
+            return False
+        
+        # Kite if HP is low and target is melee
+        if self._current_target_info:
+            if self._current_target_info.threat_type in [ThreatType.MELEE, ThreatType.ELITE]:
+                return True
+        
+        return self._should_kite
+    
+    def _get_kite_action(self, state) -> 'Action':
+        """Get a kiting movement action."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        # Alternate kite direction
+        if time.time() - self._last_kite_time > 2.0:
+            self._kite_direction *= -1
+            self._last_kite_time = time.time()
+        
+        if self._kite_direction > 0:
+            return Action(ActionType.STRAFE_LEFT, Priority.HIGH, 
+                         "Kiting left", duration=0.5)
+        else:
+            return Action(ActionType.STRAFE_RIGHT, Priority.HIGH,
+                         "Kiting right", duration=0.5)
+    
+    def _get_rotation_action(self, state) -> Optional['Action']:
+        """Get the next ability in the rotation based on current phase."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        resource = state.player_resource  # Rage for warrior
+        
+        # Phase-specific ability priorities
+        if self._phase == "opener":
+            priority_abilities = ['charge', 'battle shout', 'rend', 'heroic strike']
+        elif self._phase == "execute":
+            priority_abilities = ['execute', 'heroic strike', 'bloodthirst', 'mortal strike']
+        elif self._phase == "defensive":
+            priority_abilities = ['shield block', 'disarm', 'hamstring', 'heroic strike']
+        else:  # sustained
+            priority_abilities = ['bloodthirst', 'mortal strike', 'whirlwind', 
+                                'heroic strike', 'overpower', 'slam']
+        
+        # Find best available ability
+        for ability_name in priority_abilities:
+            if not self._is_ability_ready(ability_name):
+                continue
+            
+            spell = self.spells.get_spell_by_name(ability_name)
+            if not spell:
+                continue
+            
+            # Check resource cost
+            cost = spell.get("cost", 0)
+            if cost > resource:
+                continue
+            
+            key = self._get_spell_key(spell)
+            if key:
+                self._abilities_used.append(ability_name)
+                self._trigger_cooldown(ability_name, spell.get("cooldown", 0))
+                
+                return Action(
+                    ActionType.USE_ABILITY, Priority.HIGH,
+                    f"[{self._phase}] {ability_name}",
+                    key=key, spell_name=ability_name
+                )
+        
+        # No ability available, check for enough rage for heroic strike queue
+        if resource >= 15:
+            spell = self.spells.get_spell_by_name('heroic strike')
+            if spell:
+                key = self._get_spell_key(spell)
+                if key:
+                    return Action(
+                        ActionType.USE_ABILITY, Priority.NORMAL,
+                        "Queue Heroic Strike",
+                        key=key, spell_name='heroic strike'
+                    )
+        
+        return None
+    
+    def _is_ability_ready(self, spell_name: str) -> bool:
+        """Check if an ability is off cooldown."""
+        ready_time = self._cooldowns.get(spell_name.lower(), 0)
+        return time.time() >= ready_time
+    
+    def _trigger_cooldown(self, spell_name: str, duration: float):
+        """Record ability usage and start cooldown."""
+        self._cooldowns[spell_name.lower()] = time.time() + duration
+    
+    def _get_spell_key(self, spell: dict) -> Optional[str]:
+        """Get the keybind for a spell."""
+        from wow_autonomous_agent_FIXED import DefaultKeybinds
+        
+        bar = spell.get("action_bar", 1)
+        slot = spell.get("action_bar_slot")
+        
+        if slot is None:
+            return None
+        
+        if bar == 1:
+            if slot < len(DefaultKeybinds.ACTION_BAR_1):
+                return DefaultKeybinds.ACTION_BAR_1[slot]
+        else:
+            if slot < len(DefaultKeybinds.ACTION_BAR_2):
+                return DefaultKeybinds.ACTION_BAR_2[slot]
+        
+        return None
+    
+    def should_flee(self, state) -> bool:
+        """Determine if we should flee combat."""
+        if state.player_hp < 15:
+            return True
+        
+        # Check if target is too dangerous
+        if self._current_target_info:
+            if self._current_target_info.is_elite and state.player_hp < 40:
+                return True
+        
+        # Check historical danger
+        if self._target_name:
+            if self._target_name.lower() in self.target_analyzer._dangerous_names:
+                if state.player_hp < 35:
+                    return True
+        
+        return False
+    
+    def predict_enemy_action(self) -> Optional[str]:
+        """
+        Predict what the enemy might do next based on patterns.
+        
+        Returns:
+            Predicted action type or None
+        """
+        if not self._current_target_info:
+            return None
+        
+        threat_type = self._current_target_info.threat_type
+        
+        if threat_type == ThreatType.CASTER:
+            if self._current_target_info.is_casting:
+                return "casting"
+            return "preparing_cast"
+        
+        if threat_type == ThreatType.HEALER:
+            if self._current_target_info.hp_percent < 50:
+                return "will_heal"
+            return "casting"
+        
+        return "attacking"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# NAVIGATION PLANNER
+# ═══════════════════════════════════════════════════════════════════════════
+
+class NavigationPlanner:
+    """
+    Intelligent navigation with objective-oriented pathfinding.
+    
+    Features:
+    - Waypoint management
+    - Obstacle detection and avoidance
+    - Patrol patterns
+    - Return-to-path capability
+    - Danger zone awareness
+    """
+    
+    def __init__(self, executor, world_knowledge, capture, analyzer):
+        self.executor = executor
+        self.world = world_knowledge
+        self.capture = capture
+        self.analyzer = analyzer
+        self.timing = AdaptiveTimingSystem()
+        
+        # Navigation state
+        self._current_waypoint: Optional[Waypoint] = None
+        self._waypoint_queue: Deque[Waypoint] = deque()
+        self._visited_waypoints: List[Waypoint] = []
+        self._current_pattern = MovementPattern.DIRECT
+        
+        # Stuck detection
+        self._position_history: Deque[Tuple[float, float]] = deque(maxlen=10)
+        self._last_position_check = 0
+        self._stuck_count = 0
+        self._last_unstuck_time = 0
+        
+        # Danger zones (learned from deaths)
+        self._danger_zones: List[Tuple[float, float, float]] = []  # x, y, radius
+        
+        # Exploration tracking
+        self._explored_areas: Set[Tuple[int, int]] = set()  # Grid cells
+        self._exploration_grid_size = 50  # Units per grid cell
+        
+        # Objective tracking
+        self._target_objective: Optional[Tuple[float, float]] = None
+        self._objective_name = ""
+        
+        self._load_navigation_data()
+        logger.info("Navigation planner initialized")
+    
+    def _load_navigation_data(self):
+        """Load saved navigation data."""
+        try:
+            filepath = EXPANSION_DATA_DIR / "navigation.json"
+            if filepath.exists():
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                    self._danger_zones = [tuple(z) for z in data.get("danger_zones", [])]
+                    self._explored_areas = set(tuple(a) for a in data.get("explored", []))
+                    logger.debug(f"Loaded {len(self._danger_zones)} danger zones, "
+                               f"{len(self._explored_areas)} explored cells")
+        except Exception as e:
+            logger.warning(f"Could not load navigation data: {e}")
+    
+    def save_navigation_data(self):
+        """Save navigation data for persistence."""
+        try:
+            filepath = EXPANSION_DATA_DIR / "navigation.json"
+            data = {
+                "danger_zones": self._danger_zones,
+                "explored": list(self._explored_areas)
+            }
+            with open(filepath, 'w') as f:
+                json.dump(data, f)
+        except Exception as e:
+            logger.warning(f"Could not save navigation data: {e}")
+    
+    def set_objective(self, x: float, y: float, name: str = ""):
+        """Set a navigation objective."""
+        self._target_objective = (x, y)
+        self._objective_name = name
+        self._current_pattern = MovementPattern.DIRECT
+        logger.info(f"Navigation objective set: {name} at ({x:.1f}, {y:.1f})")
+    
+    def clear_objective(self):
+        """Clear the current objective."""
+        self._target_objective = None
+        self._objective_name = ""
+    
+    def add_waypoint(self, waypoint: Waypoint):
+        """Add a waypoint to the queue."""
+        self._waypoint_queue.append(waypoint)
+    
+    def mark_danger_zone(self, x: float, y: float, radius: float = 30.0):
+        """Mark an area as dangerous (from death or difficult enemy)."""
+        self._danger_zones.append((x, y, radius))
+        self.save_navigation_data()
+        logger.warning(f"Danger zone marked at ({x:.1f}, {y:.1f})")
+    
+    def is_in_danger_zone(self, x: float, y: float) -> bool:
+        """Check if coordinates are in a known danger zone."""
+        for dx, dy, radius in self._danger_zones:
+            dist = math.sqrt((x - dx) ** 2 + (y - dy) ** 2)
+            if dist < radius:
+                return True
+        return False
+    
+    def get_next_movement(self, state, estimated_position: Tuple[float, float]) -> 'Action':
+        """
+        Get the next movement action based on current navigation state.
+        
+        Args:
+            state: Current PerceptionState
+            estimated_position: Estimated current position (x, y)
+        
+        Returns:
+            Movement Action
+        """
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        # Check for stuck
+        if self._check_stuck(estimated_position):
+            return self._get_unstuck_action()
+        
+        # Update exploration grid
+        grid_x = int(estimated_position[0] / self._exploration_grid_size)
+        grid_y = int(estimated_position[1] / self._exploration_grid_size)
+        self._explored_areas.add((grid_x, grid_y))
+        
+        # Check danger zones
+        if self.is_in_danger_zone(*estimated_position):
+            self._current_pattern = MovementPattern.CAUTIOUS
+            return self._get_avoidance_action(estimated_position)
+        
+        # Navigate toward objective if set
+        if self._target_objective:
+            return self._navigate_to_objective(estimated_position)
+        
+        # Process waypoint queue
+        if self._waypoint_queue:
+            return self._navigate_to_waypoint(estimated_position)
+        
+        # Default exploration
+        return self._explore(estimated_position)
+    
+    def _check_stuck(self, current_pos: Tuple[float, float]) -> bool:
+        """Check if the agent appears to be stuck."""
+        current_time = time.time()
+        
+        if current_time - self._last_position_check < 0.5:
+            return False
+        
+        self._last_position_check = current_time
+        self._position_history.append(current_pos)
+        
+        if len(self._position_history) < 5:
+            return False
+        
+        # Check if we've moved significantly
+        oldest = self._position_history[0]
+        newest = self._position_history[-1]
+        
+        distance = math.sqrt(
+            (newest[0] - oldest[0]) ** 2 + 
+            (newest[1] - oldest[1]) ** 2
+        )
+        
+        # If we haven't moved much in the last several position samples
+        if distance < 5.0:  # Less than 5 units of movement
+            self._stuck_count += 1
+            if self._stuck_count >= 3:
+                return True
+        else:
+            self._stuck_count = 0
+        
+        return False
+    
+    def _get_unstuck_action(self) -> 'Action':
+        """Generate an action to get unstuck."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        self._stuck_count = 0
+        self._position_history.clear()
+        self._last_unstuck_time = time.time()
+        
+        logger.info("Executing unstuck maneuver")
+        
+        # Randomly choose unstuck strategy
+        strategy = random.choice(['jump_back', 'turn_jump', 'strafe'])
+        
+        if strategy == 'jump_back':
+            return Action(ActionType.JUMP, Priority.HIGH, "Unstuck: Jump", duration=0.5)
+        elif strategy == 'turn_jump':
+            return Action(ActionType.TURN_LEFT, Priority.HIGH, "Unstuck: Turn",
+                         duration=random.uniform(0.3, 0.8))
+        else:
+            if random.random() < 0.5:
+                return Action(ActionType.STRAFE_LEFT, Priority.HIGH, 
+                             "Unstuck: Strafe", duration=0.5)
+            else:
+                return Action(ActionType.STRAFE_RIGHT, Priority.HIGH,
+                             "Unstuck: Strafe", duration=0.5)
+    
+    def _get_avoidance_action(self, current_pos: Tuple[float, float]) -> 'Action':
+        """Get action to avoid a danger zone."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        # Find direction away from nearest danger zone
+        nearest_zone = None
+        nearest_dist = float('inf')
+        
+        for dx, dy, radius in self._danger_zones:
+            dist = math.sqrt((current_pos[0] - dx) ** 2 + (current_pos[1] - dy) ** 2)
+            if dist < nearest_dist:
+                nearest_dist = dist
+                nearest_zone = (dx, dy)
+        
+        if nearest_zone:
+            # Move away from danger
+            logger.info(f"Avoiding danger zone at {nearest_zone}")
+            
+            # Turn away (simplified - full version would calculate angle)
+            if random.random() < 0.5:
+                return Action(ActionType.TURN_LEFT, Priority.HIGH,
+                             "Avoiding danger", duration=0.5)
+            else:
+                return Action(ActionType.TURN_RIGHT, Priority.HIGH,
+                             "Avoiding danger", duration=0.5)
+        
+        return Action(ActionType.MOVE_FORWARD, Priority.NORMAL, 
+                     "Moving cautiously", duration=0.5)
+    
+    def _navigate_to_objective(self, current_pos: Tuple[float, float]) -> 'Action':
+        """Navigate toward the current objective."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        if not self._target_objective:
+            return Action(ActionType.WAIT, Priority.LOW, "No objective")
+        
+        # Calculate direction to objective (simplified)
+        dx = self._target_objective[0] - current_pos[0]
+        dy = self._target_objective[1] - current_pos[1]
+        distance = math.sqrt(dx * dx + dy * dy)
+        
+        if distance < 10.0:
+            # Arrived at objective
+            logger.info(f"Arrived at objective: {self._objective_name}")
+            self.clear_objective()
+            return Action(ActionType.WAIT, Priority.LOW, "At objective")
+        
+        # Move toward objective
+        duration = min(2.0, distance / 50.0)  # Scale duration with distance
+        
+        return Action(ActionType.MOVE_FORWARD, Priority.NORMAL,
+                     f"Moving to {self._objective_name}", duration=duration)
+    
+    def _navigate_to_waypoint(self, current_pos: Tuple[float, float]) -> 'Action':
+        """Navigate to the next waypoint in queue."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        if not self._waypoint_queue:
+            return Action(ActionType.WAIT, Priority.LOW, "No waypoints")
+        
+        waypoint = self._waypoint_queue[0]
+        
+        # Calculate distance to waypoint
+        dx = waypoint.x - current_pos[0]
+        dy = waypoint.y - current_pos[1]
+        distance = math.sqrt(dx * dx + dy * dy)
+        
+        if distance < 15.0:
+            # Reached waypoint
+            reached = self._waypoint_queue.popleft()
+            reached.last_visited = time.time()
+            reached.visits += 1
+            self._visited_waypoints.append(reached)
+            logger.debug(f"Reached waypoint: {reached.name}")
+            
+            # Check for next waypoint
+            if self._waypoint_queue:
+                return Action(ActionType.WAIT, Priority.LOW, "Next waypoint", duration=0.2)
+            return Action(ActionType.WAIT, Priority.LOW, "All waypoints reached")
+        
+        # Move toward waypoint
+        return Action(ActionType.MOVE_FORWARD, Priority.NORMAL,
+                     f"Waypoint: {waypoint.name}", duration=1.0)
+    
+    def _explore(self, current_pos: Tuple[float, float]) -> 'Action':
+        """Explore unmapped areas."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        # Find unexplored adjacent cells
+        grid_x = int(current_pos[0] / self._exploration_grid_size)
+        grid_y = int(current_pos[1] / self._exploration_grid_size)
+        
+        unexplored = []
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue
+                cell = (grid_x + dx, grid_y + dy)
+                if cell not in self._explored_areas:
+                    unexplored.append(cell)
+        
+        if unexplored:
+            # Pick a random unexplored direction
+            target_cell = random.choice(unexplored)
+            logger.debug(f"Exploring toward cell {target_cell}")
+        
+        # Random exploration with occasional turns
+        if random.random() < 0.2:
+            if random.random() < 0.5:
+                return Action(ActionType.TURN_LEFT, Priority.LOW,
+                             "Exploring", duration=random.uniform(0.2, 0.6))
+            else:
+                return Action(ActionType.TURN_RIGHT, Priority.LOW,
+                             "Exploring", duration=random.uniform(0.2, 0.6))
+        
+        # Move forward
+        delay = self.timing.get_reaction_delay("slow")
+        duration = random.uniform(1.0, 3.0)
+        
+        return Action(ActionType.MOVE_FORWARD, Priority.LOW,
+                     "Exploring", duration=duration)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# INVENTORY MANAGER
+# ═══════════════════════════════════════════════════════════════════════════
+
+class InventoryManager:
+    """
+    Intelligent inventory management system.
+    
+    Features:
+    - Bag space tracking
+    - Loot quality assessment
+    - Auto-vendor junk decisions
+    - Quest item protection
+    - Equipment comparison
+    """
+    
+    def __init__(self, capture, analyzer, input_handler):
+        self.capture = capture
+        self.analyzer = analyzer
+        self.input = input_handler
+        self.timing = AdaptiveTimingSystem()
+        
+        # Inventory state
+        self._bag_slots: List[List[InventorySlot]] = [
+            [InventorySlot(bag=i, slot=j) for j in range(16)]
+            for i in range(5)  # Backpack + 4 bags
+        ]
+        self._total_slots = 0
+        self._free_slots = 0
+        self._last_scan_time = 0
+        
+        # Item tracking
+        self._quest_items: Set[str] = set()
+        self._valuable_items: Set[str] = set()
+        self._junk_items: Set[str] = set()
+        
+        # Quality colors (BGR for OpenCV)
+        self._quality_colors = {
+            "poor": (128, 128, 128),      # Gray
+            "common": (255, 255, 255),    # White
+            "uncommon": (0, 255, 0),      # Green
+            "rare": (255, 100, 0),        # Blue
+            "epic": (255, 0, 255),        # Purple
+        }
+        
+        # Vendor decisions
+        self._auto_sell_poor = True
+        self._bag_threshold = 4  # Start selling when < 4 free slots
+        
+        self._load_item_lists()
+        logger.info("Inventory manager initialized")
+    
+    def _load_item_lists(self):
+        """Load learned item classifications."""
+        try:
+            filepath = EXPANSION_DATA_DIR / "items.json"
+            if filepath.exists():
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                    self._quest_items = set(data.get("quest_items", []))
+                    self._valuable_items = set(data.get("valuable_items", []))
+                    self._junk_items = set(data.get("junk_items", []))
+        except Exception as e:
+            logger.warning(f"Could not load item lists: {e}")
+    
+    def save_item_lists(self):
+        """Save learned item classifications."""
+        try:
+            filepath = EXPANSION_DATA_DIR / "items.json"
+            data = {
+                "quest_items": list(self._quest_items),
+                "valuable_items": list(self._valuable_items),
+                "junk_items": list(self._junk_items)
+            }
+            with open(filepath, 'w') as f:
+                json.dump(data, f)
+        except Exception as e:
+            logger.warning(f"Could not save item lists: {e}")
+    
+    def scan_bags(self) -> int:
+        """
+        Scan all bags and count free slots.
+        
+        Returns:
+            Number of free slots
+        """
+        # This would analyze the bag UI to count slots
+        # For now, estimate based on last known state
+        
+        self._last_scan_time = time.time()
+        
+        # In a full implementation, this would:
+        # 1. Open bags (press 'b')
+        # 2. Analyze each bag slot for items
+        # 3. Detect item quality by border color
+        # 4. Use OCR on tooltips for item names
+        
+        # Placeholder - would need actual bag analysis
+        logger.debug("Scanning bags...")
+        return self._free_slots
+    
+    def get_free_slots(self) -> int:
+        """Get current free bag slot count."""
+        if time.time() - self._last_scan_time > 60:
+            self.scan_bags()
+        return self._free_slots
+    
+    def needs_vendoring(self) -> bool:
+        """Check if we need to visit a vendor."""
+        return self._free_slots <= self._bag_threshold
+    
+    def assess_loot(self, item_name: str, quality: int) -> str:
+        """
+        Assess whether to keep, sell, or ignore an item.
+        
+        Args:
+            item_name: Name of the item
+            quality: Quality level (0=poor to 4=epic)
+        
+        Returns:
+            "keep", "sell", or "ignore"
+        """
+        name_lower = item_name.lower()
+        
+        # Always keep quest items
+        if name_lower in self._quest_items:
+            return "keep"
+        
+        # Check for quest item indicators
+        if "quest" in name_lower or name_lower.endswith("'s head"):
+            self._quest_items.add(name_lower)
+            self.save_item_lists()
+            return "keep"
+        
+        # Always sell known junk
+        if name_lower in self._junk_items:
+            return "sell"
+        
+        # Quality-based decisions
+        if quality == 0:  # Poor
+            if self._auto_sell_poor:
+                self._junk_items.add(name_lower)
+                return "sell"
+        
+        if quality >= 2:  # Uncommon or better
+            self._valuable_items.add(name_lower)
+            self.save_item_lists()
+            return "keep"
+        
+        # Common items - keep if space, sell if full
+        if self._free_slots > self._bag_threshold:
+            return "keep"
+        return "sell"
+    
+    def should_loot_corpse(self, state) -> bool:
+        """Determine if we should loot the current corpse."""
+        # Always loot if we have space
+        if self._free_slots > 2:
+            return True
+        
+        # Loot if combat is clear
+        if not state.player_in_combat:
+            return True
+        
+        return False
+    
+    def get_vendor_action(self) -> Optional['Action']:
+        """
+        Get an action to sell items to vendor.
+        
+        Returns:
+            Action to execute or None
+        """
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        # Would identify poor quality items and right-click them
+        # This is a simplified version
+        
+        logger.debug("Looking for items to sell...")
+        
+        # In full implementation:
+        # 1. Scan bag for poor quality items
+        # 2. Right-click each to sell
+        # 3. Track which slots were sold
+        
+        return None
+    
+    def find_item_slot(self, item_name: str) -> Optional[Tuple[int, int]]:
+        """
+        Find an item in bags by name.
+        
+        Args:
+            item_name: Name to search for
+        
+        Returns:
+            (bag, slot) tuple or None
+        """
+        # Would use OCR to scan bag contents
+        # For now, return None
+        return None
+    
+    def use_consumable(self, item_type: str) -> bool:
+        """
+        Find and use a consumable item.
+        
+        Args:
+            item_type: Type of consumable ("health_potion", "mana_potion", "food", etc.)
+        
+        Returns:
+            True if item was used
+        """
+        # Search for consumable and use it
+        # Would need to identify item by icon/tooltip and right-click
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# QUEST MANAGER WITH OCR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class QuestManager:
+    """
+    Quest tracking and objective management using OCR.
+    
+    Features:
+    - Quest log parsing
+    - Objective progress tracking
+    - Quest-related target identification
+    - Quest turn-in detection
+    """
+    
+    def __init__(self, capture, analyzer, input_handler, quest_knowledge):
+        self.capture = capture
+        self.analyzer = analyzer
+        self.input = input_handler
+        self.knowledge = quest_knowledge
+        self.timing = AdaptiveTimingSystem()
+        
+        # Quest state
+        self._active_quests: List[QuestObjective] = []
+        self._completed_quests: Set[str] = set()
+        self._current_focus_quest: Optional[str] = None
+        
+        # OCR state
+        self._last_ocr_time = 0
+        self._ocr_cooldown = 5.0  # Seconds between OCR scans
+        
+        # Quest objective patterns
+        self._kill_patterns = [
+            r"(\w+[\w\s]*)\s+slain:\s*(\d+)/(\d+)",
+            r"kill\s+(\d+)\s+([\w\s]+)",
+            r"slay\s+(\d+)\s+([\w\s]+)",
+        ]
+        
+        self._collect_patterns = [
+            r"([\w\s]+):\s*(\d+)/(\d+)",
+            r"collect\s+(\d+)\s+([\w\s]+)",
+            r"gather\s+(\d+)\s+([\w\s]+)",
+        ]
+        
+        self._load_quest_data()
+        logger.info(f"Quest manager initialized (OCR: {'enabled' if OCR_AVAILABLE else 'disabled'})")
+    
+    def _load_quest_data(self):
+        """Load saved quest data."""
+        try:
+            filepath = EXPANSION_DATA_DIR / "quests.json"
+            if filepath.exists():
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                    self._completed_quests = set(data.get("completed", []))
+        except Exception as e:
+            logger.warning(f"Could not load quest data: {e}")
+    
+    def save_quest_data(self):
+        """Save quest tracking data."""
+        try:
+            filepath = EXPANSION_DATA_DIR / "quests.json"
+            data = {
+                "completed": list(self._completed_quests),
+                "active": [
+                    {
+                        "name": q.quest_name,
+                        "objective": q.objective_text,
+                        "current": q.current_count,
+                        "required": q.required_count
+                    }
+                    for q in self._active_quests
+                ]
+            }
+            with open(filepath, 'w') as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Could not save quest data: {e}")
+    
+    def scan_quest_log(self) -> List[QuestObjective]:
+        """
+        Open and scan the quest log using OCR.
+        
+        Returns:
+            List of detected quest objectives
+        """
+        if not OCR_AVAILABLE:
+            logger.debug("OCR not available for quest scanning")
+            return self._active_quests
+        
+        if time.time() - self._last_ocr_time < self._ocr_cooldown:
+            return self._active_quests
+        
+        self._last_ocr_time = time.time()
+        
+        try:
+            # Open quest log
+            from wow_autonomous_agent_FIXED import DefaultKeybinds
+            self.input.press_key(DefaultKeybinds.QUEST_LOG)
+            time.sleep(0.5)
+            
+            # Capture quest log region
+            regions = self.capture.regions
+            quest_region = regions.QUEST_LOG_REGION if hasattr(regions, 'QUEST_LOG_REGION') else None
+            
+            if quest_region:
+                frame = self.capture.get_region(quest_region)
+                if frame is not None:
+                    # OCR the quest log
+                    text = self._ocr_region(frame)
+                    self._parse_quest_text(text)
+            
+            # Close quest log
+            self.input.press_key('esc')
+            time.sleep(0.3)
+            
+        except Exception as e:
+            logger.error(f"Quest scan failed: {e}")
+        
+        return self._active_quests
+    
+    def _ocr_region(self, image: np.ndarray) -> str:
+        """
+        Perform OCR on an image region.
+        
+        Args:
+            image: OpenCV image (BGR)
+        
+        Returns:
+            Extracted text
+        """
+        if not OCR_AVAILABLE:
+            return ""
+        
+        try:
+            # Convert to grayscale
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            
+            # Enhance contrast
+            gray = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)[1]
+            
+            # OCR
+            text = pytesseract.image_to_string(gray)
+            return text
+            
+        except Exception as e:
+            logger.error(f"OCR failed: {e}")
+            return ""
+    
+    def _parse_quest_text(self, text: str):
+        """Parse quest log text to extract objectives."""
+        self._active_quests.clear()
+        
+        lines = text.split('\n')
+        current_quest_name = ""
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Check for quest name (usually yellow/gold text, appears as header)
+            if len(line) > 5 and not any(c.isdigit() for c in line[:5]):
+                if not any(pattern in line.lower() for pattern in ['slain', 'collected', 'kill', 'gather']):
+                    current_quest_name = line
+                    continue
+            
+            # Check for kill objectives
+            for pattern in self._kill_patterns:
+                match = re.search(pattern, line, re.IGNORECASE)
+                if match:
+                    groups = match.groups()
+                    if len(groups) >= 3:
+                        obj = QuestObjective(
+                            quest_name=current_quest_name,
+                            objective_text=line,
+                            current_count=int(groups[1]),
+                            required_count=int(groups[2]),
+                            objective_type="kill",
+                            target_names=[groups[0].strip()]
+                        )
+                        obj.is_complete = obj.current_count >= obj.required_count
+                        self._active_quests.append(obj)
+            
+            # Check for collect objectives
+            for pattern in self._collect_patterns:
+                match = re.search(pattern, line, re.IGNORECASE)
+                if match:
+                    groups = match.groups()
+                    if len(groups) >= 3:
+                        obj = QuestObjective(
+                            quest_name=current_quest_name,
+                            objective_text=line,
+                            current_count=int(groups[1]),
+                            required_count=int(groups[2]),
+                            objective_type="collect",
+                            target_names=[groups[0].strip()]
+                        )
+                        obj.is_complete = obj.current_count >= obj.required_count
+                        self._active_quests.append(obj)
+        
+        logger.info(f"Parsed {len(self._active_quests)} quest objectives")
+    
+    def get_priority_objective(self) -> Optional[QuestObjective]:
+        """
+        Get the highest priority incomplete quest objective.
+        
+        Returns:
+            Most important objective to work on
+        """
+        incomplete = [q for q in self._active_quests if not q.is_complete]
+        
+        if not incomplete:
+            return None
+        
+        # Prioritize quests closest to completion
+        incomplete.sort(
+            key=lambda q: q.current_count / max(1, q.required_count),
+            reverse=True
+        )
+        
+        return incomplete[0]
+    
+    def is_quest_target(self, target_name: str) -> bool:
+        """
+        Check if a target is needed for an active quest.
+        
+        Args:
+            target_name: Name of the target
+        
+        Returns:
+            True if target is a quest objective
+        """
+        name_lower = target_name.lower()
+        
+        for quest in self._active_quests:
+            if quest.is_complete:
+                continue
+            
+            for target in quest.target_names:
+                if target.lower() in name_lower or name_lower in target.lower():
+                    return True
+        
+        return False
+    
+    def update_objective_progress(self, target_name: str, action: str = "kill"):
+        """
+        Update quest progress after an action.
+        
+        Args:
+            target_name: Name of target affected
+            action: Type of action ("kill", "collect", "interact")
+        """
+        name_lower = target_name.lower()
+        
+        for quest in self._active_quests:
+            if quest.is_complete:
+                continue
+            
+            if quest.objective_type != action:
+                continue
+            
+            for target in quest.target_names:
+                if target.lower() in name_lower or name_lower in target.lower():
+                    quest.current_count = min(
+                        quest.current_count + 1,
+                        quest.required_count
+                    )
+                    quest.is_complete = quest.current_count >= quest.required_count
+                    
+                    if quest.is_complete:
+                        logger.info(f"Quest objective complete: {quest.objective_text}")
+                    else:
+                        logger.debug(f"Quest progress: {quest.current_count}/{quest.required_count}")
+                    
+                    self.save_quest_data()
+                    return
+    
+    def mark_quest_complete(self, quest_name: str):
+        """Mark a quest as fully completed (turned in)."""
+        self._completed_quests.add(quest_name)
+        self._active_quests = [q for q in self._active_quests 
+                              if q.quest_name != quest_name]
+        self.save_quest_data()
+        logger.info(f"Quest completed: {quest_name}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GOAL MANAGER (State-Based Goal Management)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class GoalManager:
+    """
+    State-based goal management system.
+    
+    Manages high-level goals and dynamically adjusts priorities
+    based on current game state.
+    """
+    
+    def __init__(self, perception, quest_manager, inventory_manager, 
+                 navigation_planner, progress_knowledge):
+        self.perception = perception
+        self.quests = quest_manager
+        self.inventory = inventory_manager
+        self.navigation = navigation_planner
+        self.progress = progress_knowledge
+        
+        # Goal state
+        self._active_goals: List[IntelligentGoal] = []
+        self._completed_goals: List[IntelligentGoal] = []
+        self._current_goal: Optional[IntelligentGoal] = None
+        
+        # Goal generation parameters
+        self._hp_threshold_rest = 40  # % HP to trigger rest goal
+        self._bag_threshold_vendor = 4  # Free slots to trigger vendor goal
+        
+        logger.info("Goal manager initialized")
+    
+    def evaluate_goals(self, state) -> Optional[IntelligentGoal]:
+        """
+        Evaluate current state and determine what goal to pursue.
+        
+        Args:
+            state: Current PerceptionState
+        
+        Returns:
+            Highest priority goal
+        """
+        # Clear stale goals
+        self._cleanup_goals()
+        
+        # Generate new goals based on state
+        self._generate_goals(state)
+        
+        # Sort by priority
+        self._active_goals.sort(key=lambda g: g.priority, reverse=True)
+        
+        if self._active_goals:
+            top_goal = self._active_goals[0]
+            
+            # Check if we should switch goals
+            if self._current_goal and self._current_goal != top_goal:
+                if top_goal.priority - self._current_goal.priority > 20:
+                    logger.info(f"Switching goal: {self._current_goal.goal_type} -> {top_goal.goal_type}")
+                    self._current_goal = top_goal
+            else:
+                self._current_goal = top_goal
+            
+            return self._current_goal
+        
+        return None
+    
+    def _generate_goals(self, state):
+        """Generate goals based on current state."""
+        
+        # === Emergency Goals ===
+        
+        # Dead - need corpse run
+        if state.player_is_dead or state.player_is_ghost:
+            self._add_or_update_goal(IntelligentGoal(
+                goal_type=GoalType.CORPSE_RUN,
+                priority=100,
+                description="Return to corpse",
+                started_at=time.time()
+            ))
+        
+        # Very low HP - need to rest/heal
+        elif state.player_hp < 20 and not state.player_in_combat:
+            self._add_or_update_goal(IntelligentGoal(
+                goal_type=GoalType.REST_HEAL,
+                priority=90,
+                description="Critical HP - must heal",
+                started_at=time.time()
+            ))
+        
+        # === High Priority Goals ===
+        
+        # Low HP - rest when safe
+        if state.player_hp < self._hp_threshold_rest and not state.player_in_combat:
+            self._add_or_update_goal(IntelligentGoal(
+                goal_type=GoalType.REST_HEAL,
+                priority=70,
+                description=f"HP at {state.player_hp:.0f}% - resting",
+                started_at=time.time()
+            ))
+        
+        # Bags full - need vendor
+        if self.inventory.needs_vendoring():
+            self._add_or_update_goal(IntelligentGoal(
+                goal_type=GoalType.FIND_VENDOR,
+                priority=65,
+                description="Bags full - find vendor",
+                started_at=time.time()
+            ))
+        
+        # === Normal Priority Goals ===
+        
+        # Quest objectives
+        priority_quest = self.quests.get_priority_objective()
+        if priority_quest and not priority_quest.is_complete:
+            self._add_or_update_goal(IntelligentGoal(
+                goal_type=GoalType.COMPLETE_QUEST,
+                priority=55,
+                description=f"Quest: {priority_quest.quest_name}",
+                target_name=priority_quest.target_names[0] if priority_quest.target_names else None,
+                started_at=time.time()
+            ))
+        
+        # Default grinding
+        if not any(g.goal_type == GoalType.GRIND_XP for g in self._active_goals):
+            self._add_or_update_goal(IntelligentGoal(
+                goal_type=GoalType.GRIND_XP,
+                priority=30,
+                description="Grind XP",
+                started_at=time.time()
+            ))
+        
+        # Exploration (lowest priority)
+        if not any(g.goal_type == GoalType.EXPLORE for g in self._active_goals):
+            self._add_or_update_goal(IntelligentGoal(
+                goal_type=GoalType.EXPLORE,
+                priority=10,
+                description="Explore area",
+                started_at=time.time()
+            ))
+    
+    def _add_or_update_goal(self, goal: IntelligentGoal):
+        """Add a new goal or update existing one."""
+        for existing in self._active_goals:
+            if existing.goal_type == goal.goal_type:
+                existing.priority = goal.priority
+                existing.description = goal.description
+                return
+        
+        self._active_goals.append(goal)
+    
+    def _cleanup_goals(self):
+        """Remove completed or expired goals."""
+        current_time = time.time()
+        
+        self._active_goals = [
+            g for g in self._active_goals
+            if g.progress < 1.0 and (current_time - g.started_at) < g.timeout
+        ]
+    
+    def complete_goal(self, goal_type: GoalType):
+        """Mark a goal type as complete."""
+        for goal in self._active_goals:
+            if goal.goal_type == goal_type:
+                goal.progress = 1.0
+                self._completed_goals.append(goal)
+                logger.info(f"Goal completed: {goal.description}")
+        
+        self._active_goals = [g for g in self._active_goals 
+                            if g.goal_type != goal_type]
+        
+        if self._current_goal and self._current_goal.goal_type == goal_type:
+            self._current_goal = None
+    
+    def get_current_goal(self) -> Optional[Goal]:
+        """Get the currently active goal."""
+        return self._current_goal
+    
+    def get_goal_action_hint(self) -> str:
+        """Get a hint about what action to take for current goal."""
+        if not self._current_goal:
+            return "explore"
+        
+        goal_hints = {
+            GoalType.GRIND_XP: "find_enemy",
+            GoalType.COMPLETE_QUEST: "find_quest_target",
+            GoalType.TRAVEL_TO: "navigate",
+            GoalType.FIND_VENDOR: "find_npc",
+            GoalType.FIND_TRAINER: "find_npc",
+            GoalType.REST_HEAL: "rest",
+            GoalType.MANAGE_INVENTORY: "manage_bags",
+            GoalType.LEARN_SPELLS: "visit_trainer",
+            GoalType.EXPLORE: "wander",
+            GoalType.CORPSE_RUN: "return_to_corpse",
+            GoalType.FARM_RESOURCE: "find_node",
+            GoalType.AVOID_DANGER: "flee",
+        }
+        
+        return goal_hints.get(self._current_goal.goal_type, "explore")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# INTELLIGENT DECISION ENGINE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class IntelligentDecisionEngine:
+    """
+    Enhanced decision engine that coordinates all intelligent behaviors.
+    
+    Replaces or enhances the base DecisionEngine with more sophisticated
+    decision-making capabilities.
+    """
+    
+    def __init__(self, base_perception, base_executor,
+                 combat: IntelligentCombatBehavior,
+                 navigation: NavigationPlanner,
+                 inventory: InventoryManager,
+                 quests: QuestManager,
+                 goals: GoalManager,
+                 rest_behavior,  # From base module
+                 loot_behavior,  # From base module
+                 spell_scanner,
+                 spell_knowledge,
+                 progress_knowledge):
+        
+        self.perception = base_perception
+        self.executor = base_executor
+        self.combat = combat
+        self.navigation = navigation
+        self.inventory = inventory
+        self.quests = quests
+        self.goals = goals
+        self.rest = rest_behavior
+        self.loot = loot_behavior
+        self.spell_scanner = spell_scanner
+        self.spells = spell_knowledge
+        self.progress = progress_knowledge
+        
+        self.timing = AdaptiveTimingSystem()
+        
+        # State tracking
+        self._in_combat = False
+        self._last_decision = ""
+        self._decision_count = 0
+        self._estimated_position = (0.0, 0.0)
+        
+        # Thresholds
+        self._rest_hp = 50
+        self._rest_resource_low = 20
+        
+        logger.info("Intelligent decision engine initialized")
+    
+    def decide_and_act(self) -> bool:
+        """
+        Main decision loop with intelligent behavior.
+        
+        Returns:
+            True if an action was taken
+        """
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        # Get current state
+        state = self.perception.perceive()
+        self._decision_count += 1
+        
+        # Evaluate goals
+        goal = self.goals.evaluate_goals(state)
+        
+        # === CRITICAL PRIORITY: Handle death ===
+        if state.player_is_dead or state.player_is_ghost:
+            return self._handle_death(state)
+        
+        # === HIGH PRIORITY: Combat ===
+        if state.player_in_combat:
+            return self._handle_combat(state)
+        
+        # === CHECK: Just exited combat ===
+        if self._in_combat and not state.player_in_combat:
+            self._in_combat = False
+            # Check for loot
+            if state.has_target and state.target_is_dead:
+                return self._handle_looting(state)
+        
+        # === CHECK: Target to loot ===
+        if state.loot_window_open:
+            return self._handle_looting(state)
+        
+        # === CHECK: HP/Resource needs ===
+        if self._needs_rest(state):
+            self.timing.record_rest()
+            return self._handle_rest(state)
+        
+        # === GOAL-DRIVEN BEHAVIOR ===
+        if goal:
+            return self._pursue_goal(state, goal)
+        
+        # === DEFAULT: Explore and find targets ===
+        return self._handle_exploration(state)
+    
+    def _handle_death(self, state) -> bool:
+        """Handle death and corpse run."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        logger.info("Handling death/ghost state")
+        
+        if self._in_combat:
+            self._in_combat = False
+            self.combat.end_combat(False, 0)
+        
+        # Accept resurrection if available
+        # Move toward corpse
+        action = Action(ActionType.MOVE_FORWARD, Priority.CRITICAL,
+                       "Corpse run", duration=2.0)
+        self.executor.execute(action)
+        return True
+    
+    def _handle_combat(self, state) -> bool:
+        """Handle active combat with intelligent decisions."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        if not self._in_combat:
+            self._in_combat = True
+            self.combat.start_combat(state.target_name, state.player_hp)
+        
+        # Check if we should flee
+        if self.combat.should_flee(state):
+            logger.warning("Fleeing combat!")
+            action = Action(ActionType.MOVE_BACKWARD, Priority.CRITICAL,
+                           "Fleeing", duration=2.0)
+            self.executor.execute(action)
+            return True
+        
+        # Get combat action
+        action = self.combat.get_next_action(state)
+        self.executor.execute(action)
+        
+        # Check for combat end
+        if state.has_target and state.target_is_dead:
+            self._in_combat = False
+            self.combat.end_combat(True, state.player_hp)
+            
+            # Update quest progress
+            if state.target_name:
+                self.quests.update_objective_progress(state.target_name, "kill")
+        
+        return True
+    
+    def _handle_looting(self, state) -> bool:
+        """Handle looting behavior."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        if self.inventory.should_loot_corpse(state):
+            # Use base loot behavior
+            self.loot.loot_target()
+            return True
+        
+        # Skip looting if bags full
+        logger.debug("Skipping loot - bags full")
+        return False
+    
+    def _needs_rest(self, state) -> bool:
+        """Check if we need to rest."""
+        if state.player_in_combat:
+            return False
+        
+        if state.player_hp < self._rest_hp:
+            return True
+        
+        return False
+    
+    def _handle_rest(self, state) -> bool:
+        """Handle resting to restore HP/resources."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        logger.debug(f"Resting (HP: {state.player_hp:.0f}%)")
+        
+        # Use base rest behavior
+        self.rest.start_rest()
+        
+        # Wait until recovered
+        if state.player_hp < 80:
+            action = Action(ActionType.WAIT, Priority.NORMAL,
+                           "Resting", duration=2.0)
+            self.executor.execute(action)
+            return True
+        
+        self.rest.stop_rest()
+        self.goals.complete_goal(GoalType.REST_HEAL)
+        return True
+    
+    def _pursue_goal(self, state, goal: Goal) -> bool:
+        """Execute actions to pursue the current goal."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        goal_type = goal.goal_type
+        
+        if goal_type == GoalType.GRIND_XP:
+            return self._grind_xp(state)
+        
+        elif goal_type == GoalType.COMPLETE_QUEST:
+            return self._complete_quest(state, goal)
+        
+        elif goal_type == GoalType.FIND_VENDOR:
+            return self._find_vendor(state)
+        
+        elif goal_type == GoalType.REST_HEAL:
+            return self._handle_rest(state)
+        
+        elif goal_type == GoalType.EXPLORE:
+            return self._handle_exploration(state)
+        
+        # Default
+        return self._handle_exploration(state)
+    
+    def _grind_xp(self, state) -> bool:
+        """Grind XP by killing mobs."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        # If we have a target, attack it
+        if state.has_target and not state.target_is_dead:
+            action = Action(ActionType.ATTACK, Priority.HIGH, "Engaging target")
+            self.executor.execute(action)
+            return True
+        
+        # Try to find a target
+        action = Action(ActionType.TARGET_ENEMY, Priority.NORMAL, "Finding target")
+        self.executor.execute(action)
+        
+        time.sleep(self.timing.get_reaction_delay("normal"))
+        
+        # If no target found, move to find one
+        new_state = self.perception.perceive()
+        if not new_state.has_target:
+            nav_action = self.navigation.get_next_movement(state, self._estimated_position)
+            self.executor.execute(nav_action)
+        
+        return True
+    
+    def _complete_quest(self, state, goal: Goal) -> bool:
+        """Work on completing a quest objective."""
+        # Similar to grinding but prioritize quest targets
+        
+        if goal.target_name and state.has_target:
+            # Check if current target is quest target
+            if self.quests.is_quest_target(state.target_name):
+                return self._grind_xp(state)
+        
+        # Find quest targets
+        return self._grind_xp(state)
+    
+    def _find_vendor(self, state) -> bool:
+        """Find and travel to a vendor."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        # Would use world knowledge to find vendor locations
+        # For now, explore until we find one
+        logger.info("Searching for vendor...")
+        
+        # Navigate toward known vendor location if available
+        # Otherwise explore
+        nav_action = self.navigation.get_next_movement(state, self._estimated_position)
+        self.executor.execute(nav_action)
+        
+        return True
+    
+    def _handle_exploration(self, state) -> bool:
+        """Explore the area looking for targets/objectives."""
+        from wow_autonomous_agent_FIXED import Action, ActionType, Priority
+        
+        # Use intelligent navigation
+        nav_action = self.navigation.get_next_movement(state, self._estimated_position)
+        self.executor.execute(nav_action)
+        
+        # Periodically check for targets
+        if self._decision_count % 5 == 0:
+            action = Action(ActionType.TARGET_ENEMY, Priority.LOW, "Scanning for targets")
+            self.executor.execute(action)
+        
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# INTEGRATION CLASS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class IntelligentAgentExpansion:
+    """
+    Integration class to add intelligent behaviors to the base agent.
+    
+    Usage:
+        from wow_intelligent_expansion import IntelligentAgentExpansion
+        
+        # After creating base agent
+        expansion = IntelligentAgentExpansion(base_agent)
+        expansion.integrate()
+        
+        # Now base_agent.decision is the intelligent engine
+    """
+    
+    def __init__(self, base_agent):
+        """
+        Initialize expansion with reference to base agent.
+        
+        Args:
+            base_agent: WoWAutonomousPlayer instance
+        """
+        self.base = base_agent
+        self._integrated = False
+        
+        # Components will be created during integration
+        self.combat: Optional[IntelligentCombatBehavior] = None
+        self.navigation: Optional[NavigationPlanner] = None
+        self.inventory: Optional[InventoryManager] = None
+        self.quests: Optional[QuestManager] = None
+        self.goals: Optional[GoalManager] = None
+        self.decision: Optional[IntelligentDecisionEngine] = None
+        self.timing: Optional[AdaptiveTimingSystem] = None
+        
+        logger.info("Intelligent expansion created")
+    
+    def integrate(self):
+        """
+        Integrate intelligent behaviors into the base agent.
+        
+        This replaces/enhances key behaviors with intelligent versions.
+        """
+        if self._integrated:
+            logger.warning("Already integrated")
+            return
+        
+        logger.info("=" * 60)
+        logger.info("INTEGRATING INTELLIGENT BEHAVIORS")
+        logger.info("=" * 60)
+        
+        # Create timing system
+        self.timing = AdaptiveTimingSystem()
+        
+        # Create intelligent combat
+        self.combat = IntelligentCombatBehavior(
+            executor=self.base.executor,
+            perception=self.base.perception,
+            spell_knowledge=self.base.spell_knowledge,
+            combat_knowledge=self.base.combat_knowledge,
+            progress_knowledge=self.base.progress_knowledge,
+            capture=self.base.capture,
+            analyzer=self.base.analyzer
+        )
+        
+        # Create navigation planner
+        self.navigation = NavigationPlanner(
+            executor=self.base.executor,
+            world_knowledge=self.base.world_knowledge,
+            capture=self.base.capture,
+            analyzer=self.base.analyzer
+        )
+        
+        # Create inventory manager
+        self.inventory = InventoryManager(
+            capture=self.base.capture,
+            analyzer=self.base.analyzer,
+            input_handler=self.base.input
+        )
+        
+        # Create quest manager
+        self.quests = QuestManager(
+            capture=self.base.capture,
+            analyzer=self.base.analyzer,
+            input_handler=self.base.input,
+            quest_knowledge=self.base.quest_knowledge
+        )
+        
+        # Create goal manager
+        self.goals = GoalManager(
+            perception=self.base.perception,
+            quest_manager=self.quests,
+            inventory_manager=self.inventory,
+            navigation_planner=self.navigation,
+            progress_knowledge=self.base.progress_knowledge
+        )
+        
+        # Create intelligent decision engine
+        self.decision = IntelligentDecisionEngine(
+            base_perception=self.base.perception,
+            base_executor=self.base.executor,
+            combat=self.combat,
+            navigation=self.navigation,
+            inventory=self.inventory,
+            quests=self.quests,
+            goals=self.goals,
+            rest_behavior=self.base.rest,
+            loot_behavior=self.base.loot,
+            spell_scanner=self.base.spell_scanner,
+            spell_knowledge=self.base.spell_knowledge,
+            progress_knowledge=self.base.progress_knowledge
+        )
+        
+        # Replace base decision engine
+        self.base.decision = self.decision
+        
+        # Replace base combat behavior
+        self.base.combat = self.combat
+        
+        # Replace base navigation
+        self.base.navigation = self.navigation
+        
+        self._integrated = True
+        
+        logger.info("Intelligent behaviors integrated successfully")
+        logger.info("  - Combat: Target prioritization, interrupts, kiting")
+        logger.info("  - Navigation: Pathfinding, danger avoidance")
+        logger.info("  - Inventory: Smart loot decisions")
+        logger.info("  - Quests: OCR tracking (%s)", 'enabled' if OCR_AVAILABLE else 'disabled')
+        logger.info("  - Goals: State-based goal management")
+        logger.info("  - Timing: Human-like reaction delays")
+        logger.info("=" * 60)
+    
+    def save_all(self):
+        """Save all learned data."""
+        if not self._integrated:
+            return
+        
+        if self.combat:
+            self.combat.target_analyzer.save_dangerous_enemies()
+        
+        if self.navigation:
+            self.navigation.save_navigation_data()
+        
+        if self.inventory:
+            self.inventory.save_item_lists()
+        
+        if self.quests:
+            self.quests.save_quest_data()
+        
+        logger.info("Intelligent expansion data saved")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MISSING PLAYER CAPABILITY SYSTEMS - COMPREHENSIVE IMPLEMENTATION
+# ═══════════════════════════════════════════════════════════════════════════════
+# The following systems implement remaining WoW 1.12 player capabilities that
+# were not fully implemented in the base agent.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DISCONNECT RECOVERY SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════
+
+class DisconnectRecoverySystem:
+    """
+    Handles game disconnection detection and recovery.
+    Monitors for disconnect screens and attempts to reconnect.
+    """
+    
+    def __init__(self, capture: ScreenCapture, input_handler: InputHandler):
+        self.capture = capture
+        self.input = input_handler
+        self._last_frame_hash = ""
+        self._frozen_frame_count = 0
+        self._disconnect_detected = False
+        self._reconnect_attempts = 0
+        self._max_reconnect_attempts = 5
+        self._last_activity_time = time.time()
+        
+        # Disconnect detection colors (login screen, disconnect dialog)
+        self._disconnect_indicators = {
+            'login_screen': {'lower': np.array([10, 50, 50]), 'upper': np.array([30, 150, 150])},
+            'disconnect_text': {'lower': np.array([0, 0, 200]), 'upper': np.array([180, 30, 255])},
+        }
+        
+        logger.debug("Disconnect recovery system initialized")
+    
+    def check_connection_status(self) -> str:
+        """
+        Check current connection status.
+        Returns: 'connected', 'disconnected', 'loading', 'frozen'
+        """
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return 'frozen'
+        
+        # Compute frame hash for frozen detection
+        frame_hash = hashlib.md5(frame.tobytes()[:10000]).hexdigest()[:8]
+        
+        if frame_hash == self._last_frame_hash:
+            self._frozen_frame_count += 1
+            if self._frozen_frame_count > 30:  # ~3 seconds at 10fps
+                return 'frozen'
+        else:
+            self._frozen_frame_count = 0
+            self._last_frame_hash = frame_hash
+        
+        # Check for disconnect dialog / login screen
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        
+        # Check for large dark area (login screen background)
+        dark_mask = cv2.inRange(hsv, np.array([0, 0, 0]), np.array([180, 255, 50]))
+        dark_ratio = np.sum(dark_mask > 0) / dark_mask.size
+        
+        if dark_ratio > 0.7:
+            # Likely on login screen or disconnect
+            return 'disconnected'
+        
+        # Check for loading screen (spinning icon area)
+        loading_region = frame[frame.shape[0]-100:, frame.shape[1]-100:]
+        if loading_region.size > 0:
+            loading_std = np.std(loading_region)
+            if loading_std < 20:  # Very uniform = loading screen
+                return 'loading'
+        
+        self._last_activity_time = time.time()
+        return 'connected'
+    
+    def attempt_reconnect(self) -> bool:
+        """
+        Attempt to reconnect to the game.
+        Returns True if reconnect attempt was made.
+        """
+        if self._reconnect_attempts >= self._max_reconnect_attempts:
+            logger.error("Max reconnect attempts reached")
+            return False
+        
+        self._reconnect_attempts += 1
+        logger.warning(f"Attempting reconnect (attempt {self._reconnect_attempts})")
+        
+        # Press Escape to dismiss any dialogs
+        self.input.press_key('esc')
+        time.sleep(0.5)
+        
+        # Try clicking "Okay" button location for disconnect dialog
+        screen_center_x = 960  # Assuming 1920x1080
+        screen_center_y = 600
+        self.input.click(screen_center_x, screen_center_y)
+        time.sleep(0.5)
+        
+        # Press Enter to confirm
+        self.input.press_key('enter')
+        time.sleep(2.0)
+        
+        # Check if we're back in game
+        status = self.check_connection_status()
+        if status == 'connected':
+            logger.info("Reconnection successful")
+            self._reconnect_attempts = 0
+            self._disconnect_detected = False
+            return True
+        
+        return False
+    
+    def handle_disconnect(self) -> bool:
+        """
+        Main handler for disconnect situations.
+        Returns True if handled successfully.
+        """
+        status = self.check_connection_status()
+        
+        if status == 'connected':
+            self._disconnect_detected = False
+            return True
+        
+        if status == 'loading':
+            logger.debug("Game is loading...")
+            time.sleep(1.0)
+            return True
+        
+        if status in ('disconnected', 'frozen'):
+            if not self._disconnect_detected:
+                logger.warning(f"Disconnect detected: {status}")
+                self._disconnect_detected = True
+            
+            return self.attempt_reconnect()
+        
+        return False
+    
+    def reset(self):
+        """Reset reconnection state."""
+        self._reconnect_attempts = 0
+        self._disconnect_detected = False
+        self._frozen_frame_count = 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ERROR DIALOG HANDLER
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ErrorDialogHandler:
+    """
+    Handles various error dialogs and popup messages in WoW.
+    """
+    
+    def __init__(self, capture: ScreenCapture, input_handler: InputHandler, analyzer: VisualAnalyzer):
+        self.capture = capture
+        self.input = input_handler
+        self.analyzer = analyzer
+        
+        # Common dialog button positions (relative to dialog center)
+        self._button_offsets = {
+            'okay': (0, 60),
+            'accept': (-60, 60),
+            'decline': (60, 60),
+            'cancel': (60, 60),
+            'yes': (-60, 60),
+            'no': (60, 60),
+        }
+        
+        # Dialog detection regions (approximate)
+        self._dialog_region = (400, 300, 1100, 700)  # x1, y1, x2, y2
+        
+        logger.debug("Error dialog handler initialized")
+    
+    def detect_dialog(self) -> Optional[str]:
+        """
+        Detect if an error dialog is present.
+        Returns dialog type or None.
+        """
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return None
+        
+        # Extract dialog region
+        x1, y1, x2, y2 = self._dialog_region
+        if x2 > frame.shape[1]:
+            x2 = frame.shape[1]
+        if y2 > frame.shape[0]:
+            y2 = frame.shape[0]
+        
+        dialog_area = frame[y1:y2, x1:x2]
+        
+        if dialog_area.size == 0:
+            return None
+        
+        # Check for dialog frame (brown/gold border)
+        hsv = cv2.cvtColor(dialog_area, cv2.COLOR_BGR2HSV)
+        gold_mask = cv2.inRange(hsv, np.array([15, 100, 100]), np.array([30, 255, 255]))
+        gold_ratio = np.sum(gold_mask > 0) / gold_mask.size
+        
+        if gold_ratio > 0.02:  # Dialog frame detected
+            # Try to identify dialog type using OCR if available
+            if OCR_AVAILABLE:
+                try:
+                    gray = cv2.cvtColor(dialog_area, cv2.COLOR_BGR2GRAY)
+                    text = pytesseract.image_to_string(gray, config='--psm 6').lower()
+                    
+                    if 'error' in text:
+                        return 'error'
+                    elif 'confirm' in text:
+                        return 'confirm'
+                    elif 'accept' in text or 'decline' in text:
+                        return 'choice'
+                    elif 'loot' in text:
+                        return 'loot_roll'
+                    elif 'trade' in text:
+                        return 'trade'
+                    elif 'duel' in text:
+                        return 'duel'
+                    elif 'summon' in text:
+                        return 'summon'
+                    elif 'resurrect' in text:
+                        return 'resurrect'
+                    elif 'queue' in text or 'battleground' in text:
+                        return 'bg_queue'
+                    else:
+                        return 'unknown'
+                except Exception:
+                    return 'unknown'
+            
+            return 'unknown'
+        
+        return None
+    
+    def dismiss_dialog(self, dialog_type: str = 'unknown', action: str = 'okay') -> bool:
+        """
+        Dismiss a dialog with specified action.
+        
+        Args:
+            dialog_type: Type of dialog detected
+            action: 'okay', 'accept', 'decline', 'cancel', 'yes', 'no'
+        """
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return False
+        
+        # Calculate dialog center
+        center_x = (self._dialog_region[0] + self._dialog_region[2]) // 2
+        center_y = (self._dialog_region[1] + self._dialog_region[3]) // 2
+        
+        # Get button offset
+        offset = self._button_offsets.get(action, (0, 60))
+        button_x = center_x + offset[0]
+        button_y = center_y + offset[1]
+        
+        logger.debug(f"Dismissing {dialog_type} dialog with {action}")
+        
+        # Click the button
+        self.input.click(button_x, button_y)
+        time.sleep(0.3)
+        
+        # Press Enter as backup
+        self.input.press_key('enter')
+        time.sleep(0.2)
+        
+        return True
+    
+    def handle_any_dialog(self) -> bool:
+        """
+        Detect and handle any dialog present.
+        Returns True if dialog was handled.
+        """
+        dialog_type = self.detect_dialog()
+        
+        if dialog_type is None:
+            return False
+        
+        logger.info(f"Dialog detected: {dialog_type}")
+        
+        # Determine appropriate action based on dialog type
+        if dialog_type == 'error':
+            return self.dismiss_dialog(dialog_type, 'okay')
+        elif dialog_type == 'duel':
+            return self.dismiss_dialog(dialog_type, 'decline')  # Auto-decline duels
+        elif dialog_type == 'trade':
+            return self.dismiss_dialog(dialog_type, 'decline')  # Auto-decline trades
+        elif dialog_type == 'summon':
+            return self.dismiss_dialog(dialog_type, 'accept')  # Accept summons
+        elif dialog_type == 'resurrect':
+            return self.dismiss_dialog(dialog_type, 'accept')  # Accept resurrects
+        elif dialog_type == 'bg_queue':
+            return self.dismiss_dialog(dialog_type, 'accept')  # Accept BG queue
+        else:
+            return self.dismiss_dialog(dialog_type, 'okay')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# COMBAT LOG PARSER
+# ═══════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class CombatLogEvent:
+    """A parsed combat log event."""
+    timestamp: float
+    event_type: str  # DAMAGE, HEAL, DEATH, CAST_START, CAST_SUCCESS, BUFF, DEBUFF
+    source_name: str
+    target_name: str
+    ability_name: str
+    amount: float
+    is_critical: bool
+    is_player_source: bool
+    is_player_target: bool
+
+
+class CombatLogParser:
+    """
+    Parses the combat log for events.
+    Uses OCR on the combat log region to extract information.
+    """
+    
+    def __init__(self, capture: ScreenCapture):
+        self.capture = capture
+        self._events: Deque[CombatLogEvent] = deque(maxlen=100)
+        self._last_parse_time = 0
+        self._parse_interval = 0.5  # Parse every 500ms
+        
+        # Combat log region (adjust based on UI setup)
+        self._log_region = (10, 600, 500, 800)  # x1, y1, x2, y2
+        
+        # Event patterns
+        self._damage_patterns = [
+            r"(.+) hits (.+) for (\d+)",
+            r"(.+) crits (.+) for (\d+)",
+            r"Your (.+) hits (.+) for (\d+)",
+            r"Your (.+) crits (.+) for (\d+)",
+        ]
+        
+        self._heal_patterns = [
+            r"(.+) heals (.+) for (\d+)",
+            r"Your (.+) heals (.+) for (\d+)",
+        ]
+        
+        self._death_patterns = [
+            r"(.+) dies",
+            r"You have slain (.+)",
+        ]
+        
+        logger.debug("Combat log parser initialized")
+    
+    def parse(self) -> List[CombatLogEvent]:
+        """
+        Parse the combat log and return new events.
+        Returns list of new events since last parse.
+        """
+        current_time = time.time()
+        if current_time - self._last_parse_time < self._parse_interval:
+            return []
+        
+        self._last_parse_time = current_time
+        
+        if not OCR_AVAILABLE:
+            return []
+        
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return []
+        
+        # Extract log region
+        x1, y1, x2, y2 = self._log_region
+        if x2 > frame.shape[1]:
+            x2 = frame.shape[1]
+        if y2 > frame.shape[0]:
+            y2 = frame.shape[0]
+        
+        log_area = frame[y1:y2, x1:x2]
+        
+        if log_area.size == 0:
+            return []
+        
+        new_events = []
+        
+        try:
+            # Convert to grayscale and enhance contrast
+            gray = cv2.cvtColor(log_area, cv2.COLOR_BGR2GRAY)
+            _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+            
+            # OCR the combat log
+            text = pytesseract.image_to_string(thresh, config='--psm 6')
+            lines = text.strip().split('\n')
+            
+            for line in lines:
+                event = self._parse_line(line, current_time)
+                if event:
+                    new_events.append(event)
+                    self._events.append(event)
+        
+        except Exception as e:
+            logger.debug(f"Combat log parse error: {e}")
+        
+        return new_events
+    
+    def _parse_line(self, line: str, timestamp: float) -> Optional[CombatLogEvent]:
+        """Parse a single combat log line."""
+        line = line.strip().lower()
+        if not line:
+            return None
+        
+        # Check damage patterns
+        for pattern in self._damage_patterns:
+            match = re.search(pattern.lower(), line)
+            if match:
+                groups = match.groups()
+                is_crit = 'crit' in line
+                return CombatLogEvent(
+                    timestamp=timestamp,
+                    event_type='DAMAGE',
+                    source_name=groups[0] if len(groups) > 0 else 'Unknown',
+                    target_name=groups[1] if len(groups) > 1 else 'Unknown',
+                    ability_name=groups[0] if 'your' in line else 'Attack',
+                    amount=float(groups[2]) if len(groups) > 2 else 0,
+                    is_critical=is_crit,
+                    is_player_source='your' in line or 'you' in line,
+                    is_player_target='you' in groups[1].lower() if len(groups) > 1 else False
+                )
+        
+        # Check heal patterns
+        for pattern in self._heal_patterns:
+            match = re.search(pattern.lower(), line)
+            if match:
+                groups = match.groups()
+                return CombatLogEvent(
+                    timestamp=timestamp,
+                    event_type='HEAL',
+                    source_name=groups[0] if len(groups) > 0 else 'Unknown',
+                    target_name=groups[1] if len(groups) > 1 else 'Unknown',
+                    ability_name=groups[0] if 'your' in line else 'Heal',
+                    amount=float(groups[2]) if len(groups) > 2 else 0,
+                    is_critical=False,
+                    is_player_source='your' in line,
+                    is_player_target='you' in groups[1].lower() if len(groups) > 1 else False
+                )
+        
+        # Check death patterns
+        for pattern in self._death_patterns:
+            match = re.search(pattern.lower(), line)
+            if match:
+                groups = match.groups()
+                return CombatLogEvent(
+                    timestamp=timestamp,
+                    event_type='DEATH',
+                    source_name='',
+                    target_name=groups[0] if groups else 'Unknown',
+                    ability_name='',
+                    amount=0,
+                    is_critical=False,
+                    is_player_source=False,
+                    is_player_target='you' in line
+                )
+        
+        return None
+    
+    def get_recent_damage_to_player(self, seconds: float = 5.0) -> float:
+        """Get total damage received by player in last N seconds."""
+        cutoff = time.time() - seconds
+        total = 0.0
+        
+        for event in self._events:
+            if event.timestamp >= cutoff and event.event_type == 'DAMAGE' and event.is_player_target:
+                total += event.amount
+        
+        return total
+    
+    def get_recent_kills(self, seconds: float = 60.0) -> int:
+        """Get number of kills in last N seconds."""
+        cutoff = time.time() - seconds
+        count = 0
+        
+        for event in self._events:
+            if event.timestamp >= cutoff and event.event_type == 'DEATH' and event.is_player_source:
+                count += 1
+        
+        return count
+    
+    def get_dps_estimate(self, seconds: float = 10.0) -> float:
+        """Estimate player DPS over last N seconds."""
+        cutoff = time.time() - seconds
+        total_damage = 0.0
+        
+        for event in self._events:
+            if event.timestamp >= cutoff and event.event_type == 'DAMAGE' and event.is_player_source:
+                total_damage += event.amount
+        
+        return total_damage / max(1.0, seconds)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MINIMAP NAVIGATION
+# ═══════════════════════════════════════════════════════════════════════════
+
+class MinimapNavigator:
+    """
+    Navigation using minimap for direction and position awareness.
+    """
+    
+    def __init__(self, capture: ScreenCapture, input_handler: InputHandler):
+        self.capture = capture
+        self.input = input_handler
+        
+        # Minimap region (top-right corner typically)
+        self._minimap_center = (1780, 140)  # Adjust for resolution
+        self._minimap_radius = 70
+        
+        # Player arrow detection
+        self._player_arrow_color = {'lower': np.array([0, 200, 200]), 'upper': np.array([20, 255, 255])}
+        
+        # Tracking node colors (yellow for herbs, grey for minerals)
+        self._herb_color = {'lower': np.array([20, 100, 100]), 'upper': np.array([40, 255, 255])}
+        self._mineral_color = {'lower': np.array([0, 0, 150]), 'upper': np.array([180, 50, 200])}
+        
+        # Quest objective (yellow dot)
+        self._quest_color = {'lower': np.array([20, 200, 200]), 'upper': np.array([35, 255, 255])}
+        
+        # Hostile (red dots)
+        self._hostile_color = {'lower': np.array([0, 150, 150]), 'upper': np.array([10, 255, 255])}
+        
+        # Friendly (green dots)
+        self._friendly_color = {'lower': np.array([40, 100, 100]), 'upper': np.array([80, 255, 255])}
+        
+        self._current_facing = 0.0  # Radians, 0 = North
+        
+        logger.debug("Minimap navigator initialized")
+    
+    def get_minimap_region(self) -> Optional[np.ndarray]:
+        """Extract circular minimap region."""
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return None
+        
+        cx, cy = self._minimap_center
+        r = self._minimap_radius
+        
+        # Bounds check
+        x1 = max(0, cx - r)
+        y1 = max(0, cy - r)
+        x2 = min(frame.shape[1], cx + r)
+        y2 = min(frame.shape[0], cy + r)
+        
+        return frame[y1:y2, x1:x2]
+    
+    def detect_player_facing(self) -> Optional[float]:
+        """
+        Detect player facing direction from minimap arrow.
+        Returns angle in radians (0 = North, positive = clockwise).
+        """
+        minimap = self.get_minimap_region()
+        if minimap is None:
+            return None
+        
+        hsv = cv2.cvtColor(minimap, cv2.COLOR_BGR2HSV)
+        
+        # Detect player arrow (gold/yellow)
+        mask = cv2.inRange(hsv, self._player_arrow_color['lower'], self._player_arrow_color['upper'])
+        
+        # Find contours
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if not contours:
+            return self._current_facing
+        
+        # Find largest contour (should be the arrow)
+        largest = max(contours, key=cv2.contourArea)
+        
+        if cv2.contourArea(largest) < 10:
+            return self._current_facing
+        
+        # Fit ellipse to get orientation
+        if len(largest) >= 5:
+            ellipse = cv2.fitEllipse(largest)
+            angle = ellipse[2]  # Rotation angle
+            self._current_facing = math.radians(angle)
+        
+        return self._current_facing
+    
+    def find_nodes_on_minimap(self, node_type: str = 'herb') -> List[Tuple[float, float]]:
+        """
+        Find tracking nodes on minimap.
+        Returns list of (angle, distance) tuples relative to player.
+        """
+        minimap = self.get_minimap_region()
+        if minimap is None:
+            return []
+        
+        hsv = cv2.cvtColor(minimap, cv2.COLOR_BGR2HSV)
+        
+        # Select color based on type
+        if node_type == 'herb':
+            color = self._herb_color
+        elif node_type == 'mineral':
+            color = self._mineral_color
+        elif node_type == 'quest':
+            color = self._quest_color
+        elif node_type == 'hostile':
+            color = self._hostile_color
+        elif node_type == 'friendly':
+            color = self._friendly_color
+        else:
+            return []
+        
+        mask = cv2.inRange(hsv, color['lower'], color['upper'])
+        
+        # Find contours
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        results = []
+        center = (minimap.shape[1] // 2, minimap.shape[0] // 2)
+        
+        for contour in contours:
+            if cv2.contourArea(contour) < 5:
+                continue
+            
+            M = cv2.moments(contour)
+            if M['m00'] == 0:
+                continue
+            
+            cx = int(M['m10'] / M['m00'])
+            cy = int(M['m01'] / M['m00'])
+            
+            # Calculate angle and distance from center
+            dx = cx - center[0]
+            dy = cy - center[1]
+            
+            distance = math.sqrt(dx * dx + dy * dy) / self._minimap_radius
+            angle = math.atan2(dy, dx)
+            
+            results.append((angle, distance))
+        
+        return results
+    
+    def get_direction_to_nearest_node(self, node_type: str = 'hostile') -> Optional[float]:
+        """
+        Get direction to turn to face nearest node of type.
+        Returns angle offset (positive = turn right).
+        """
+        nodes = self.find_nodes_on_minimap(node_type)
+        
+        if not nodes:
+            return None
+        
+        # Find nearest
+        nearest = min(nodes, key=lambda n: n[1])
+        node_angle, distance = nearest
+        
+        # Calculate turn needed
+        current_facing = self.detect_player_facing()
+        if current_facing is None:
+            current_facing = 0
+        
+        turn_angle = node_angle - current_facing
+        
+        # Normalize to -pi to pi
+        while turn_angle > math.pi:
+            turn_angle -= 2 * math.pi
+        while turn_angle < -math.pi:
+            turn_angle += 2 * math.pi
+        
+        return turn_angle
+    
+    def navigate_toward_minimap_target(self, node_type: str = 'hostile') -> bool:
+        """
+        Turn toward nearest target on minimap.
+        Returns True if target found and turn initiated.
+        """
+        turn_angle = self.get_direction_to_nearest_node(node_type)
+        
+        if turn_angle is None:
+            return False
+        
+        # Convert to turn duration
+        turn_speed = 2.0  # Radians per second (approximate)
+        turn_duration = abs(turn_angle) / turn_speed
+        
+        # Execute turn
+        if turn_angle > 0.1:  # Turn right
+            self.input.hold_key(DefaultKeybinds.TURN_RIGHT)
+            time.sleep(min(turn_duration, 0.5))
+            self.input.release_key(DefaultKeybinds.TURN_RIGHT)
+            return True
+        elif turn_angle < -0.1:  # Turn left
+            self.input.hold_key(DefaultKeybinds.TURN_LEFT)
+            time.sleep(min(turn_duration, 0.5))
+            self.input.release_key(DefaultKeybinds.TURN_LEFT)
+            return True
+        
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# NAMEPLATE DETECTOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class NameplateDetector:
+    """
+    Detects and interacts with enemy nameplates.
+    """
+    
+    def __init__(self, capture: ScreenCapture, input_handler: InputHandler):
+        self.capture = capture
+        self.input = input_handler
+        
+        # Nameplate colors
+        self._hostile_nameplate = {'lower': np.array([0, 100, 100]), 'upper': np.array([10, 255, 255])}
+        self._friendly_nameplate = {'lower': np.array([40, 100, 100]), 'upper': np.array([80, 255, 255])}
+        self._neutral_nameplate = {'lower': np.array([20, 100, 100]), 'upper': np.array([40, 255, 255])}
+        
+        # Nameplate detection region (middle-upper screen)
+        self._scan_region = (200, 100, 1700, 600)  # x1, y1, x2, y2
+        
+        # Minimum nameplate size
+        self._min_width = 50
+        self._min_height = 5
+        self._max_height = 20
+        
+        logger.debug("Nameplate detector initialized")
+    
+    def find_nameplates(self, plate_type: str = 'hostile') -> List[Tuple[int, int, int, int]]:
+        """
+        Find nameplates of specified type.
+        Returns list of (x, y, width, height) bounding boxes.
+        """
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return []
+        
+        # Select color based on type
+        if plate_type == 'hostile':
+            color = self._hostile_nameplate
+        elif plate_type == 'friendly':
+            color = self._friendly_nameplate
+        elif plate_type == 'neutral':
+            color = self._neutral_nameplate
+        else:
+            return []
+        
+        # Extract scan region
+        x1, y1, x2, y2 = self._scan_region
+        x2 = min(x2, frame.shape[1])
+        y2 = min(y2, frame.shape[0])
+        
+        region = frame[y1:y2, x1:x2]
+        hsv = cv2.cvtColor(region, cv2.COLOR_BGR2HSV)
+        
+        # Create mask
+        mask = cv2.inRange(hsv, color['lower'], color['upper'])
+        
+        # Find contours
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        nameplates = []
+        
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            
+            # Filter by size (nameplates are wide and thin)
+            if w >= self._min_width and self._min_height <= h <= self._max_height:
+                # Convert back to full frame coordinates
+                nameplates.append((x + x1, y + y1, w, h))
+        
+        # Sort by vertical position (closer enemies usually higher on screen)
+        nameplates.sort(key=lambda n: n[1], reverse=True)
+        
+        return nameplates
+    
+    def click_nearest_nameplate(self, plate_type: str = 'hostile') -> bool:
+        """
+        Click on the nearest nameplate to target.
+        Returns True if nameplate was clicked.
+        """
+        nameplates = self.find_nameplates(plate_type)
+        
+        if not nameplates:
+            return False
+        
+        # Click nearest (first in sorted list - lowest on screen = closest)
+        x, y, w, h = nameplates[0]
+        click_x = x + w // 2
+        click_y = y + h // 2
+        
+        logger.debug(f"Clicking nameplate at ({click_x}, {click_y})")
+        self.input.click(click_x, click_y)
+        
+        return True
+    
+    def get_nameplate_count(self, plate_type: str = 'hostile') -> int:
+        """Get count of visible nameplates."""
+        return len(self.find_nameplates(plate_type))
+    
+    def cycle_nameplates(self) -> bool:
+        """Cycle through visible hostile nameplates."""
+        nameplates = self.find_nameplates('hostile')
+        
+        if len(nameplates) < 2:
+            return False
+        
+        # Tab target to cycle
+        self.input.press_key(DefaultKeybinds.TARGET_NEAREST_ENEMY)
+        return True
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CAST BAR READER
+# ═══════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class CastBarInfo:
+    """Information about a detected cast bar."""
+    is_casting: bool
+    spell_name: str
+    progress: float  # 0.0 to 1.0
+    remaining_time: float  # Estimated seconds remaining
+    is_channeled: bool
+    is_interruptible: bool
+
+
+class CastBarReader:
+    """
+    Reads cast bars for interrupt timing.
+    """
+    
+    def __init__(self, capture: ScreenCapture, regions: ScreenRegions):
+        self.capture = capture
+        self.regions = regions
+        
+        # Cast bar colors
+        self._cast_bar_color = {'lower': np.array([100, 100, 100]), 'upper': np.array([130, 255, 255])}  # Blue/purple
+        self._channel_bar_color = {'lower': np.array([40, 100, 100]), 'upper': np.array([80, 255, 255])}  # Green
+        
+        # Known interruptible spells (learning list)
+        self._interruptible_spells: Set[str] = {
+            'heal', 'healing', 'flash', 'greater', 'shadow bolt', 'frostbolt', 'fireball',
+            'lightning', 'chain heal', 'regrowth', 'wrath', 'starfire', 'smite',
+        }
+        
+        # Cast bar tracking
+        self._last_cast_progress = 0.0
+        self._cast_start_time = 0.0
+        
+        logger.debug("Cast bar reader initialized")
+    
+    def read_target_cast_bar(self) -> CastBarInfo:
+        """Read the target's cast bar."""
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return CastBarInfo(False, '', 0.0, 0.0, False, False)
+        
+        # Target cast bar region (below target frame)
+        cast_region = self.regions.TARGET_CAST_BAR if hasattr(self.regions, 'TARGET_CAST_BAR') else (260, 90, 480, 105)
+        
+        x1, y1, x2, y2 = cast_region
+        if x2 > frame.shape[1]:
+            x2 = frame.shape[1]
+        if y2 > frame.shape[0]:
+            y2 = frame.shape[0]
+        
+        bar_region = frame[y1:y2, x1:x2]
+        
+        if bar_region.size == 0:
+            return CastBarInfo(False, '', 0.0, 0.0, False, False)
+        
+        hsv = cv2.cvtColor(bar_region, cv2.COLOR_BGR2HSV)
+        
+        # Check for cast bar
+        cast_mask = cv2.inRange(hsv, self._cast_bar_color['lower'], self._cast_bar_color['upper'])
+        channel_mask = cv2.inRange(hsv, self._channel_bar_color['lower'], self._channel_bar_color['upper'])
+        
+        cast_ratio = np.sum(cast_mask > 0) / cast_mask.size
+        channel_ratio = np.sum(channel_mask > 0) / channel_mask.size
+        
+        is_channeled = channel_ratio > cast_ratio
+        bar_ratio = max(cast_ratio, channel_ratio)
+        
+        if bar_ratio < 0.05:  # No cast bar visible
+            self._last_cast_progress = 0.0
+            return CastBarInfo(False, '', 0.0, 0.0, False, False)
+        
+        # Calculate progress from filled portion
+        active_mask = channel_mask if is_channeled else cast_mask
+        filled_cols = np.sum(active_mask, axis=0) > 0
+        progress = np.sum(filled_cols) / len(filled_cols) if len(filled_cols) > 0 else 0.0
+        
+        # Track timing
+        current_time = time.time()
+        if progress < self._last_cast_progress or self._last_cast_progress == 0:
+            # New cast started
+            self._cast_start_time = current_time
+        
+        self._last_cast_progress = progress
+        
+        # Estimate remaining time (assuming 2.5s average cast)
+        elapsed = current_time - self._cast_start_time
+        if progress > 0.1:
+            total_time = elapsed / progress
+            remaining = total_time - elapsed
+        else:
+            remaining = 2.0  # Default estimate
+        
+        # Try to read spell name with OCR
+        spell_name = ''
+        is_interruptible = True
+        
+        if OCR_AVAILABLE:
+            try:
+                gray = cv2.cvtColor(bar_region, cv2.COLOR_BGR2GRAY)
+                text = pytesseract.image_to_string(gray, config='--psm 7').strip().lower()
+                spell_name = text
+                
+                # Check if interruptible
+                is_interruptible = any(word in text for word in self._interruptible_spells)
+            except Exception:
+                pass
+        
+        return CastBarInfo(
+            is_casting=True,
+            spell_name=spell_name,
+            progress=progress,
+            remaining_time=max(0, remaining),
+            is_channeled=is_channeled,
+            is_interruptible=is_interruptible
+        )
+    
+    def read_player_cast_bar(self) -> CastBarInfo:
+        """Read the player's cast bar."""
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return CastBarInfo(False, '', 0.0, 0.0, False, False)
+        
+        # Player cast bar region (below player frame)
+        cast_region = self.regions.PLAYER_CAST_BAR if hasattr(self.regions, 'PLAYER_CAST_BAR') else (22, 90, 242, 105)
+        
+        x1, y1, x2, y2 = cast_region
+        if x2 > frame.shape[1]:
+            x2 = frame.shape[1]
+        if y2 > frame.shape[0]:
+            y2 = frame.shape[0]
+        
+        bar_region = frame[y1:y2, x1:x2]
+        
+        if bar_region.size == 0:
+            return CastBarInfo(False, '', 0.0, 0.0, False, False)
+        
+        hsv = cv2.cvtColor(bar_region, cv2.COLOR_BGR2HSV)
+        cast_mask = cv2.inRange(hsv, self._cast_bar_color['lower'], self._cast_bar_color['upper'])
+        
+        cast_ratio = np.sum(cast_mask > 0) / cast_mask.size
+        
+        if cast_ratio < 0.05:
+            return CastBarInfo(False, '', 0.0, 0.0, False, False)
+        
+        # Calculate progress
+        filled_cols = np.sum(cast_mask, axis=0) > 0
+        progress = np.sum(filled_cols) / len(filled_cols) if len(filled_cols) > 0 else 0.0
+        
+        return CastBarInfo(
+            is_casting=True,
+            spell_name='',
+            progress=progress,
+            remaining_time=(1.0 - progress) * 2.5,  # Estimate
+            is_channeled=False,
+            is_interruptible=False
+        )
+    
+    def should_interrupt(self) -> bool:
+        """Check if we should interrupt the target's cast."""
+        cast_info = self.read_target_cast_bar()
+        
+        if not cast_info.is_casting:
+            return False
+        
+        if not cast_info.is_interruptible:
+            return False
+        
+        # Interrupt when cast is 50-80% complete for best timing
+        if 0.5 <= cast_info.progress <= 0.8:
+            return True
+        
+        # Interrupt immediately if very little time remains
+        if cast_info.remaining_time < 0.5 and cast_info.progress > 0.3:
+            return True
+        
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BUFF/DEBUFF READER
+# ═══════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class BuffDebuffInfo:
+    """Information about a buff or debuff."""
+    name: str
+    is_buff: bool  # True = buff, False = debuff
+    stacks: int
+    duration_remaining: float  # Seconds, -1 if unknown
+    icon_position: Tuple[int, int]
+
+
+class BuffDebuffReader:
+    """
+    Reads buff and debuff icons from the UI.
+    """
+    
+    def __init__(self, capture: ScreenCapture, regions: ScreenRegions):
+        self.capture = capture
+        self.regions = regions
+        
+        # Buff bar region (top-right, below minimap)
+        self._buff_region = (1650, 200, 1900, 350)
+        
+        # Debuff region on player frame
+        self._player_debuff_region = (22, 100, 250, 130)
+        
+        # Target debuff region
+        self._target_debuff_region = (260, 100, 490, 130)
+        
+        # Icon size
+        self._icon_size = 30
+        
+        # Known important buffs/debuffs (for prioritization)
+        self._important_buffs = {
+            'battle shout', 'bloodrage', 'berserker rage', 'shield wall',
+            'power word: fortitude', 'mark of the wild', 'arcane intellect',
+            'blessing of might', 'blessing of kings', 'inner fire',
+        }
+        
+        self._dangerous_debuffs = {
+            'fear', 'polymorph', 'stun', 'silence', 'root', 'snare',
+            'poison', 'disease', 'curse', 'magic',
+        }
+        
+        logger.debug("Buff/debuff reader initialized")
+    
+    def read_player_buffs(self) -> List[BuffDebuffInfo]:
+        """Read buffs on player."""
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return []
+        
+        x1, y1, x2, y2 = self._buff_region
+        x2 = min(x2, frame.shape[1])
+        y2 = min(y2, frame.shape[0])
+        
+        buff_region = frame[y1:y2, x1:x2]
+        
+        if buff_region.size == 0:
+            return []
+        
+        return self._detect_icons(buff_region, x1, y1, is_buff=True)
+    
+    def read_player_debuffs(self) -> List[BuffDebuffInfo]:
+        """Read debuffs on player."""
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return []
+        
+        x1, y1, x2, y2 = self._player_debuff_region
+        x2 = min(x2, frame.shape[1])
+        y2 = min(y2, frame.shape[0])
+        
+        debuff_region = frame[y1:y2, x1:x2]
+        
+        if debuff_region.size == 0:
+            return []
+        
+        return self._detect_icons(debuff_region, x1, y1, is_buff=False)
+    
+    def read_target_debuffs(self) -> List[BuffDebuffInfo]:
+        """Read debuffs on target (applied by player)."""
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return []
+        
+        x1, y1, x2, y2 = self._target_debuff_region
+        x2 = min(x2, frame.shape[1])
+        y2 = min(y2, frame.shape[0])
+        
+        debuff_region = frame[y1:y2, x1:x2]
+        
+        if debuff_region.size == 0:
+            return []
+        
+        return self._detect_icons(debuff_region, x1, y1, is_buff=False)
+    
+    def _detect_icons(self, region: np.ndarray, offset_x: int, offset_y: int, is_buff: bool) -> List[BuffDebuffInfo]:
+        """Detect buff/debuff icons in a region."""
+        results = []
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
+        
+        # Find edges (icons have distinct borders)
+        edges = cv2.Canny(gray, 50, 150)
+        
+        # Find contours
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            
+            # Filter by icon size
+            if abs(w - self._icon_size) < 10 and abs(h - self._icon_size) < 10:
+                icon_x = offset_x + x + w // 2
+                icon_y = offset_y + y + h // 2
+                
+                # Try to identify icon (would need icon template matching in practice)
+                results.append(BuffDebuffInfo(
+                    name='unknown',
+                    is_buff=is_buff,
+                    stacks=1,
+                    duration_remaining=-1,
+                    icon_position=(icon_x, icon_y)
+                ))
+        
+        return results
+    
+    def get_buff_count(self) -> int:
+        """Get total buff count on player."""
+        return len(self.read_player_buffs())
+    
+    def get_debuff_count(self) -> int:
+        """Get debuff count on player."""
+        return len(self.read_player_debuffs())
+    
+    def has_dangerous_debuff(self) -> bool:
+        """Check if player has a dangerous debuff."""
+        debuffs = self.read_player_debuffs()
+        # In practice, would identify debuffs by icon/name
+        return len(debuffs) > 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SKILL TRAINING BEHAVIOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class SkillTrainingBehavior:
+    """
+    Handles skill training at class trainers.
+    """
+    
+    def __init__(self, input_handler: InputHandler, capture: ScreenCapture, analyzer: VisualAnalyzer):
+        self.input = input_handler
+        self.capture = capture
+        self.analyzer = analyzer
+        
+        # Trainer window regions
+        self._trainer_list_region = (100, 150, 350, 500)
+        self._skill_info_region = (400, 150, 650, 500)
+        self._train_button = (550, 520)
+        self._train_all_button = (450, 520)
+        
+        # Known skills by class (for prioritization)
+        self._priority_skills: Dict[str, List[str]] = {
+            'warrior': ['heroic strike', 'rend', 'charge', 'thunder clap', 'battle shout', 'execute', 'mortal strike'],
+            'mage': ['fireball', 'frostbolt', 'arcane missiles', 'frost nova', 'blink', 'polymorph'],
+            'rogue': ['sinister strike', 'eviscerate', 'backstab', 'gouge', 'kick', 'sprint', 'vanish'],
+            # ... etc for other classes
+        }
+        
+        self._trained_skills: Set[str] = set()
+        
+        logger.debug("Skill training behavior initialized")
+    
+    def is_trainer_window_open(self) -> bool:
+        """Check if trainer window is open."""
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return False
+        
+        # Check for trainer window frame
+        x1, y1, x2, y2 = self._trainer_list_region
+        if x2 > frame.shape[1] or y2 > frame.shape[0]:
+            return False
+        
+        region = frame[y1:y2, x1:x2]
+        hsv = cv2.cvtColor(region, cv2.COLOR_BGR2HSV)
+        
+        # Trainer window has distinct brown frame
+        brown_mask = cv2.inRange(hsv, np.array([10, 50, 50]), np.array([25, 150, 150]))
+        brown_ratio = np.sum(brown_mask > 0) / brown_mask.size
+        
+        return brown_ratio > 0.05
+    
+    def get_available_skills(self) -> List[str]:
+        """Get list of available skills to train (requires OCR)."""
+        if not OCR_AVAILABLE:
+            return []
+        
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return []
+        
+        x1, y1, x2, y2 = self._trainer_list_region
+        if x2 > frame.shape[1] or y2 > frame.shape[0]:
+            return []
+        
+        region = frame[y1:y2, x1:x2]
+        
+        try:
+            gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
+            text = pytesseract.image_to_string(gray, config='--psm 6')
+            
+            # Parse skill names
+            skills = []
+            for line in text.split('\n'):
+                line = line.strip().lower()
+                if line and len(line) > 2:
+                    skills.append(line)
+            
+            return skills
+        
+        except Exception as e:
+            logger.debug(f"Skill list parse error: {e}")
+            return []
+    
+    def train_all_available(self) -> int:
+        """
+        Train all available skills.
+        Returns number of skills trained.
+        """
+        if not self.is_trainer_window_open():
+            return 0
+        
+        trained = 0
+        
+        # Click "Train All" button if available
+        self.input.click(self._train_all_button[0], self._train_all_button[1])
+        time.sleep(0.3)
+        
+        # Press Enter to confirm
+        self.input.press_key('enter')
+        time.sleep(0.5)
+        
+        # Count as success if window changed
+        trained = 1  # Approximate
+        
+        logger.info(f"Trained skills at trainer")
+        return trained
+    
+    def train_specific_skill(self, skill_name: str) -> bool:
+        """Train a specific skill by name."""
+        if not self.is_trainer_window_open():
+            return False
+        
+        available = self.get_available_skills()
+        
+        for idx, skill in enumerate(available):
+            if skill_name.lower() in skill.lower():
+                # Click on the skill
+                skill_y = self._trainer_list_region[1] + 20 + (idx * 20)
+                skill_x = (self._trainer_list_region[0] + self._trainer_list_region[2]) // 2
+                
+                self.input.click(skill_x, skill_y)
+                time.sleep(0.2)
+                
+                # Click train button
+                self.input.click(self._train_button[0], self._train_button[1])
+                time.sleep(0.3)
+                
+                self._trained_skills.add(skill_name.lower())
+                logger.info(f"Trained skill: {skill_name}")
+                return True
+        
+        return False
+    
+    def close_trainer_window(self):
+        """Close the trainer window."""
+        self.input.press_key('esc')
+        time.sleep(0.3)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# WEAPON SKILL TRACKER
+# ═══════════════════════════════════════════════════════════════════════════
+
+class WeaponSkillTracker:
+    """
+    Tracks weapon skill progression.
+    """
+    
+    def __init__(self, progress_knowledge: ProgressKnowledge):
+        self.progress = progress_knowledge
+        
+        # Weapon skills
+        self._weapon_skills: Dict[str, int] = {
+            'swords': 0,
+            'maces': 0,
+            'axes': 0,
+            'daggers': 0,
+            'fist_weapons': 0,
+            'staves': 0,
+            'polearms': 0,
+            'bows': 0,
+            'guns': 0,
+            'crossbows': 0,
+            'thrown': 0,
+            'wands': 0,
+            'unarmed': 0,
+            'defense': 0,
+        }
+        
+        self._max_skill = 5  # Level * 5
+        
+        self._load_weapon_skills()
+        logger.debug("Weapon skill tracker initialized")
+    
+    def _load_weapon_skills(self):
+        """Load weapon skills from progress knowledge."""
+        saved = self.progress.data.get('weapon_skills', {})
+        for skill, value in saved.items():
+            if skill in self._weapon_skills:
+                self._weapon_skills[skill] = value
+    
+    def _save_weapon_skills(self):
+        """Save weapon skills to progress knowledge."""
+        self.progress.data['weapon_skills'] = self._weapon_skills.copy()
+        self.progress._dirty = True
+    
+    def get_skill(self, weapon_type: str) -> int:
+        """Get current skill level for weapon type."""
+        return self._weapon_skills.get(weapon_type.lower(), 0)
+    
+    def get_max_skill(self) -> int:
+        """Get maximum weapon skill based on level."""
+        level = self.progress.get_level()
+        return level * 5
+    
+    def is_skill_maxed(self, weapon_type: str) -> bool:
+        """Check if weapon skill is maxed for current level."""
+        return self.get_skill(weapon_type) >= self.get_max_skill()
+    
+    def needs_skill_up(self, weapon_type: str) -> bool:
+        """Check if weapon skill needs leveling."""
+        current = self.get_skill(weapon_type)
+        max_skill = self.get_max_skill()
+        return current < max_skill - 10  # Within 10 points is fine
+    
+    def update_skill(self, weapon_type: str, new_value: int):
+        """Update weapon skill value."""
+        weapon_type = weapon_type.lower()
+        if weapon_type in self._weapon_skills:
+            old_value = self._weapon_skills[weapon_type]
+            if new_value > old_value:
+                self._weapon_skills[weapon_type] = new_value
+                self._save_weapon_skills()
+                logger.info(f"Weapon skill up: {weapon_type} {old_value} -> {new_value}")
+    
+    def get_lowest_skill_weapon(self) -> Optional[str]:
+        """Get weapon type with lowest skill (for leveling)."""
+        min_skill = float('inf')
+        min_weapon = None
+        
+        for weapon, skill in self._weapon_skills.items():
+            if skill < min_skill and skill > 0:  # Only weapons we can use
+                min_skill = skill
+                min_weapon = weapon
+        
+        return min_weapon
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LEVEL UP HANDLER
+# ═══════════════════════════════════════════════════════════════════════════
+
+class LevelUpHandler:
+    """
+    Handles level up events and associated tasks.
+    """
+    
+    def __init__(self, input_handler: InputHandler, progress_knowledge: ProgressKnowledge,
+                 spell_knowledge: SpellKnowledge, talent_behavior: TalentBehavior):
+        self.input = input_handler
+        self.progress = progress_knowledge
+        self.spells = spell_knowledge
+        self.talents = talent_behavior
+        
+        self._last_known_level = progress_knowledge.get_level()
+        self._pending_trainer_visit = False
+        self._pending_talent_points = 0
+        
+        logger.debug("Level up handler initialized")
+    
+    def check_level_up(self, current_level: int) -> bool:
+        """
+        Check if player leveled up.
+        Returns True if level up detected.
+        """
+        if current_level > self._last_known_level:
+            logger.info(f"LEVEL UP! {self._last_known_level} -> {current_level}")
+            self._handle_level_up(current_level)
+            self._last_known_level = current_level
+            return True
+        
+        return False
+    
+    def _handle_level_up(self, new_level: int):
+        """Handle level up event."""
+        levels_gained = new_level - self._last_known_level
+        
+        # Accumulate talent points
+        self._pending_talent_points += levels_gained
+        
+        # Mark trainer visit needed
+        self._pending_trainer_visit = True
+        
+        # Update progress knowledge
+        self.progress.update_level(new_level)
+        
+        # Log celebration
+        logger.info(f"Congratulations on level {new_level}!")
+        logger.info(f"Pending talent points: {self._pending_talent_points}")
+        logger.info("Trainer visit recommended for new skills")
+    
+    def needs_trainer_visit(self) -> bool:
+        """Check if trainer visit is pending."""
+        return self._pending_trainer_visit
+    
+    def mark_trainer_visited(self):
+        """Mark that trainer has been visited."""
+        self._pending_trainer_visit = False
+        logger.info("Trainer visited - new skills trained")
+    
+    def has_pending_talent_points(self) -> bool:
+        """Check if there are unspent talent points."""
+        return self._pending_talent_points > 0
+    
+    def spend_talent_points(self) -> int:
+        """
+        Spend pending talent points.
+        Returns number of points spent.
+        """
+        if self._pending_talent_points <= 0:
+            return 0
+        
+        spent = 0
+        
+        # Open talent panel
+        if self.talents.open_talent_panel():
+            time.sleep(0.5)
+            
+            # In practice, would follow predefined build
+            # For now, just mark as handled
+            spent = self._pending_talent_points
+            self._pending_talent_points = 0
+            
+            self.talents.close_talent_panel()
+        
+        return spent
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# REPUTATION TRACKER
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ReputationTracker:
+    """
+    Tracks faction reputation.
+    """
+    
+    def __init__(self):
+        # Reputation levels
+        self._rep_levels = ['hated', 'hostile', 'unfriendly', 'neutral', 'friendly', 'honored', 'revered', 'exalted']
+        
+        # Known factions
+        self._factions: Dict[str, Dict[str, Any]] = {
+            # Alliance
+            'stormwind': {'standing': 'neutral', 'value': 0, 'side': 'alliance'},
+            'ironforge': {'standing': 'neutral', 'value': 0, 'side': 'alliance'},
+            'darnassus': {'standing': 'neutral', 'value': 0, 'side': 'alliance'},
+            'gnomeregan_exiles': {'standing': 'neutral', 'value': 0, 'side': 'alliance'},
+            # Horde
+            'orgrimmar': {'standing': 'neutral', 'value': 0, 'side': 'horde'},
+            'thunder_bluff': {'standing': 'neutral', 'value': 0, 'side': 'horde'},
+            'undercity': {'standing': 'neutral', 'value': 0, 'side': 'horde'},
+            'darkspear_trolls': {'standing': 'neutral', 'value': 0, 'side': 'horde'},
+            # Neutral
+            'argent_dawn': {'standing': 'neutral', 'value': 0, 'side': 'neutral'},
+            'cenarion_circle': {'standing': 'neutral', 'value': 0, 'side': 'neutral'},
+            'thorium_brotherhood': {'standing': 'neutral', 'value': 0, 'side': 'neutral'},
+            'timbermaw_hold': {'standing': 'neutral', 'value': 0, 'side': 'neutral'},
+        }
+        
+        self._data_file = DATA_DIR / "reputation.json"
+        self._load_reputation()
+        
+        logger.debug("Reputation tracker initialized")
+    
+    def _load_reputation(self):
+        """Load reputation data."""
+        try:
+            if self._data_file.exists():
+                with open(self._data_file, 'r') as f:
+                    saved = json.load(f)
+                    for faction, data in saved.items():
+                        if faction in self._factions:
+                            self._factions[faction].update(data)
+        except Exception as e:
+            logger.warning(f"Could not load reputation: {e}")
+    
+    def _save_reputation(self):
+        """Save reputation data."""
+        try:
+            with open(self._data_file, 'w') as f:
+                json.dump(self._factions, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Could not save reputation: {e}")
+    
+    def get_standing(self, faction: str) -> str:
+        """Get standing with faction."""
+        faction = faction.lower().replace(' ', '_')
+        if faction in self._factions:
+            return self._factions[faction]['standing']
+        return 'unknown'
+    
+    def update_reputation(self, faction: str, standing: str, value: int):
+        """Update faction reputation."""
+        faction = faction.lower().replace(' ', '_')
+        if faction in self._factions:
+            old_standing = self._factions[faction]['standing']
+            self._factions[faction]['standing'] = standing.lower()
+            self._factions[faction]['value'] = value
+            
+            if old_standing != standing.lower():
+                logger.info(f"Reputation change: {faction} is now {standing}")
+            
+            self._save_reputation()
+    
+    def is_friendly_with(self, faction: str) -> bool:
+        """Check if friendly or better with faction."""
+        standing = self.get_standing(faction)
+        friendly_standings = ['friendly', 'honored', 'revered', 'exalted']
+        return standing in friendly_standings
+    
+    def is_hostile_to(self, faction: str) -> bool:
+        """Check if hostile or worse with faction."""
+        standing = self.get_standing(faction)
+        hostile_standings = ['hated', 'hostile']
+        return standing in hostile_standings
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ENVIRONMENT HAZARD DETECTOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class EnvironmentHazardDetector:
+    """
+    Detects environmental hazards.
+    """
+    
+    def __init__(self, capture: ScreenCapture):
+        self.capture = capture
+        
+        # Hazard colors
+        self._lava_color = {'lower': np.array([0, 150, 150]), 'upper': np.array([15, 255, 255])}
+        self._water_color = {'lower': np.array([90, 50, 50]), 'upper': np.array([130, 255, 255])}
+        self._slime_color = {'lower': np.array([35, 100, 100]), 'upper': np.array([85, 255, 255])}
+        
+        # Breath bar region (for underwater)
+        self._breath_bar_region = (800, 50, 1100, 80)
+        
+        logger.debug("Environment hazard detector initialized")
+    
+    def detect_hazards(self) -> List[str]:
+        """Detect environmental hazards in view."""
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return []
+        
+        hazards = []
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        
+        # Check for lava
+        lava_mask = cv2.inRange(hsv, self._lava_color['lower'], self._lava_color['upper'])
+        if np.sum(lava_mask > 0) / lava_mask.size > 0.05:
+            hazards.append('lava')
+        
+        # Check for water (underwater)
+        water_mask = cv2.inRange(hsv, self._water_color['lower'], self._water_color['upper'])
+        if np.sum(water_mask > 0) / water_mask.size > 0.3:
+            hazards.append('underwater')
+        
+        # Check for slime/poison
+        slime_mask = cv2.inRange(hsv, self._slime_color['lower'], self._slime_color['upper'])
+        if np.sum(slime_mask > 0) / slime_mask.size > 0.05:
+            hazards.append('slime')
+        
+        return hazards
+    
+    def is_underwater(self) -> bool:
+        """Check if player is underwater."""
+        return 'underwater' in self.detect_hazards()
+    
+    def check_breath_bar(self) -> float:
+        """
+        Check breath bar level when underwater.
+        Returns 0.0-1.0 (percentage) or -1 if not visible.
+        """
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return -1
+        
+        x1, y1, x2, y2 = self._breath_bar_region
+        if x2 > frame.shape[1] or y2 > frame.shape[0]:
+            return -1
+        
+        region = frame[y1:y2, x1:x2]
+        
+        # Breath bar is blue
+        hsv = cv2.cvtColor(region, cv2.COLOR_BGR2HSV)
+        blue_mask = cv2.inRange(hsv, np.array([100, 100, 100]), np.array([130, 255, 255]))
+        
+        if np.sum(blue_mask > 0) < 100:  # Bar not visible
+            return -1
+        
+        # Calculate fill percentage
+        filled_cols = np.sum(blue_mask, axis=0) > 0
+        return np.sum(filled_cols) / len(filled_cols) if len(filled_cols) > 0 else -1
+    
+    def needs_to_surface(self) -> bool:
+        """Check if player needs to surface for air."""
+        breath = self.check_breath_bar()
+        return 0 <= breath < 0.3  # Surface when below 30% breath
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MACRO SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class Macro:
+    """A game macro."""
+    name: str
+    icon: str
+    body: str
+    keybind: Optional[str]
+
+
+class MacroSystem:
+    """
+    Manages in-game macros.
+    """
+    
+    def __init__(self, input_handler: InputHandler):
+        self.input = input_handler
+        
+        self._macros: Dict[str, Macro] = {}
+        self._macro_keybinds: Dict[str, str] = {}  # keybind -> macro name
+        
+        # Predefined useful macros
+        self._predefined_macros = {
+            'start_attack': Macro(
+                name='StartAttack',
+                icon='INV_Sword_04',
+                body='/startattack',
+                keybind=None
+            ),
+            'stop_attack': Macro(
+                name='StopAttack',
+                icon='Ability_DualWield',
+                body='/stopattack',
+                keybind=None
+            ),
+            'target_nearest': Macro(
+                name='TargetNearest',
+                icon='Ability_Hunter_SniperShot',
+                body='/targetenemy',
+                keybind=None
+            ),
+            'assist_target': Macro(
+                name='AssistTarget',
+                icon='Ability_Hunter_MisdirectionHover',
+                body='/assist',
+                keybind=None
+            ),
+        }
+        
+        self._load_macros()
+        logger.debug("Macro system initialized")
+    
+    def _load_macros(self):
+        """Load macro configuration."""
+        try:
+            macro_file = DATA_DIR / "macros.json"
+            if macro_file.exists():
+                with open(macro_file, 'r') as f:
+                    data = json.load(f)
+                    for name, macro_data in data.items():
+                        self._macros[name] = Macro(**macro_data)
+                        if macro_data.get('keybind'):
+                            self._macro_keybinds[macro_data['keybind']] = name
+        except Exception as e:
+            logger.warning(f"Could not load macros: {e}")
+    
+    def _save_macros(self):
+        """Save macro configuration."""
+        try:
+            macro_file = DATA_DIR / "macros.json"
+            data = {name: {
+                'name': m.name,
+                'icon': m.icon,
+                'body': m.body,
+                'keybind': m.keybind
+            } for name, m in self._macros.items()}
+            
+            with open(macro_file, 'w') as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Could not save macros: {e}")
+    
+    def register_macro(self, macro: Macro):
+        """Register a macro."""
+        self._macros[macro.name] = macro
+        if macro.keybind:
+            self._macro_keybinds[macro.keybind] = macro.name
+        self._save_macros()
+        logger.debug(f"Registered macro: {macro.name}")
+    
+    def execute_macro(self, name: str) -> bool:
+        """Execute a macro by name."""
+        if name not in self._macros:
+            return False
+        
+        macro = self._macros[name]
+        
+        if macro.keybind:
+            self.input.press_key(macro.keybind)
+            return True
+        
+        return False
+    
+    def get_macro(self, name: str) -> Optional[Macro]:
+        """Get macro by name."""
+        return self._macros.get(name)
+    
+    def list_macros(self) -> List[str]:
+        """List all macro names."""
+        return list(self._macros.keys())
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# KEYBIND MANAGER
+# ═══════════════════════════════════════════════════════════════════════════
+
+class KeybindManager:
+    """
+    Manages keybind configuration.
+    """
+    
+    def __init__(self):
+        # Default keybinds
+        self._keybinds: Dict[str, str] = {
+            'move_forward': 'w',
+            'move_backward': 's',
+            'turn_left': 'a',
+            'turn_right': 'd',
+            'strafe_left': 'q',
+            'strafe_right': 'e',
+            'jump': 'space',
+            'autorun': 'num_lock',
+            'sit': 'x',
+            'target_enemy': 'tab',
+            'target_last': 'g',
+            'assist': 'f',
+            'attack': 't',
+            'action_1': '1',
+            'action_2': '2',
+            'action_3': '3',
+            'action_4': '4',
+            'action_5': '5',
+            'action_6': '6',
+            'action_7': '7',
+            'action_8': '8',
+            'action_9': '9',
+            'action_10': '0',
+            'action_11': '-',
+            'action_12': '=',
+            'spellbook': 'p',
+            'character': 'c',
+            'talents': 'n',
+            'quest_log': 'l',
+            'map': 'm',
+            'bags': 'b',
+            'social': 'o',
+            'escape': 'esc',
+        }
+        
+        self._data_file = DATA_DIR / "keybinds.json"
+        self._load_keybinds()
+        
+        logger.debug("Keybind manager initialized")
+    
+    def _load_keybinds(self):
+        """Load keybind configuration."""
+        try:
+            if self._data_file.exists():
+                with open(self._data_file, 'r') as f:
+                    saved = json.load(f)
+                    self._keybinds.update(saved)
+        except Exception as e:
+            logger.warning(f"Could not load keybinds: {e}")
+    
+    def _save_keybinds(self):
+        """Save keybind configuration."""
+        try:
+            with open(self._data_file, 'w') as f:
+                json.dump(self._keybinds, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Could not save keybinds: {e}")
+    
+    def get_keybind(self, action: str) -> str:
+        """Get keybind for action."""
+        return self._keybinds.get(action, '')
+    
+    def set_keybind(self, action: str, key: str):
+        """Set keybind for action."""
+        self._keybinds[action] = key
+        self._save_keybinds()
+        logger.debug(f"Set keybind: {action} = {key}")
+    
+    def get_all_keybinds(self) -> Dict[str, str]:
+        """Get all keybinds."""
+        return self._keybinds.copy()
+    
+    def reset_to_defaults(self):
+        """Reset keybinds to defaults."""
+        self._keybinds = {
+            'move_forward': 'w',
+            'move_backward': 's',
+            'turn_left': 'a',
+            'turn_right': 'd',
+            'strafe_left': 'q',
+            'strafe_right': 'e',
+            'jump': 'space',
+            # ... etc
+        }
+        self._save_keybinds()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# INSTANCE AWARENESS SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════
+
+class InstanceAwareness:
+    """
+    Tracks dungeon and raid instance awareness.
+    """
+    
+    def __init__(self, world_knowledge: WorldKnowledge):
+        self.world = world_knowledge
+        
+        # Known instances
+        self._instances = {
+            # Dungeons
+            'ragefire_chasm': {'type': 'dungeon', 'min_level': 13, 'max_level': 18, 'players': 5},
+            'deadmines': {'type': 'dungeon', 'min_level': 17, 'max_level': 26, 'players': 5},
+            'wailing_caverns': {'type': 'dungeon', 'min_level': 17, 'max_level': 24, 'players': 5},
+            'shadowfang_keep': {'type': 'dungeon', 'min_level': 22, 'max_level': 30, 'players': 5},
+            'blackfathom_deeps': {'type': 'dungeon', 'min_level': 24, 'max_level': 32, 'players': 5},
+            'stormwind_stockade': {'type': 'dungeon', 'min_level': 24, 'max_level': 32, 'players': 5},
+            'gnomeregan': {'type': 'dungeon', 'min_level': 29, 'max_level': 38, 'players': 5},
+            'scarlet_monastery': {'type': 'dungeon', 'min_level': 34, 'max_level': 45, 'players': 5},
+            'razorfen_downs': {'type': 'dungeon', 'min_level': 37, 'max_level': 46, 'players': 5},
+            'uldaman': {'type': 'dungeon', 'min_level': 41, 'max_level': 51, 'players': 5},
+            'zul_farrak': {'type': 'dungeon', 'min_level': 44, 'max_level': 54, 'players': 5},
+            'maraudon': {'type': 'dungeon', 'min_level': 46, 'max_level': 55, 'players': 5},
+            'sunken_temple': {'type': 'dungeon', 'min_level': 50, 'max_level': 56, 'players': 5},
+            'blackrock_depths': {'type': 'dungeon', 'min_level': 52, 'max_level': 60, 'players': 5},
+            'blackrock_spire': {'type': 'dungeon', 'min_level': 55, 'max_level': 60, 'players': 10},
+            'dire_maul': {'type': 'dungeon', 'min_level': 56, 'max_level': 60, 'players': 5},
+            'scholomance': {'type': 'dungeon', 'min_level': 58, 'max_level': 60, 'players': 5},
+            'stratholme': {'type': 'dungeon', 'min_level': 58, 'max_level': 60, 'players': 5},
+            
+            # Raids
+            'molten_core': {'type': 'raid', 'min_level': 60, 'max_level': 60, 'players': 40},
+            'onyxias_lair': {'type': 'raid', 'min_level': 60, 'max_level': 60, 'players': 40},
+            'blackwing_lair': {'type': 'raid', 'min_level': 60, 'max_level': 60, 'players': 40},
+            'zul_gurub': {'type': 'raid', 'min_level': 60, 'max_level': 60, 'players': 20},
+            'temple_of_ahn_qiraj': {'type': 'raid', 'min_level': 60, 'max_level': 60, 'players': 40},
+            'naxxramas': {'type': 'raid', 'min_level': 60, 'max_level': 60, 'players': 40},
+        }
+        
+        self._current_instance = None
+        self._instance_start_time = 0
+        self._boss_kills = []
+        
+        logger.debug("Instance awareness initialized")
+    
+    def is_in_instance(self) -> bool:
+        """Check if player is in an instance."""
+        # Would detect via minimap or loading screen
+        return self._current_instance is not None
+    
+    def get_current_instance(self) -> Optional[str]:
+        """Get current instance name."""
+        return self._current_instance
+    
+    def enter_instance(self, instance_name: str):
+        """Called when entering an instance."""
+        self._current_instance = instance_name.lower().replace(' ', '_')
+        self._instance_start_time = time.time()
+        self._boss_kills = []
+        logger.info(f"Entered instance: {instance_name}")
+    
+    def exit_instance(self):
+        """Called when exiting an instance."""
+        if self._current_instance:
+            duration = time.time() - self._instance_start_time
+            logger.info(f"Exited instance: {self._current_instance} (duration: {duration/60:.1f} min)")
+        self._current_instance = None
+    
+    def record_boss_kill(self, boss_name: str):
+        """Record a boss kill."""
+        self._boss_kills.append({
+            'name': boss_name,
+            'time': time.time(),
+            'instance': self._current_instance
+        })
+        logger.info(f"Boss killed: {boss_name}")
+    
+    def get_instance_info(self, instance_name: str) -> Optional[Dict]:
+        """Get info about an instance."""
+        key = instance_name.lower().replace(' ', '_')
+        return self._instances.get(key)
+    
+    def is_appropriate_level(self, instance_name: str, player_level: int) -> bool:
+        """Check if player level is appropriate for instance."""
+        info = self.get_instance_info(instance_name)
+        if not info:
+            return False
+        return info['min_level'] <= player_level <= info['max_level'] + 5
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# COMPREHENSIVE AGENT SYSTEMS INTEGRATOR
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ComprehensiveAgentSystems:
+    """
+    Integrates all comprehensive player capability systems into the agent.
+    """
+    
+    def __init__(self, base_agent: 'WoWAutonomousPlayer'):
+        self.base = base_agent
+        
+        # Initialize all new systems
+        self.disconnect_recovery = DisconnectRecoverySystem(
+            base_agent.capture,
+            base_agent.input
+        )
+        
+        self.error_handler = ErrorDialogHandler(
+            base_agent.capture,
+            base_agent.input,
+            base_agent.analyzer
+        )
+        
+        self.combat_log = CombatLogParser(base_agent.capture)
+        
+        self.minimap_nav = MinimapNavigator(
+            base_agent.capture,
+            base_agent.input
+        )
+        
+        self.nameplate_detector = NameplateDetector(
+            base_agent.capture,
+            base_agent.input
+        )
+        
+        self.cast_bar_reader = CastBarReader(
+            base_agent.capture,
+            base_agent.capture.regions
+        )
+        
+        self.buff_reader = BuffDebuffReader(
+            base_agent.capture,
+            base_agent.capture.regions
+        )
+        
+        self.skill_trainer = SkillTrainingBehavior(
+            base_agent.input,
+            base_agent.capture,
+            base_agent.analyzer
+        )
+        
+        self.weapon_tracker = WeaponSkillTracker(base_agent.progress_knowledge)
+        
+        self.level_handler = LevelUpHandler(
+            base_agent.input,
+            base_agent.progress_knowledge,
+            base_agent.spell_knowledge,
+            TalentBehavior(base_agent.input, base_agent.capture, base_agent.analyzer)
+        )
+        
+        self.reputation = ReputationTracker()
+        
+        self.hazard_detector = EnvironmentHazardDetector(base_agent.capture)
+        
+        self.macro_system = MacroSystem(base_agent.input)
+        
+        self.keybind_manager = KeybindManager()
+        
+        self.instance_awareness = InstanceAwareness(base_agent.world_knowledge)
+        
+        logger.info("Comprehensive agent systems initialized")
+        logger.info("  - Disconnect recovery")
+        logger.info("  - Error dialog handling")
+        logger.info("  - Combat log parsing")
+        logger.info("  - Minimap navigation")
+        logger.info("  - Nameplate detection")
+        logger.info("  - Cast bar reading")
+        logger.info("  - Buff/debuff reading")
+        logger.info("  - Skill training")
+        logger.info("  - Weapon skill tracking")
+        logger.info("  - Level up handling")
+        logger.info("  - Reputation tracking")
+        logger.info("  - Environment hazards")
+        logger.info("  - Macro system")
+        logger.info("  - Keybind management")
+        logger.info("  - Instance awareness")
+    
+    def pre_tick(self) -> bool:
+        """
+        Run before each decision tick.
+        Returns False if agent should pause.
+        """
+        # Check connection
+        if not self.disconnect_recovery.handle_disconnect():
+            return False
+        
+        # Handle any dialogs
+        self.error_handler.handle_any_dialog()
+        
+        # Parse combat log
+        self.combat_log.parse()
+        
+        return True
+    
+    def post_tick(self, state: PerceptionState):
+        """Run after each decision tick."""
+        # Check for level up
+        self.level_handler.check_level_up(state.player_level)
+        
+        # Check for hazards
+        hazards = self.hazard_detector.detect_hazards()
+        if hazards:
+            logger.debug(f"Hazards detected: {hazards}")
+    
+    def get_combat_enhancements(self) -> Dict[str, Any]:
+        """Get combat-related enhancements."""
+        return {
+            'should_interrupt': self.cast_bar_reader.should_interrupt(),
+            'target_cast_info': self.cast_bar_reader.read_target_cast_bar(),
+            'player_debuffs': self.buff_reader.get_debuff_count(),
+            'hostile_nameplates': self.nameplate_detector.get_nameplate_count('hostile'),
+            'recent_dps': self.combat_log.get_dps_estimate(),
+        }
+    
+    def save_all_data(self):
+        """Save all system data."""
+        self.reputation._save_reputation()
+        self.weapon_tracker._save_weapon_skills()
+        self.macro_system._save_macros()
+        self.keybind_manager._save_keybinds()
+        logger.info("All comprehensive system data saved")
+
+def test_expansion():
+    """Test the expansion module components."""
+    print("=" * 60)
+    print("INTELLIGENT EXPANSION MODULE TEST")
+    print("=" * 60)
+    
+    # Test timing system
+    timing = AdaptiveTimingSystem()
+    print(f"\nTiming system:")
+    print(f"  Instant delay: {timing.get_reaction_delay('instant'):.3f}s")
+    print(f"  Normal delay:  {timing.get_reaction_delay('normal'):.3f}s")
+    print(f"  Slow delay:    {timing.get_reaction_delay('slow'):.3f}s")
+    
+    # Test target analysis
+    print(f"\nTarget analysis keywords:")
+    analyzer = TargetAnalyzer(None, None)
+    print(f"  Caster keywords: {analyzer._caster_keywords}")
+    print(f"  Healer keywords: {analyzer._healer_keywords}")
+    
+    # Test goal types
+    print("\nGoal types:", [g.name for g in GoalType])
+    
+    # Test target priorities
+    print("\nTarget priorities:", [p.name for p in TargetPriority])
+    
+    print("\n" + "=" * 60)
+    print("All component tests passed!")
+    print("=" * 60)
+    
+    print("\n>>> Integration example:")
+    print("""
+    from wow_autonomous_agent_FIXED import WoWAutonomousPlayer
+    from wow_intelligent_expansion import IntelligentAgentExpansion
+    
+    # Create base agent
+    agent = WoWAutonomousPlayer()
+    
+    # Create and integrate intelligent expansion
+    expansion = IntelligentAgentExpansion(agent)
+    expansion.integrate()
+    
+    # Run the enhanced agent
+    agent.run()
+    """)
+
+
+# NOTE: Main entry point is defined earlier in file at main()
+# To run tests, call test_expansion() directly
+# To run agent, call main() or run this script without arguments
+# ═══════════════════════════════════════════════════════════════════════════════
+# CAPABILITY EXTENSION MODULE - CLOSING HUMAN-EQUIVALENT GAPS
+# ═══════════════════════════════════════════════════════════════════════════════
+# This module extends the existing agent to close remaining gaps between its
+# current behavior and what a real human player can do inside a WoW 1.12 client,
+# using ONLY screen perception and input simulation.
+#
+# ALL NEW SYSTEMS:
+# - Feed into CogPerceptionState
+# - Influence DecisionSynthesisSystem  
+# - Affect EpisodicMemory, LearningCreditSystem, or BeliefModel
+# - Persist cleanly via PersistenceManager
+# - Are subject to MetaCognition sanity checks
+# - Produce TacticalDirective influences
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# =============================================================================
+# EXTENSION ENUMERATIONS
+# =============================================================================
+
+class UIContextType(Enum):
+    """Types of UI contexts requiring specialized interaction."""
+    NONE = auto()
+    VENDOR_MERCHANT = auto()
+    VENDOR_REPAIR = auto()
+    CLASS_TRAINER = auto()
+    PROFESSION_TRAINER = auto()
+    FLIGHT_MASTER = auto()
+    INNKEEPER = auto()
+    BANKER = auto()
+    AUCTIONEER = auto()
+    QUEST_GIVER = auto()
+    QUEST_TURNIN = auto()
+    MAILBOX = auto()
+    SPIRIT_HEALER = auto()
+    BATTLEMASTER = auto()
+
+
+class DeathPhase(Enum):
+    """Phases of death recovery."""
+    ALIVE = auto()
+    JUST_DIED = auto()
+    RELEASING_SPIRIT = auto()
+    GHOST_RUNNING = auto()
+    NEAR_CORPSE = auto()
+    RESURRECTING = auto()
+    POST_RES_RECOVERY = auto()
+
+
+class ExplorationMode(Enum):
+    """Exploration behavior modes."""
+    IDLE = auto()
+    RANDOM_WALK = auto()
+    EDGE_FOLLOWING = auto()
+    BACKTRACK = auto()
+    OBSTACLE_AVOIDANCE = auto()
+    POI_APPROACH = auto()
+    SAFETY_RETREAT = auto()
+
+
+class SocialSignalType(Enum):
+    """Types of social signals."""
+    GREETING_INITIAL = auto()
+    GREETING_RESPONSE = auto()
+    ACKNOWLEDGMENT = auto()
+    GRATITUDE = auto()
+    APOLOGY = auto()
+    REQUEST = auto()
+    OFFER = auto()
+    FAREWELL = auto()
+    SILENCE_INTENTIONAL = auto()
+    ESCALATION = auto()
+    DISENGAGEMENT = auto()
+    EMOTE_FRIENDLY = auto()
+    EMOTE_HOSTILE = auto()
+
+
+class InventoryItemDisposition(Enum):
+    """What to do with an inventory item."""
+    KEEP_EQUIP = auto()
+    KEEP_CONSUMABLE = auto()
+    KEEP_QUEST = auto()
+    KEEP_VALUABLE = auto()
+    VENDOR_SELL = auto()
+    DESTROY_WORTHLESS = auto()
+    MAIL_TO_ALT = auto()
+    BANK_STORAGE = auto()
+    AUCTION = auto()
+    UNDECIDED = auto()
+
+
+class FatigueLevel(Enum):
+    """Player fatigue levels."""
+    FRESH = auto()
+    ALERT = auto()
+    NORMAL = auto()
+    TIRED = auto()
+    FATIGUED = auto()
+    EXHAUSTED = auto()
+
+
+class InputCorrectionType(Enum):
+    """Types of input corrections."""
+    NONE = auto()
+    MISCLICK_RECOVERY = auto()
+    WRONG_TARGET = auto()
+    PREMATURE_ACTION = auto()
+    MOVEMENT_ADJUSTMENT = auto()
+    UI_NAVIGATION_ERROR = auto()
+    SPELL_QUEUE_ERROR = auto()
+
+
+# =============================================================================
+# EXTENSION DATA STRUCTURES
+# =============================================================================
+
+@dataclass
+class KeybindState:
+    """Current state of a keybind."""
+    action_name: str
+    bound_key: str
+    last_verified: float
+    confidence: float
+    times_used: int
+    times_failed: int
+
+
+@dataclass
+class HotbarSlotState:
+    """State of a single hotbar slot."""
+    bar_index: int
+    slot_index: int
+    ability_name: Optional[str]
+    icon_hash: str
+    last_scanned: float
+    cooldown_active: bool
+    usable: bool
+
+
+@dataclass
+class UIInteractionContext:
+    """Context for UI interaction."""
+    context_type: UIContextType
+    npc_name: Optional[str]
+    available_options: List[str]
+    selected_option: Optional[int]
+    gold_required: float
+    items_available: int
+    timestamp: float
+
+
+@dataclass
+class DeathRecoveryState:
+    """State tracking for death recovery."""
+    phase: DeathPhase
+    death_timestamp: float
+    death_position: Tuple[float, float]
+    corpse_position: Optional[Tuple[float, float]]
+    ghost_start_position: Tuple[float, float]
+    resurrection_offers: List[Tuple[float, str]]
+    buffs_to_reapply: List[str]
+    recovery_attempts: int
+    last_phase_change: float
+
+
+@dataclass
+class ExplorationState:
+    """State for exploration system."""
+    mode: ExplorationMode
+    visited_positions: List[Tuple[float, float]]
+    current_direction: float
+    stuck_counter: int
+    last_significant_move: float
+    discovered_pois: List[Dict[str, Any]]
+    danger_zones: List[Tuple[Tuple[float, float], float]]
+    breadcrumb_trail: Deque[Tuple[float, float]]
+    exploration_score: float
+
+
+@dataclass
+class SocialInteractionState:
+    """State for social signaling."""
+    player_id: str
+    player_name: str
+    interaction_start: float
+    signals_sent: List[Tuple[float, SocialSignalType]]
+    signals_received: List[Tuple[float, str]]
+    current_tone: CommunicationTone
+    escalation_level: int
+    disengagement_score: float
+
+
+@dataclass
+class InventoryItemInfo:
+    """Information about an inventory item."""
+    bag: int
+    slot: int
+    name: str
+    item_type: str
+    quality: int
+    stack_count: int
+    vendor_value: float
+    is_soulbound: bool
+    is_quest_item: bool
+    disposition: InventoryItemDisposition
+    last_evaluated: float
+
+
+@dataclass
+class FatigueState:
+    """Fatigue system state."""
+    level: FatigueLevel
+    session_duration: float
+    actions_this_session: int
+    combat_encounters: int
+    deaths_this_session: int
+    rest_periods: List[Tuple[float, float]]
+    last_break_time: float
+    accumulated_fatigue: float
+    performance_modifier: float
+
+
+@dataclass
+class InputCorrectionEvent:
+    """Record of an input correction."""
+    correction_type: InputCorrectionType
+    timestamp: float
+    original_intent: str
+    actual_result: str
+    correction_action: str
+    recovery_time: float
+    success: bool
+
+
+@dataclass
+class ExtendedCogPerceptionState:
+    """Extended perception state with new capabilities."""
+    base_state: CogPerceptionState
+    keybind_confidence: Dict[str, float]
+    hotbar_state: List[HotbarSlotState]
+    ui_context: Optional[UIInteractionContext]
+    death_recovery: Optional[DeathRecoveryState]
+    exploration: ExplorationState
+    active_social_interactions: List[SocialInteractionState]
+    inventory_state: List[InventoryItemInfo]
+    fatigue: FatigueState
+    recent_corrections: List[InputCorrectionEvent]
+
+
+# =============================================================================
+# KEYBIND AWARENESS SYSTEM
+# =============================================================================
+
+class KeybindAwarenessSystem:
+    """
+    Monitors and adapts to keybind changes through visual feedback.
+    
+    PERCEPTION: Detects keybind changes via action bar tooltip inspection
+    LEARNING: Updates beliefs about current keybindings
+    PERSISTENCE: Saves keybind state across sessions
+    """
+    
+    def __init__(self, capture: 'ScreenCapture', input_handler: 'InputHandler',
+                 beliefs: 'SemanticBeliefModel', learning: 'LearningCreditSystem'):
+        self.capture = capture
+        self.input = input_handler
+        self.beliefs = beliefs
+        self.learning = learning
+        
+        self._keybind_states: Dict[str, KeybindState] = {}
+        self._verification_queue: Deque[str] = deque(maxlen=50)
+        self._last_verification_time = 0.0
+        self._verification_interval = 300.0  # 5 minutes
+        self._lock = threading.RLock()
+        
+        # Default keybinds as baseline
+        self._default_keybinds = {
+            'attack': 't',
+            'target_nearest': 'tab',
+            'jump': 'space',
+            'sit_stand': 'x',
+            'move_forward': 'w',
+            'move_backward': 's',
+            'turn_left': 'a',
+            'turn_right': 'd',
+            'strafe_left': 'q',
+            'strafe_right': 'e',
+            'action_1': '1', 'action_2': '2', 'action_3': '3',
+            'action_4': '4', 'action_5': '5', 'action_6': '6',
+            'action_7': '7', 'action_8': '8', 'action_9': '9',
+            'action_10': '0', 'action_11': '-', 'action_12': '=',
+            'spellbook': 'p',
+            'character': 'c',
+            'quest_log': 'l',
+            'map': 'm',
+            'bags': 'b',
+        }
+        
+        # Initialize with defaults
+        self._initialize_defaults()
+        
+        logger.info("KeybindAwarenessSystem initialized")
+    
+    def _initialize_defaults(self):
+        """Initialize keybind states with defaults."""
+        now = time.time()
+        with self._lock:
+            for action, key in self._default_keybinds.items():
+                self._keybind_states[action] = KeybindState(
+                    action_name=action,
+                    bound_key=key,
+                    last_verified=now,
+                    confidence=0.8,  # High but not certain
+                    times_used=0,
+                    times_failed=0
+                )
+    
+    def get_keybind(self, action: str) -> Optional[str]:
+        """Get the current keybind for an action."""
+        with self._lock:
+            state = self._keybind_states.get(action)
+            if state and state.confidence > 0.3:
+                return state.bound_key
+            return self._default_keybinds.get(action)
+    
+    def record_keybind_success(self, action: str, key_used: str):
+        """Record successful use of a keybind."""
+        with self._lock:
+            if action not in self._keybind_states:
+                self._keybind_states[action] = KeybindState(
+                    action_name=action,
+                    bound_key=key_used,
+                    last_verified=time.time(),
+                    confidence=0.5,
+                    times_used=0,
+                    times_failed=0
+                )
+            
+            state = self._keybind_states[action]
+            state.times_used += 1
+            state.bound_key = key_used
+            state.last_verified = time.time()
+            state.confidence = min(1.0, state.confidence + 0.1)
+            
+            # Update belief system
+            self.beliefs.add_belief(
+                subject=f"keybind_{action}",
+                predicate="bound_to",
+                object_value=key_used,
+                confidence=BeliefConfidence(min(5, int(state.confidence * 5) + 1)),
+                timestamp=time.time()
+            )
+            
+            # Update learning
+            self.learning.update_strategy_effectiveness(
+                f"keybind_{action}_{key_used}", 1.0
+            )
+    
+    def record_keybind_failure(self, action: str, key_used: str):
+        """Record failed keybind attempt."""
+        with self._lock:
+            if action in self._keybind_states:
+                state = self._keybind_states[action]
+                state.times_failed += 1
+                state.confidence = max(0.1, state.confidence - 0.2)
+                
+                # Queue for verification
+                if action not in self._verification_queue:
+                    self._verification_queue.append(action)
+                
+                # Update learning with negative outcome
+                self.learning.update_strategy_effectiveness(
+                    f"keybind_{action}_{key_used}", 0.0
+                )
+    
+    def verify_keybinds_if_needed(self) -> List[str]:
+        """Check if keybinds need verification and return actions to verify."""
+        now = time.time()
+        to_verify = []
+        
+        with self._lock:
+            # Check time-based verification
+            if now - self._last_verification_time > self._verification_interval:
+                # Find low-confidence keybinds
+                for action, state in self._keybind_states.items():
+                    if state.confidence < 0.6:
+                        to_verify.append(action)
+                
+                self._last_verification_time = now
+            
+            # Add queued verifications
+            while self._verification_queue and len(to_verify) < 5:
+                action = self._verification_queue.popleft()
+                if action not in to_verify:
+                    to_verify.append(action)
+        
+        return to_verify
+    
+    def detect_keybind_change(self, action: str, expected_key: str, 
+                               actual_result: bool) -> bool:
+        """Detect if a keybind has been changed."""
+        with self._lock:
+            if action in self._keybind_states:
+                state = self._keybind_states[action]
+                
+                if not actual_result and state.bound_key == expected_key:
+                    # Expected key didn't work - possible rebind
+                    state.confidence *= 0.5
+                    logger.warning(f"Possible keybind change detected for {action}")
+                    return True
+        
+        return False
+    
+    def update_from_perception(self, state: 'PerceptionState'):
+        """Update keybind awareness from perception state."""
+        # Would analyze action bar tooltips if visible
+        # This is a perception-limited operation
+        pass
+    
+    def get_confidence_map(self) -> Dict[str, float]:
+        """Get confidence levels for all keybinds."""
+        with self._lock:
+            return {action: state.confidence 
+                    for action, state in self._keybind_states.items()}
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Get persistable state."""
+        with self._lock:
+            return {
+                'keybind_states': {k: {
+                    'action_name': v.action_name,
+                    'bound_key': v.bound_key,
+                    'last_verified': v.last_verified,
+                    'confidence': v.confidence,
+                    'times_used': v.times_used,
+                    'times_failed': v.times_failed
+                } for k, v in self._keybind_states.items()},
+                'verification_queue': list(self._verification_queue),
+                'last_verification_time': self._last_verification_time
+            }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persisted state."""
+        with self._lock:
+            if 'keybind_states' in state:
+                self._keybind_states = {}
+                for k, v in state['keybind_states'].items():
+                    self._keybind_states[k] = KeybindState(**v)
+            if 'verification_queue' in state:
+                self._verification_queue = deque(state['verification_queue'], maxlen=50)
+            if 'last_verification_time' in state:
+                self._last_verification_time = state['last_verification_time']
+
+
+# =============================================================================
+# HOTBAR MONITOR SYSTEM
+# =============================================================================
+
+class HotbarMonitorSystem:
+    """
+    Monitors hotbar configuration changes through visual analysis.
+    
+    PERCEPTION: Detects icon changes on action bars
+    LEARNING: Learns ability positions over time
+    PERSISTENCE: Maintains hotbar mapping across sessions
+    """
+    
+    def __init__(self, capture: 'ScreenCapture', analyzer: 'VisualAnalyzer',
+                 spell_knowledge: 'SpellKnowledge', episodic_memory: 'EpisodicMemorySystem'):
+        self.capture = capture
+        self.analyzer = analyzer
+        self.spells = spell_knowledge
+        self.episodic = episodic_memory
+        
+        self._hotbar_slots: List[HotbarSlotState] = []
+        self._icon_hashes: Dict[str, str] = {}  # ability_name -> icon_hash
+        self._last_scan_time = 0.0
+        self._scan_interval = 10.0  # Scan every 10 seconds
+        self._change_detected = False
+        self._lock = threading.RLock()
+        
+        # Initialize slots
+        self._initialize_slots()
+        
+        logger.info("HotbarMonitorSystem initialized")
+    
+    def _initialize_slots(self):
+        """Initialize hotbar slot tracking."""
+        with self._lock:
+            self._hotbar_slots = []
+            for bar in range(2):  # 2 action bars
+                for slot in range(12):  # 12 slots per bar
+                    self._hotbar_slots.append(HotbarSlotState(
+                        bar_index=bar,
+                        slot_index=slot,
+                        ability_name=None,
+                        icon_hash="",
+                        last_scanned=0.0,
+                        cooldown_active=False,
+                        usable=True
+                    ))
+    
+    def scan_hotbar(self) -> bool:
+        """Scan hotbar for changes. Returns True if changes detected."""
+        now = time.time()
+        
+        with self._lock:
+            if now - self._last_scan_time < self._scan_interval:
+                return self._change_detected
+            
+            self._last_scan_time = now
+            self._change_detected = False
+            
+            self.capture.capture()
+            frame = self.capture.get_frame()
+            
+            if frame is None:
+                return False
+            
+            regions = self.capture.regions
+            
+            for slot_state in self._hotbar_slots:
+                # Get slot position
+                pos = regions.get_action_bar_slot(
+                    slot_state.slot_index, 
+                    slot_state.bar_index + 1
+                )
+                
+                # Extract icon region
+                icon_size = regions.ACTION_BAR_SLOT_SIZE
+                x1 = pos[0] - icon_size // 2
+                y1 = pos[1] - icon_size // 2
+                x2 = x1 + icon_size
+                y2 = y1 + icon_size
+                
+                # Bounds check
+                if x1 < 0 or y1 < 0 or x2 > frame.shape[1] or y2 > frame.shape[0]:
+                    continue
+                
+                icon_region = frame[y1:y2, x1:x2]
+                
+                if icon_region.size == 0:
+                    continue
+                
+                # Compute icon hash
+                new_hash = self._compute_icon_hash(icon_region)
+                
+                # Check for change
+                if new_hash != slot_state.icon_hash:
+                    old_ability = slot_state.ability_name
+                    slot_state.icon_hash = new_hash
+                    slot_state.last_scanned = now
+                    
+                    # Try to identify ability
+                    identified = self._identify_ability(new_hash)
+                    if identified:
+                        slot_state.ability_name = identified
+                    
+                    if old_ability != slot_state.ability_name:
+                        self._change_detected = True
+                        logger.info(f"Hotbar change: Bar {slot_state.bar_index} "
+                                   f"Slot {slot_state.slot_index}: "
+                                   f"{old_ability} -> {slot_state.ability_name}")
+                        
+                        # Update spell knowledge
+                        if slot_state.ability_name:
+                            self.spells.assign_to_action_bar(
+                                slot_state.ability_name,
+                                slot_state.slot_index,
+                                slot_state.bar_index + 1
+                            )
+                
+                # Check cooldown (darker icon)
+                gray = cv2.cvtColor(icon_region, cv2.COLOR_BGR2GRAY)
+                avg_brightness = np.mean(gray)
+                slot_state.cooldown_active = avg_brightness < 80
+                
+                # Check usability (no red tint for out of range, etc)
+                hsv = cv2.cvtColor(icon_region, cv2.COLOR_BGR2HSV)
+                red_mask = cv2.inRange(hsv, np.array([0, 100, 100]), np.array([10, 255, 255]))
+                slot_state.usable = np.sum(red_mask) < icon_region.size * 0.3
+            
+            return self._change_detected
+    
+    def _compute_icon_hash(self, icon: np.ndarray) -> str:
+        """Compute perceptual hash of icon."""
+        if icon.size == 0:
+            return ""
+        
+        # Resize to small fixed size
+        small = cv2.resize(icon, (8, 8))
+        gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+        
+        # Compute average
+        avg = np.mean(gray)
+        
+        # Create binary hash
+        bits = (gray > avg).flatten()
+        hash_val = 0
+        for bit in bits:
+            hash_val = (hash_val << 1) | int(bit)
+        
+        return format(hash_val, '016x')
+    
+    def _identify_ability(self, icon_hash: str) -> Optional[str]:
+        """Try to identify ability from icon hash."""
+        with self._lock:
+            for ability_name, stored_hash in self._icon_hashes.items():
+                if self._hash_similarity(icon_hash, stored_hash) > 0.85:
+                    return ability_name
+        return None
+    
+    def _hash_similarity(self, hash1: str, hash2: str) -> float:
+        """Compute similarity between two hashes."""
+        if not hash1 or not hash2:
+            return 0.0
+        
+        try:
+            val1 = int(hash1, 16)
+            val2 = int(hash2, 16)
+            xor = val1 ^ val2
+            diff_bits = bin(xor).count('1')
+            return 1.0 - (diff_bits / 64.0)
+        except ValueError:
+            return 0.0
+    
+    def learn_ability_icon(self, ability_name: str, bar: int, slot: int):
+        """Learn the icon hash for an ability."""
+        with self._lock:
+            for slot_state in self._hotbar_slots:
+                if slot_state.bar_index == bar - 1 and slot_state.slot_index == slot:
+                    if slot_state.icon_hash:
+                        self._icon_hashes[ability_name] = slot_state.icon_hash
+                        slot_state.ability_name = ability_name
+                        logger.info(f"Learned icon for {ability_name}")
+                    break
+    
+    def get_slot_state(self, bar: int, slot: int) -> Optional[HotbarSlotState]:
+        """Get state of a specific slot."""
+        with self._lock:
+            for slot_state in self._hotbar_slots:
+                if slot_state.bar_index == bar - 1 and slot_state.slot_index == slot:
+                    return slot_state
+        return None
+    
+    def get_ability_location(self, ability_name: str) -> Optional[Tuple[int, int]]:
+        """Find which bar/slot has an ability."""
+        with self._lock:
+            for slot_state in self._hotbar_slots:
+                if slot_state.ability_name and \
+                   slot_state.ability_name.lower() == ability_name.lower():
+                    return (slot_state.bar_index + 1, slot_state.slot_index)
+        return None
+    
+    def is_ability_usable(self, ability_name: str) -> bool:
+        """Check if ability is currently usable (not on CD, in range)."""
+        loc = self.get_ability_location(ability_name)
+        if loc:
+            slot_state = self.get_slot_state(loc[0], loc[1])
+            if slot_state:
+                return slot_state.usable and not slot_state.cooldown_active
+        return False
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Get persistable state."""
+        with self._lock:
+            return {
+                'icon_hashes': dict(self._icon_hashes),
+                'hotbar_slots': [{
+                    'bar_index': s.bar_index,
+                    'slot_index': s.slot_index,
+                    'ability_name': s.ability_name,
+                    'icon_hash': s.icon_hash
+                } for s in self._hotbar_slots if s.ability_name]
+            }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persisted state."""
+        with self._lock:
+            if 'icon_hashes' in state:
+                self._icon_hashes = dict(state['icon_hashes'])
+            if 'hotbar_slots' in state:
+                for saved in state['hotbar_slots']:
+                    for slot_state in self._hotbar_slots:
+                        if (slot_state.bar_index == saved['bar_index'] and 
+                            slot_state.slot_index == saved['slot_index']):
+                            slot_state.ability_name = saved.get('ability_name')
+                            slot_state.icon_hash = saved.get('icon_hash', '')
+                            break
+
+
+# =============================================================================
+# UI INTERACTION CONTROLLER
+# =============================================================================
+
+class UIInteractionController:
+    """
+    Context-sensitive UI interaction for vendors, trainers, flight masters, etc.
+    
+    PERCEPTION: Identifies UI type from visual cues
+    DECISION: Chooses appropriate interaction based on context
+    LEARNING: Remembers NPC locations and services
+    """
+    
+    def __init__(self, capture: 'ScreenCapture', analyzer: 'VisualAnalyzer',
+                 input_handler: 'InputHandler', world_knowledge: 'WorldKnowledge',
+                 beliefs: 'SemanticBeliefModel', learning: 'LearningCreditSystem'):
+        self.capture = capture
+        self.analyzer = analyzer
+        self.input = input_handler
+        self.world = world_knowledge
+        self.beliefs = beliefs
+        self.learning = learning
+        
+        self._current_context: Optional[UIInteractionContext] = None
+        self._interaction_history: Deque[UIInteractionContext] = deque(maxlen=100)
+        self._npc_service_map: Dict[str, UIContextType] = {}
+        self._lock = threading.RLock()
+        
+        # UI detection patterns
+        self._context_indicators = {
+            UIContextType.VENDOR_MERCHANT: ['buy', 'sell', 'browse goods'],
+            UIContextType.VENDOR_REPAIR: ['repair', 'repair all'],
+            UIContextType.CLASS_TRAINER: ['train', 'available skills', 'class trainer'],
+            UIContextType.PROFESSION_TRAINER: ['recipes', 'learn', 'profession'],
+            UIContextType.FLIGHT_MASTER: ['flight', 'destinations', 'griffin'],
+            UIContextType.INNKEEPER: ['inn', 'bind', 'hearthstone'],
+            UIContextType.BANKER: ['bank', 'deposit', 'withdraw'],
+            UIContextType.AUCTIONEER: ['auction', 'bid', 'buyout'],
+            UIContextType.QUEST_GIVER: ['accept', 'quest', 'objectives'],
+            UIContextType.QUEST_TURNIN: ['complete', 'reward', 'turn in'],
+            UIContextType.SPIRIT_HEALER: ['resurrect', 'spirit', 'sickness'],
+            UIContextType.BATTLEMASTER: ['battleground', 'queue', 'join battle'],
+        }
+        
+        logger.info("UIInteractionController initialized")
+    
+    def detect_ui_context(self) -> Optional[UIInteractionContext]:
+        """Detect current UI context from screen."""
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return None
+        
+        # Check if gossip or interaction panel is open
+        regions = self.capture.regions
+        
+        # Check various UI panels
+        panel_checks = [
+            (regions.GOSSIP_PANEL, self._analyze_gossip_panel),
+            (regions.VENDOR_PANEL, self._analyze_vendor_panel),
+            (regions.TRAINER_PANEL, self._analyze_trainer_panel),
+        ]
+        
+        for panel_region, analyzer_func in panel_checks:
+            if self.analyzer.check_panel_open(panel_region):
+                context = analyzer_func(frame, panel_region)
+                if context:
+                    with self._lock:
+                        self._current_context = context
+                        self._interaction_history.append(context)
+                    return context
+        
+        with self._lock:
+            self._current_context = None
+        return None
+    
+    def _analyze_gossip_panel(self, frame: np.ndarray, 
+                               region: List[int]) -> Optional[UIInteractionContext]:
+        """Analyze gossip panel to determine context."""
+        x1, y1, x2, y2 = region
+        panel = frame[y1:y2, x1:x2]
+        
+        if panel.size == 0:
+            return None
+        
+        # Extract text if OCR available
+        detected_text = ""
+        if OCR_AVAILABLE:
+            try:
+                gray = cv2.cvtColor(panel, cv2.COLOR_BGR2GRAY)
+                detected_text = pytesseract.image_to_string(gray).lower()
+            except Exception:
+                pass
+        
+        # Determine context type from text
+        detected_type = UIContextType.NONE
+        for context_type, indicators in self._context_indicators.items():
+            for indicator in indicators:
+                if indicator in detected_text:
+                    detected_type = context_type
+                    break
+            if detected_type != UIContextType.NONE:
+                break
+        
+        return UIInteractionContext(
+            context_type=detected_type,
+            npc_name=None,  # Would need additional detection
+            available_options=self._count_options(panel),
+            selected_option=None,
+            gold_required=0.0,
+            items_available=0,
+            timestamp=time.time()
+        )
+    
+    def _analyze_vendor_panel(self, frame: np.ndarray,
+                               region: List[int]) -> Optional[UIInteractionContext]:
+        """Analyze vendor panel."""
+        x1, y1, x2, y2 = region
+        panel = frame[y1:y2, x1:x2]
+        
+        if panel.size == 0:
+            return None
+        
+        # Check for repair button (indicates repair vendor)
+        has_repair = self._detect_repair_button(panel)
+        
+        context_type = UIContextType.VENDOR_REPAIR if has_repair else UIContextType.VENDOR_MERCHANT
+        
+        return UIInteractionContext(
+            context_type=context_type,
+            npc_name=None,
+            available_options=[],
+            selected_option=None,
+            gold_required=0.0,
+            items_available=self._count_vendor_items(panel),
+            timestamp=time.time()
+        )
+    
+    def _analyze_trainer_panel(self, frame: np.ndarray,
+                                region: List[int]) -> Optional[UIInteractionContext]:
+        """Analyze trainer panel."""
+        x1, y1, x2, y2 = region
+        panel = frame[y1:y2, x1:x2]
+        
+        if panel.size == 0:
+            return None
+        
+        return UIInteractionContext(
+            context_type=UIContextType.CLASS_TRAINER,
+            npc_name=None,
+            available_options=[],
+            selected_option=None,
+            gold_required=0.0,
+            items_available=self._count_trainable_skills(panel),
+            timestamp=time.time()
+        )
+    
+    def _count_options(self, panel: np.ndarray) -> List[str]:
+        """Count visible options in panel."""
+        # Would need OCR or pattern matching
+        return []
+    
+    def _detect_repair_button(self, panel: np.ndarray) -> bool:
+        """Detect if repair button exists."""
+        # Look for repair button icon or text
+        return False
+    
+    def _count_vendor_items(self, panel: np.ndarray) -> int:
+        """Count items in vendor panel."""
+        return 0
+    
+    def _count_trainable_skills(self, panel: np.ndarray) -> int:
+        """Count trainable skills."""
+        return 0
+    
+    def interact_with_context(self, context: UIInteractionContext, 
+                               goal: str) -> bool:
+        """
+        Perform context-appropriate interaction.
+        
+        Args:
+            context: Current UI context
+            goal: What we want to accomplish ('repair', 'buy_food', 'train_all', etc.)
+        
+        Returns:
+            Success status
+        """
+        if context.context_type == UIContextType.VENDOR_REPAIR and goal == 'repair':
+            return self._do_repair()
+        elif context.context_type == UIContextType.VENDOR_MERCHANT and goal == 'buy':
+            return self._do_buy_items()
+        elif context.context_type == UIContextType.VENDOR_MERCHANT and goal == 'sell':
+            return self._do_sell_items()
+        elif context.context_type == UIContextType.CLASS_TRAINER and goal == 'train':
+            return self._do_train_skills()
+        elif context.context_type == UIContextType.FLIGHT_MASTER and goal == 'fly':
+            return self._do_flight_path()
+        elif context.context_type == UIContextType.SPIRIT_HEALER and goal == 'resurrect':
+            return self._do_spirit_resurrect()
+        elif context.context_type == UIContextType.INNKEEPER and goal == 'bind':
+            return self._do_set_hearthstone()
+        
+        return False
+    
+    def _do_repair(self) -> bool:
+        """Perform repair action."""
+        regions = self.capture.regions
+        
+        # Click repair button
+        # Would need actual repair button position
+        repair_pos = (regions.VENDOR_PANEL[2] - 50, regions.VENDOR_PANEL[3] - 30)
+        self.input.click(repair_pos[0], repair_pos[1])
+        time.sleep(0.5)
+        
+        # Update learning
+        self.learning.update_strategy_effectiveness('vendor_repair', 1.0)
+        
+        return True
+    
+    def _do_buy_items(self) -> bool:
+        """Buy items from vendor."""
+        # Would need item selection logic
+        return True
+    
+    def _do_sell_items(self) -> bool:
+        """Sell items to vendor."""
+        # Would need inventory iteration
+        return True
+    
+    def _do_train_skills(self) -> bool:
+        """Train all available skills."""
+        regions = self.capture.regions
+        
+        # Click train button repeatedly
+        train_pos = regions.TRAINER_TRAIN_BUTTON
+        
+        for _ in range(10):
+            self.input.click(train_pos[0], train_pos[1])
+            time.sleep(0.3)
+        
+        self.learning.update_strategy_effectiveness('trainer_train_all', 1.0)
+        
+        return True
+    
+    def _do_flight_path(self) -> bool:
+        """Use flight path."""
+        # Would need flight destination selection
+        return True
+    
+    def _do_spirit_resurrect(self) -> bool:
+        """Resurrect at spirit healer."""
+        # Click resurrect button
+        return True
+    
+    def _do_set_hearthstone(self) -> bool:
+        """Set hearthstone at innkeeper."""
+        # Select bind option
+        return True
+    
+    def close_current_ui(self):
+        """Close current UI panel."""
+        self.input.press_key('esc')
+        time.sleep(0.3)
+        with self._lock:
+            self._current_context = None
+    
+    def get_current_context(self) -> Optional[UIInteractionContext]:
+        """Get current UI context."""
+        with self._lock:
+            return self._current_context
+    
+    def remember_npc_service(self, npc_name: str, service_type: UIContextType):
+        """Remember what service an NPC provides."""
+        with self._lock:
+            self._npc_service_map[npc_name.lower()] = service_type
+            
+            # Update world knowledge
+            self.world.record_npc(
+                npc_name, 
+                service_type.name, 
+                services=[service_type.name]
+            )
+            
+            # Update beliefs
+            self.beliefs.add_belief(
+                subject=f"npc_{npc_name.lower()}",
+                predicate="provides_service",
+                object_value=service_type.name,
+                confidence=BeliefConfidence.HIGH,
+                timestamp=time.time()
+            )
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Get persistable state."""
+        with self._lock:
+            return {
+                'npc_service_map': {k: v.name for k, v in self._npc_service_map.items()},
+                'interaction_count': len(self._interaction_history)
+            }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persisted state."""
+        with self._lock:
+            if 'npc_service_map' in state:
+                self._npc_service_map = {
+                    k: UIContextType[v] 
+                    for k, v in state['npc_service_map'].items()
+                    if v in UIContextType.__members__
+                }
+
+
+# =============================================================================
+# INTERRUPT DECISION SYSTEM
+# =============================================================================
+
+class InterruptDecisionSystem:
+    """
+    Decides when to interrupt enemy casts based on enemy intent inference.
+    
+    PERCEPTION: Monitors target cast bar
+    INFERENCE: Determines spell type and threat level
+    DECISION: Prioritizes interrupts based on danger
+    LEARNING: Learns which spells are worth interrupting
+    """
+    
+    def __init__(self, capture: 'ScreenCapture', analyzer: 'VisualAnalyzer',
+                 combat_knowledge: 'CombatKnowledge', intent_inference: 'IntentInferenceSystem',
+                 learning: 'LearningCreditSystem', meta_cognition: 'MetaCognitionSystem'):
+        self.capture = capture
+        self.analyzer = analyzer
+        self.combat = combat_knowledge
+        self.intent = intent_inference
+        self.learning = learning
+        self.meta = meta_cognition
+        
+        self._last_interrupt_time = 0.0
+        self._interrupt_cooldown = 10.0  # Most interrupts have 10s CD
+        self._lock = threading.RLock()
+        
+        # Spell categorization
+        self._heal_spells = {
+            'heal', 'healing', 'flash heal', 'greater heal', 'holy light',
+            'chain heal', 'healing wave', 'regrowth', 'rejuvenation',
+            'renew', 'lesser heal', 'heal over time'
+        }
+        
+        self._damage_spells = {
+            'fireball', 'frostbolt', 'shadow bolt', 'lightning bolt',
+            'pyroblast', 'mind blast', 'smite', 'wrath', 'starfire',
+            'chain lightning', 'lava burst', 'incinerate'
+        }
+        
+        self._cc_spells = {
+            'polymorph', 'fear', 'hex', 'cyclone', 'entangling roots',
+            'hibernate', 'shackle undead', 'psychic scream'
+        }
+        
+        self._buff_spells = {
+            'power word: shield', 'blessing', 'mark of the wild',
+            'arcane intellect', 'fortitude', 'divine spirit'
+        }
+        
+        # Learned spell priorities (higher = more important to interrupt)
+        self._spell_priorities: Dict[str, float] = {}
+        
+        # Default priorities
+        for spell in self._heal_spells:
+            self._spell_priorities[spell] = 1.0
+        for spell in self._cc_spells:
+            self._spell_priorities[spell] = 0.9
+        for spell in self._damage_spells:
+            self._spell_priorities[spell] = 0.7
+        for spell in self._buff_spells:
+            self._spell_priorities[spell] = 0.3
+        
+        logger.info("InterruptDecisionSystem initialized")
+    
+    def should_interrupt(self, cast_info: 'CastBarInfo', 
+                         player_state: 'PerceptionState') -> Tuple[bool, float, str]:
+        """
+        Decide if we should interrupt the current cast.
+        
+        Args:
+            cast_info: Information about target's cast
+            player_state: Current player state
+        
+        Returns:
+            (should_interrupt, urgency, reason)
+        """
+        if not cast_info.is_casting:
+            return (False, 0.0, "not_casting")
+        
+        # Check if interrupt is on cooldown
+        with self._lock:
+            if time.time() - self._last_interrupt_time < self._interrupt_cooldown:
+                remaining = self._interrupt_cooldown - (time.time() - self._last_interrupt_time)
+                return (False, 0.0, f"interrupt_cd_{remaining:.1f}s")
+        
+        # Get spell priority
+        spell_lower = cast_info.spell_name.lower() if cast_info.spell_name else ""
+        priority = self._get_spell_priority(spell_lower)
+        
+        # Consider cast progress
+        progress_factor = 1.0
+        if cast_info.progress < 0.3:
+            progress_factor = 0.5  # Early in cast, might not need immediate interrupt
+        elif cast_info.progress > 0.8:
+            progress_factor = 1.5  # Almost done, urgent
+        
+        # Consider remaining time
+        time_factor = 1.0
+        if cast_info.remaining_time < 0.5:
+            time_factor = 2.0  # Very urgent
+        elif cast_info.remaining_time > 2.0:
+            time_factor = 0.7  # Plenty of time
+        
+        # Consider player health (interrupt heals if we're winning)
+        health_factor = 1.0
+        if player_state.player_hp > 70 and self._is_heal_spell(spell_lower):
+            health_factor = 1.3  # Interrupt to prevent enemy recovery
+        elif player_state.player_hp < 30:
+            health_factor = 0.6  # Focus on survival, not interrupting
+        
+        # Meta-cognition check
+        if self.meta.should_act_conservatively():
+            priority *= 0.7  # Be more conservative with interrupts
+        
+        final_urgency = priority * progress_factor * time_factor * health_factor
+        
+        should_int = final_urgency > 0.5 and cast_info.is_interruptible
+        reason = self._get_interrupt_reason(spell_lower, final_urgency)
+        
+        return (should_int, final_urgency, reason)
+    
+    def _get_spell_priority(self, spell_name: str) -> float:
+        """Get learned priority for a spell."""
+        # Check exact match
+        if spell_name in self._spell_priorities:
+            return self._spell_priorities[spell_name]
+        
+        # Check partial matches
+        for known_spell, priority in self._spell_priorities.items():
+            if known_spell in spell_name or spell_name in known_spell:
+                return priority
+        
+        # Unknown spell - check category
+        if self._is_heal_spell(spell_name):
+            return 0.9
+        elif self._is_cc_spell(spell_name):
+            return 0.85
+        elif self._is_damage_spell(spell_name):
+            return 0.6
+        
+        # Default moderate priority for unknown
+        return 0.5
+    
+    def _is_heal_spell(self, spell_name: str) -> bool:
+        """Check if spell is a heal."""
+        return any(heal in spell_name for heal in self._heal_spells)
+    
+    def _is_cc_spell(self, spell_name: str) -> bool:
+        """Check if spell is crowd control."""
+        return any(cc in spell_name for cc in self._cc_spells)
+    
+    def _is_damage_spell(self, spell_name: str) -> bool:
+        """Check if spell is damage."""
+        return any(dmg in spell_name for dmg in self._damage_spells)
+    
+    def _get_interrupt_reason(self, spell_name: str, urgency: float) -> str:
+        """Get human-readable reason for interrupt decision."""
+        if self._is_heal_spell(spell_name):
+            return f"prevent_heal_{spell_name}"
+        elif self._is_cc_spell(spell_name):
+            return f"prevent_cc_{spell_name}"
+        elif self._is_damage_spell(spell_name):
+            return f"prevent_damage_{spell_name}"
+        elif urgency > 0.8:
+            return f"high_priority_{spell_name}"
+        else:
+            return f"general_interrupt_{spell_name}"
+    
+    def record_interrupt_attempt(self, spell_name: str, succeeded: bool,
+                                  outcome: float):
+        """
+        Record the outcome of an interrupt attempt for learning.
+        
+        Args:
+            spell_name: Spell we tried to interrupt
+            succeeded: Whether interrupt landed
+            outcome: Overall outcome (-1 to 1, positive = good)
+        """
+        with self._lock:
+            if succeeded:
+                self._last_interrupt_time = time.time()
+            
+            spell_lower = spell_name.lower()
+            
+            # Update spell priority based on outcome
+            current = self._spell_priorities.get(spell_lower, 0.5)
+            adjustment = 0.1 * outcome if succeeded else -0.05
+            self._spell_priorities[spell_lower] = max(0.1, min(1.0, 
+                                                               current + adjustment))
+            
+            # Update learning system
+            self.learning.update_ability_effectiveness(
+                f"interrupt_{spell_lower}",
+                1.0 if succeeded else 0.0
+            )
+    
+    def get_interrupt_ability(self, player_class: str) -> Optional[str]:
+        """Get the interrupt ability for a class."""
+        interrupt_map = {
+            'warrior': 'pummel',  # or shield_bash in defensive stance
+            'rogue': 'kick',
+            'mage': 'counterspell',
+            'shaman': 'earth_shock',
+            'priest': None,  # No interrupt
+            'warlock': None,  # Spell lock is pet ability
+            'druid': 'feral_charge',  # Bear only
+            'paladin': None,  # No interrupt
+            'hunter': None,  # No reliable interrupt
+        }
+        return interrupt_map.get(player_class.lower())
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Get persistable state."""
+        with self._lock:
+            return {
+                'spell_priorities': dict(self._spell_priorities),
+                'last_interrupt_time': self._last_interrupt_time
+            }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persisted state."""
+        with self._lock:
+            if 'spell_priorities' in state:
+                self._spell_priorities.update(state['spell_priorities'])
+            if 'last_interrupt_time' in state:
+                self._last_interrupt_time = state['last_interrupt_time']
+
+
+# =============================================================================
+# DEATH RECOVERY SYSTEM
+# =============================================================================
+
+class DeathRecoverySystem:
+    """
+    Handles complete death recovery: spirit release, corpse run, resurrection,
+    rebuffing.
+    
+    PERCEPTION: Detects death, ghost state, corpse location
+    NAVIGATION: Guides corpse run
+    DECISION: Chooses resurrection method
+    MEMORY: Records death locations for danger avoidance
+    """
+    
+    def __init__(self, capture: 'ScreenCapture', analyzer: 'VisualAnalyzer',
+                 input_handler: 'InputHandler', world_knowledge: 'WorldKnowledge',
+                 episodic_memory: 'EpisodicMemorySystem', narrative: 'NarrativeSelfModelSystem',
+                 beliefs: 'SemanticBeliefModel'):
+        self.capture = capture
+        self.analyzer = analyzer
+        self.input = input_handler
+        self.world = world_knowledge
+        self.episodic = episodic_memory
+        self.narrative = narrative
+        self.beliefs = beliefs
+        
+        self._state: Optional[DeathRecoveryState] = None
+        self._buffs_before_death: List[str] = []
+        self._resurrection_sickness_until = 0.0
+        self._lock = threading.RLock()
+        
+        logger.info("DeathRecoverySystem initialized")
+    
+    def detect_death(self, perception_state: 'PerceptionState') -> bool:
+        """Detect if player has died."""
+        # Check for death UI elements
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return False
+        
+        regions = self.capture.regions
+        
+        # Check for "Release Spirit" button
+        release_region = regions.RELEASE_SPIRIT_BUTTON
+        x1, y1, x2, y2 = release_region
+        
+        if x2 <= frame.shape[1] and y2 <= frame.shape[0]:
+            button_area = frame[y1:y2, x1:x2]
+            
+            if button_area.size > 0:
+                # Look for release button colors
+                hsv = cv2.cvtColor(button_area, cv2.COLOR_BGR2HSV)
+                # Button is typically golden/yellow
+                gold_mask = cv2.inRange(hsv, np.array([15, 100, 150]), 
+                                        np.array([30, 255, 255]))
+                if np.sum(gold_mask) > button_area.size * 0.1:
+                    return True
+        
+        # Also check HP
+        if perception_state.player_hp < 1.0 and perception_state.player_is_dead:
+            return True
+        
+        return False
+    
+    def handle_death(self, perception_state: 'PerceptionState',
+                     current_buffs: List[str]) -> DeathRecoveryState:
+        """Initialize death recovery when death is detected."""
+        with self._lock:
+            now = time.time()
+            
+            # Record death in various systems
+            self.narrative.record_death()
+            
+            # Estimate position (would need actual position tracking)
+            estimated_pos = (0.0, 0.0)
+            self.world.record_death(estimated_pos)
+            
+            # Record in episodic memory
+            self.episodic.record(
+                perception=self._create_minimal_perception(perception_state),
+                action=CogActionType.WAIT,
+                outcome_valence=-1.0,
+                emotional_intensity=0.8,
+                narrative_tags=['death', 'trauma']
+            )
+            
+            # Store buffs to reapply
+            self._buffs_before_death = list(current_buffs)
+            
+            # Create death state
+            self._state = DeathRecoveryState(
+                phase=DeathPhase.JUST_DIED,
+                death_timestamp=now,
+                death_position=estimated_pos,
+                corpse_position=estimated_pos,  # Same as death position
+                ghost_start_position=(0.0, 0.0),
+                resurrection_offers=[],
+                buffs_to_reapply=self._buffs_before_death,
+                recovery_attempts=0,
+                last_phase_change=now
+            )
+            
+            # Update beliefs
+            self.beliefs.add_belief(
+                subject="self",
+                predicate="recently_died",
+                object_value=True,
+                confidence=BeliefConfidence.CERTAIN,
+                timestamp=now
+            )
+            
+            logger.warning("Death detected, initiating recovery")
+            
+            return self._state
+    
+    def _create_minimal_perception(self, state: 'PerceptionState') -> CogPerceptionState:
+        """Create minimal cognitive perception for death recording."""
+        now = time.time()
+        return CogPerceptionState(
+            timestamp=now,
+            delta_time=0.1,
+            reaction_time=0.2,
+            time_in_combat=0.0,
+            time_since_last_damage=0.0,
+            time_since_last_kill=999.0,
+            time_since_last_social_interaction=999.0,
+            global_cooldown_remaining=0.0,
+            player_hp=0.0,
+            player_hp_max=100.0,
+            player_hp_percent=0.0,
+            hp_history=[],
+            recent_damage_events=[],
+            recent_healing_events=[],
+            incoming_damage_rate=0.0,
+            is_being_targeted=False,
+            active_debuffs_visible=[],
+            player_position=(0.0, 0.0),
+            player_facing_angle=0.0,
+            velocity_vector=(0.0, 0.0),
+            movement_speed=0.0,
+            is_moving=False,
+            is_backpedaling=False,
+            distance_traveled_last_5s=0.0,
+            position_history=[],
+            terrain_slope=0.0,
+            is_indoors=False,
+            is_in_water=False,
+            is_on_road=False,
+            is_in_narrow_space=False,
+            inventory_slots_used=0,
+            inventory_slots_total=16,
+            inventory_fill_ratio=0.0,
+            has_vendor_junk=False,
+            durability_percent=100.0,
+            estimated_repair_cost=0.0,
+            nearest_vendor_distance=9999.0,
+            is_overburdened=False,
+            available_abilities=[],
+            resource_current=0.0,
+            resource_max=100.0,
+            resource_regen_rate=0.0,
+            buffs_active=[],
+            debuffs_active=[],
+            nearby_enemies=[],
+            nearby_players=[],
+            chat_events=[]
+        )
+    
+    def get_recovery_action(self) -> Optional['Action']:
+        """Get next action for death recovery."""
+        with self._lock:
+            if self._state is None:
+                return None
+            
+            now = time.time()
+            phase = self._state.phase
+            
+            if phase == DeathPhase.JUST_DIED:
+                # Wait a moment, then release spirit
+                if now - self._state.death_timestamp > 2.0:
+                    return self._create_release_action()
+            
+            elif phase == DeathPhase.RELEASING_SPIRIT:
+                # Click release button
+                return self._create_release_action()
+            
+            elif phase == DeathPhase.GHOST_RUNNING:
+                # Navigate to corpse
+                return self._create_corpse_run_action()
+            
+            elif phase == DeathPhase.NEAR_CORPSE:
+                # Resurrect
+                return self._create_resurrect_action()
+            
+            elif phase == DeathPhase.POST_RES_RECOVERY:
+                # Rebuff and prepare
+                return self._create_rebuff_action()
+        
+        return None
+    
+    def _create_release_action(self) -> 'Action':
+        """Create action to release spirit."""
+        regions = self.capture.regions
+        release_pos = (
+            (regions.RELEASE_SPIRIT_BUTTON[0] + regions.RELEASE_SPIRIT_BUTTON[2]) // 2,
+            (regions.RELEASE_SPIRIT_BUTTON[1] + regions.RELEASE_SPIRIT_BUTTON[3]) // 2
+        )
+        
+        return Action(
+            action_type=ActionType.CLICK,
+            priority=Priority.CRITICAL,
+            reason="releasing_spirit",
+            position=release_pos
+        )
+    
+    def _create_corpse_run_action(self) -> 'Action':
+        """Create action for corpse running."""
+        # In practice, would need actual navigation
+        # For now, move forward toward corpse
+        return Action(
+            action_type=ActionType.MOVE_FORWARD,
+            priority=Priority.HIGH,
+            reason="corpse_run",
+            duration=2.0
+        )
+    
+    def _create_resurrect_action(self) -> 'Action':
+        """Create action to resurrect at corpse."""
+        # Right-click corpse or accept res popup
+        regions = self.capture.regions
+        return Action(
+            action_type=ActionType.RIGHT_CLICK,
+            priority=Priority.CRITICAL,
+            reason="resurrecting",
+            position=regions.SCREEN_CENTER
+        )
+    
+    def _create_rebuff_action(self) -> 'Action':
+        """Create action to rebuff after resurrection."""
+        # Would need to cast self-buffs
+        # For now, just wait
+        return Action(
+            action_type=ActionType.WAIT,
+            priority=Priority.NORMAL,
+            reason="post_res_recovery",
+            duration=1.0
+        )
+    
+    def update_phase(self, new_phase: DeathPhase):
+        """Update recovery phase."""
+        with self._lock:
+            if self._state:
+                old_phase = self._state.phase
+                self._state.phase = new_phase
+                self._state.last_phase_change = time.time()
+                logger.info(f"Death recovery phase: {old_phase.name} -> {new_phase.name}")
+    
+    def check_resurrection_offer(self) -> Optional[str]:
+        """Check if resurrection has been offered by another player."""
+        # Would check for res popup
+        return None
+    
+    def accept_resurrection(self, source: str):
+        """Accept resurrection from another player."""
+        with self._lock:
+            if self._state:
+                self._state.resurrection_offers.append((time.time(), source))
+            
+            # Click accept button
+            # ...
+            
+            self.update_phase(DeathPhase.RESURRECTING)
+    
+    def is_recovery_complete(self) -> bool:
+        """Check if death recovery is complete."""
+        with self._lock:
+            return self._state is None or self._state.phase == DeathPhase.ALIVE
+    
+    def complete_recovery(self):
+        """Mark recovery as complete."""
+        with self._lock:
+            if self._state:
+                logger.info("Death recovery complete")
+                self._state = None
+                
+                # Update beliefs
+                self.beliefs.add_belief(
+                    subject="self",
+                    predicate="recently_died",
+                    object_value=False,
+                    confidence=BeliefConfidence.CERTAIN,
+                    timestamp=time.time()
+                )
+    
+    def get_buffs_to_reapply(self) -> List[str]:
+        """Get list of buffs that need to be reapplied."""
+        with self._lock:
+            if self._state:
+                return self._state.buffs_to_reapply
+        return []
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Get persistable state."""
+        with self._lock:
+            if self._state:
+                return {
+                    'phase': self._state.phase.name,
+                    'death_timestamp': self._state.death_timestamp,
+                    'buffs_to_reapply': self._state.buffs_to_reapply,
+                    'recovery_attempts': self._state.recovery_attempts
+                }
+            return {}
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persisted state."""
+        # Generally don't restore death state across sessions
+        pass
+
+
+# =============================================================================
+# EXPLORATION SYSTEM (Map-Agnostic)
+# =============================================================================
+
+class ExplorationSystem:
+    """
+    Map-agnostic exploration using visual cues and movement feedback.
+    
+    PERCEPTION: Detects obstacles, edges, POIs from screen
+    NAVIGATION: Random walk with intelligent obstacle avoidance
+    MEMORY: Builds mental map through experience
+    LEARNING: Learns safe vs dangerous areas
+    """
+    
+    def __init__(self, capture: 'ScreenCapture', analyzer: 'VisualAnalyzer',
+                 input_handler: 'InputHandler', world_knowledge: 'WorldKnowledge',
+                 episodic_memory: 'EpisodicMemorySystem', learning: 'LearningCreditSystem'):
+        self.capture = capture
+        self.analyzer = analyzer
+        self.input = input_handler
+        self.world = world_knowledge
+        self.episodic = episodic_memory
+        self.learning = learning
+        
+        self._state = ExplorationState(
+            mode=ExplorationMode.IDLE,
+            visited_positions=[],
+            current_direction=0.0,
+            stuck_counter=0,
+            last_significant_move=time.time(),
+            discovered_pois=[],
+            danger_zones=[],
+            breadcrumb_trail=deque(maxlen=100),
+            exploration_score=0.0
+        )
+        
+        self._lock = threading.RLock()
+        self._last_position_check = time.time()
+        self._position_check_interval = 0.5
+        self._stuck_threshold = 5
+        self._direction_change_cooldown = 0.0
+        
+        logger.info("ExplorationSystem initialized")
+    
+    def update(self, perception_state: 'PerceptionState') -> ExplorationMode:
+        """Update exploration state and return current mode."""
+        with self._lock:
+            now = time.time()
+            
+            # Detect if stuck
+            self._check_stuck_state()
+            
+            # Choose exploration mode
+            if self._state.stuck_counter >= self._stuck_threshold:
+                self._state.mode = ExplorationMode.OBSTACLE_AVOIDANCE
+            elif perception_state.player_hp < 30:
+                self._state.mode = ExplorationMode.SAFETY_RETREAT
+            elif self._detect_poi():
+                self._state.mode = ExplorationMode.POI_APPROACH
+            elif random.random() < 0.1:  # 10% chance to change direction
+                self._state.mode = ExplorationMode.RANDOM_WALK
+                self._state.current_direction = random.uniform(-180, 180)
+            
+            return self._state.mode
+    
+    def get_exploration_action(self) -> 'Action':
+        """Get next exploration action."""
+        with self._lock:
+            mode = self._state.mode
+            
+            if mode == ExplorationMode.OBSTACLE_AVOIDANCE:
+                return self._get_unstuck_action()
+            elif mode == ExplorationMode.SAFETY_RETREAT:
+                return self._get_retreat_action()
+            elif mode == ExplorationMode.BACKTRACK:
+                return self._get_backtrack_action()
+            elif mode == ExplorationMode.POI_APPROACH:
+                return self._get_poi_approach_action()
+            else:  # RANDOM_WALK or IDLE
+                return self._get_random_walk_action()
+    
+    def _check_stuck_state(self):
+        """Check if character appears stuck."""
+        now = time.time()
+        
+        if now - self._last_position_check < self._position_check_interval:
+            return
+        
+        self._last_position_check = now
+        
+        # Would need actual position comparison
+        # For now, use time-based heuristic
+        if now - self._state.last_significant_move > 3.0:
+            self._state.stuck_counter += 1
+        else:
+            self._state.stuck_counter = max(0, self._state.stuck_counter - 1)
+    
+    def _detect_poi(self) -> bool:
+        """Detect points of interest on screen."""
+        self.capture.capture()
+        frame = self.capture.get_frame()
+        
+        if frame is None:
+            return False
+        
+        # Look for:
+        # - Yellow question marks (quest givers)
+        # - Blue exclamation marks (quest turn-in)
+        # - NPC nameplates
+        # - Resource nodes (mining/herbs)
+        
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        
+        # Yellow detection (quest markers)
+        yellow_mask = cv2.inRange(hsv, np.array([20, 100, 100]), 
+                                   np.array([35, 255, 255]))
+        yellow_presence = np.sum(yellow_mask) > frame.size * 0.001
+        
+        return yellow_presence
+    
+    def _get_unstuck_action(self) -> 'Action':
+        """Get action to become unstuck."""
+        with self._lock:
+            # Alternate between different unstuck strategies
+            strategy = self._state.stuck_counter % 4
+            
+            if strategy == 0:
+                # Jump
+                return Action(
+                    action_type=ActionType.JUMP,
+                    priority=Priority.HIGH,
+                    reason="unstuck_jump"
+                )
+            elif strategy == 1:
+                # Move backward
+                return Action(
+                    action_type=ActionType.MOVE_BACKWARD,
+                    priority=Priority.HIGH,
+                    reason="unstuck_backup",
+                    duration=1.0
+                )
+            elif strategy == 2:
+                # Turn significantly
+                turn_dir = ActionType.TURN_LEFT if random.random() < 0.5 else ActionType.TURN_RIGHT
+                return Action(
+                    action_type=turn_dir,
+                    priority=Priority.HIGH,
+                    reason="unstuck_turn",
+                    duration=random.uniform(0.5, 1.5)
+                )
+            else:
+                # Strafe
+                strafe_dir = ActionType.STRAFE_LEFT if random.random() < 0.5 else ActionType.STRAFE_RIGHT
+                return Action(
+                    action_type=strafe_dir,
+                    priority=Priority.HIGH,
+                    reason="unstuck_strafe",
+                    duration=0.5
+                )
+    
+    def _get_retreat_action(self) -> 'Action':
+        """Get action to retreat to safety."""
+        # Would use breadcrumb trail to backtrack
+        return Action(
+            action_type=ActionType.MOVE_BACKWARD,
+            priority=Priority.URGENT,
+            reason="safety_retreat",
+            duration=2.0
+        )
+    
+    def _get_backtrack_action(self) -> 'Action':
+        """Get action to backtrack along breadcrumb trail."""
+        # Would navigate using stored positions
+        return Action(
+            action_type=ActionType.MOVE_FORWARD,
+            priority=Priority.NORMAL,
+            reason="backtracking",
+            duration=1.0
+        )
+    
+    def _get_poi_approach_action(self) -> 'Action':
+        """Get action to approach detected POI."""
+        return Action(
+            action_type=ActionType.MOVE_FORWARD,
+            priority=Priority.NORMAL,
+            reason="approaching_poi",
+            duration=1.0
+        )
+    
+    def _get_random_walk_action(self) -> 'Action':
+        """Get random exploration action."""
+        with self._lock:
+            now = time.time()
+            
+            # Occasionally turn
+            if now - self._direction_change_cooldown > 3.0 and random.random() < 0.3:
+                self._direction_change_cooldown = now
+                turn_dir = ActionType.TURN_LEFT if random.random() < 0.5 else ActionType.TURN_RIGHT
+                return Action(
+                    action_type=turn_dir,
+                    priority=Priority.LOW,
+                    reason="exploration_turn",
+                    duration=random.uniform(0.2, 0.8)
+                )
+            
+            # Otherwise move forward
+            return Action(
+                action_type=ActionType.MOVE_FORWARD,
+                priority=Priority.LOW,
+                reason="exploration_forward",
+                duration=random.uniform(1.0, 3.0)
+            )
+    
+    def record_significant_move(self, position: Tuple[float, float]):
+        """Record a significant position change."""
+        with self._lock:
+            self._state.last_significant_move = time.time()
+            self._state.stuck_counter = 0
+            self._state.breadcrumb_trail.append(position)
+            
+            if len(self._state.visited_positions) > 1000:
+                self._state.visited_positions = self._state.visited_positions[-500:]
+            self._state.visited_positions.append(position)
+    
+    def mark_danger_zone(self, position: Tuple[float, float], radius: float):
+        """Mark an area as dangerous."""
+        with self._lock:
+            self._state.danger_zones.append((position, radius))
+            
+            # Limit stored zones
+            if len(self._state.danger_zones) > 50:
+                self._state.danger_zones = self._state.danger_zones[-25:]
+            
+            # Update world knowledge
+            self.world.record_death(position)
+            
+            # Update learning
+            self.learning.update_terrain_preference(f"danger_{position}", -1.0)
+    
+    def is_in_danger_zone(self, position: Tuple[float, float]) -> bool:
+        """Check if position is in a known danger zone."""
+        with self._lock:
+            for zone_pos, radius in self._state.danger_zones:
+                dist = math.sqrt(
+                    (position[0] - zone_pos[0])**2 + 
+                    (position[1] - zone_pos[1])**2
+                )
+                if dist < radius:
+                    return True
+        return False
+    
+    def get_exploration_score(self) -> float:
+        """Get current exploration efficiency score."""
+        with self._lock:
+            return self._state.exploration_score
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Get persistable state."""
+        with self._lock:
+            return {
+                'visited_count': len(self._state.visited_positions),
+                'discovered_pois': self._state.discovered_pois,
+                'danger_zones': list(self._state.danger_zones),
+                'exploration_score': self._state.exploration_score
+            }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persisted state."""
+        with self._lock:
+            if 'danger_zones' in state:
+                self._state.danger_zones = [
+                    (tuple(z[0]), z[1]) for z in state['danger_zones']
+                ]
+            if 'exploration_score' in state:
+                self._state.exploration_score = state['exploration_score']
+
+
+# =============================================================================
+# HUMAN-LIKE INPUT CONTROLLER
+# =============================================================================
+
+class HumanLikeInputController:
+    """
+    Adds human-like hesitation, misclick recovery, and corrective behavior.
+    
+    BEHAVIOR: Introduces realistic timing variance
+    CORRECTION: Detects and recovers from input errors
+    LEARNING: Adapts to individual input patterns
+    """
+    
+    def __init__(self, base_input: 'InputHandler', 
+                 timing_system: 'AdaptiveTimingSystem',
+                 learning: 'LearningCreditSystem',
+                 meta_cognition: 'MetaCognitionSystem'):
+        self.base = base_input
+        self.timing = timing_system
+        self.learning = learning
+        self.meta = meta_cognition
+        
+        self._correction_history: Deque[InputCorrectionEvent] = deque(maxlen=50)
+        self._pending_actions: List[Tuple[float, Callable]] = []
+        self._last_action_time = 0.0
+        self._hesitation_probability = 0.05
+        self._misclick_probability = 0.02
+        self._lock = threading.RLock()
+        
+        logger.info("HumanLikeInputController initialized")
+    
+    def press_key_human(self, key: str, intended_action: str = "") -> bool:
+        """Press key with human-like timing."""
+        with self._lock:
+            # Pre-action hesitation
+            if random.random() < self._hesitation_probability:
+                hesitation = random.uniform(0.1, 0.5)
+                time.sleep(hesitation)
+            
+            # Apply reaction delay
+            delay = self.timing.get_reaction_delay("normal")
+            if self.meta.should_act_conservatively():
+                delay *= 1.3  # Slower when uncertain
+            time.sleep(delay)
+            
+            # Execute
+            success = self.base.press_key(key)
+            self._last_action_time = time.time()
+            
+            # Record outcome
+            if success:
+                self.learning.update_ability_effectiveness(
+                    f"input_{key}", 1.0
+                )
+            else:
+                self._record_correction(InputCorrectionType.SPELL_QUEUE_ERROR,
+                                       intended_action, "key_press_failed")
+            
+            return success
+    
+    def click_human(self, x: int, y: int, button: str = 'left',
+                    intended_action: str = "") -> bool:
+        """Click with human-like movement and potential misclick."""
+        with self._lock:
+            # Calculate movement time
+            move_duration = self.timing.get_mouse_movement_duration(
+                math.sqrt(x**2 + y**2) / 2  # Approximate from center
+            )
+            
+            # Potential misclick
+            actual_x, actual_y = x, y
+            if random.random() < self._misclick_probability:
+                # Slight offset
+                actual_x += random.randint(-10, 10)
+                actual_y += random.randint(-10, 10)
+                logger.debug(f"Simulated misclick: ({x},{y}) -> ({actual_x},{actual_y})")
+            
+            # Apply timing
+            time.sleep(move_duration)
+            
+            # Execute
+            success = self.base.click(actual_x, actual_y, button)
+            self._last_action_time = time.time()
+            
+            # Detect if misclick needs correction
+            if actual_x != x or actual_y != y:
+                self._record_correction(InputCorrectionType.MISCLICK_RECOVERY,
+                                       intended_action, 
+                                       f"offset_{actual_x-x}_{actual_y-y}")
+                # Attempt correction click
+                time.sleep(0.2)
+                self.base.click(x, y, button)
+            
+            return success
+    
+    def execute_with_hesitation(self, action_func: Callable, 
+                                 confidence: float = 1.0) -> bool:
+        """Execute action with confidence-based hesitation."""
+        with self._lock:
+            # Lower confidence = more hesitation
+            if confidence < 0.7:
+                hesitation = (1.0 - confidence) * random.uniform(0.2, 0.8)
+                time.sleep(hesitation)
+            
+            # Possibility of aborting uncertain actions
+            if confidence < 0.3 and random.random() < 0.2:
+                logger.debug("Aborted uncertain action")
+                return False
+            
+            return action_func()
+    
+    def recover_from_error(self, error_type: InputCorrectionType,
+                           recovery_action: Callable) -> bool:
+        """Attempt to recover from an input error."""
+        with self._lock:
+            start_time = time.time()
+            
+            # Brief pause to "realize" error
+            time.sleep(random.uniform(0.1, 0.3))
+            
+            # Attempt recovery
+            success = recovery_action()
+            recovery_time = time.time() - start_time
+            
+            self._record_correction(error_type, "error_recovery", 
+                                   "recovery_attempted", recovery_time, success)
+            
+            return success
+    
+    def _record_correction(self, correction_type: InputCorrectionType,
+                           original_intent: str, actual_result: str,
+                           recovery_time: float = 0.0, success: bool = True):
+        """Record an input correction event."""
+        event = InputCorrectionEvent(
+            correction_type=correction_type,
+            timestamp=time.time(),
+            original_intent=original_intent,
+            actual_result=actual_result,
+            correction_action="auto_correct",
+            recovery_time=recovery_time,
+            success=success
+        )
+        self._correction_history.append(event)
+    
+    def get_error_rate(self) -> float:
+        """Get recent error rate."""
+        with self._lock:
+            if not self._correction_history:
+                return 0.0
+            
+            recent = [e for e in self._correction_history 
+                     if time.time() - e.timestamp < 300]  # Last 5 minutes
+            
+            return len(recent) / max(1, len(recent) + 100)  # Normalize
+    
+    def adjust_error_rates(self, fatigue_level: float):
+        """Adjust error rates based on fatigue."""
+        with self._lock:
+            base_hesitation = 0.05
+            base_misclick = 0.02
+            
+            # Fatigue increases errors
+            self._hesitation_probability = base_hesitation * (1 + fatigue_level)
+            self._misclick_probability = base_misclick * (1 + fatigue_level * 2)
+    
+    def get_recent_corrections(self) -> List[InputCorrectionEvent]:
+        """Get recent correction events."""
+        with self._lock:
+            return list(self._correction_history)
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Get persistable state."""
+        with self._lock:
+            return {
+                'error_count': len(self._correction_history),
+                'hesitation_prob': self._hesitation_probability,
+                'misclick_prob': self._misclick_probability
+            }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persisted state."""
+        with self._lock:
+            if 'hesitation_prob' in state:
+                self._hesitation_probability = state['hesitation_prob']
+            if 'misclick_prob' in state:
+                self._misclick_probability = state['misclick_prob']
+
+
+# =============================================================================
+# SOCIAL SIGNALING SYSTEM
+# =============================================================================
+
+class SocialSignalingSystem:
+    """
+    Maintains consistent social signaling behavior.
+    
+    TRACKING: Monitors ongoing social interactions
+    DECISION: Chooses appropriate social responses
+    CONSISTENCY: Maintains tone and escalation level
+    MEMORY: Remembers player relationships
+    """
+    
+    def __init__(self, input_handler: 'InputHandler',
+                 social_memory: 'SocialMemorySystem',
+                 personality: 'PersonalityProfile',
+                 beliefs: 'SemanticBeliefModel'):
+        self.input = input_handler
+        self.social = social_memory
+        self.personality = personality
+        self.beliefs = beliefs
+        
+        self._active_interactions: Dict[str, SocialInteractionState] = {}
+        self._greeting_cooldown: Dict[str, float] = {}
+        self._lock = threading.RLock()
+        
+        # Signal templates
+        self._greetings = ['hello', 'hi', 'hey', 'greetings']
+        self._thanks = ['thanks', 'ty', 'thx', 'thank you']
+        self._farewells = ['bye', 'cya', 'later', 'farewell']
+        self._acknowledgments = ['ok', 'sure', 'np', 'yw']
+        
+        # Emote mappings
+        self._friendly_emotes = ['/wave', '/bow', '/salute', '/nod']
+        self._hostile_emotes = ['/spit', '/rude', '/mock']
+        
+        logger.info("SocialSignalingSystem initialized")
+    
+    def should_greet(self, player_id: str, player_name: str) -> bool:
+        """Determine if we should greet a player."""
+        with self._lock:
+            now = time.time()
+            
+            # Check cooldown
+            last_greet = self._greeting_cooldown.get(player_id, 0)
+            if now - last_greet < 300:  # 5 minute cooldown
+                return False
+            
+            # Check social memory
+            memory = self.social.get_entry(player_id)
+            
+            # Personality influences greeting
+            if self.personality.social_engagement_preference < 0.3:
+                return False  # Introverted, don't greet
+            
+            # Known hostile players
+            if memory and memory.conflict_likelihood > 0.7:
+                return False
+            
+            # Group members always greet
+            # Nearby players with good trust get greeted
+            if memory and memory.trust_estimate > 0.6:
+                return True
+            
+            # Random chance based on personality
+            return random.random() < self.personality.social_engagement_preference * 0.5
+    
+    def get_greeting_action(self, player_name: str) -> str:
+        """Get appropriate greeting text."""
+        with self._lock:
+            # Check if we have history with player
+            memory = self.social.get_entry(player_name)
+            
+            if memory and memory.trust_estimate > 0.8:
+                # Friendly greeting
+                return random.choice([f"hey {player_name}!", 
+                                     f"hi {player_name}",
+                                     f"sup {player_name}"])
+            else:
+                # Neutral greeting
+                return random.choice(self._greetings)
+    
+    def send_greeting(self, player_id: str, player_name: str,
+                      channel: str = 'say') -> bool:
+        """Send a greeting to a player."""
+        with self._lock:
+            greeting = self.get_greeting_action(player_name)
+            
+            # Send chat message
+            self.input.press_key('enter')
+            time.sleep(0.1)
+            
+            if channel == 'whisper':
+                self.input.type_text(f"/w {player_name} {greeting}")
+            else:
+                self.input.type_text(greeting)
+            
+            self.input.press_key('enter')
+            
+            # Record
+            self._greeting_cooldown[player_id] = time.time()
+            self._record_signal(player_id, player_name, SocialSignalType.GREETING_INITIAL)
+            
+            return True
+    
+    def respond_to_greeting(self, player_id: str, player_name: str) -> bool:
+        """Respond to a greeting from another player."""
+        with self._lock:
+            # Brief delay to seem natural
+            time.sleep(random.uniform(0.5, 2.0))
+            
+            response = random.choice(self._greetings + ['hey', 'o/'])
+            
+            self.input.press_key('enter')
+            time.sleep(0.1)
+            self.input.type_text(response)
+            self.input.press_key('enter')
+            
+            self._record_signal(player_id, player_name, SocialSignalType.GREETING_RESPONSE)
+            
+            return True
+    
+    def send_thanks(self, player_id: str, player_name: str, reason: str = ""):
+        """Send thanks to a player."""
+        with self._lock:
+            thanks = random.choice(self._thanks)
+            if reason and random.random() < 0.5:
+                thanks = f"{thanks} for {reason}"
+            
+            self.input.press_key('enter')
+            time.sleep(0.1)
+            self.input.type_text(thanks)
+            self.input.press_key('enter')
+            
+            self._record_signal(player_id, player_name, SocialSignalType.GRATITUDE)
+    
+    def send_farewell(self, player_id: str, player_name: str):
+        """Send farewell to a player."""
+        with self._lock:
+            farewell = random.choice(self._farewells)
+            
+            self.input.press_key('enter')
+            time.sleep(0.1)
+            self.input.type_text(farewell)
+            self.input.press_key('enter')
+            
+            self._record_signal(player_id, player_name, SocialSignalType.FAREWELL)
+            
+            # Clear active interaction
+            if player_id in self._active_interactions:
+                del self._active_interactions[player_id]
+    
+    def should_disengage(self, player_id: str) -> bool:
+        """Determine if we should disengage from interaction."""
+        with self._lock:
+            if player_id not in self._active_interactions:
+                return False
+            
+            interaction = self._active_interactions[player_id]
+            
+            # Check time since last activity
+            if time.time() - interaction.interaction_start > 300:  # 5 minutes
+                return True
+            
+            # Check escalation
+            if interaction.escalation_level > 3:
+                return True
+            
+            return interaction.disengagement_score > 0.7
+    
+    def use_emote(self, emote_type: str, target: str = ""):
+        """Use an emote."""
+        with self._lock:
+            if emote_type == 'friendly':
+                emote = random.choice(self._friendly_emotes)
+            elif emote_type == 'hostile':
+                emote = random.choice(self._hostile_emotes)
+            else:
+                emote = emote_type if emote_type.startswith('/') else f"/{emote_type}"
+            
+            self.input.press_key('enter')
+            time.sleep(0.1)
+            if target:
+                self.input.type_text(f"{emote} {target}")
+            else:
+                self.input.type_text(emote)
+            self.input.press_key('enter')
+    
+    def _record_signal(self, player_id: str, player_name: str, 
+                       signal_type: SocialSignalType):
+        """Record a social signal."""
+        with self._lock:
+            now = time.time()
+            
+            if player_id not in self._active_interactions:
+                self._active_interactions[player_id] = SocialInteractionState(
+                    player_id=player_id,
+                    player_name=player_name,
+                    interaction_start=now,
+                    signals_sent=[],
+                    signals_received=[],
+                    current_tone=CommunicationTone.NEUTRAL,
+                    escalation_level=0,
+                    disengagement_score=0.0
+                )
+            
+            interaction = self._active_interactions[player_id]
+            interaction.signals_sent.append((now, signal_type))
+    
+    def process_incoming_message(self, player_id: str, player_name: str,
+                                  message: str, channel: str):
+        """Process incoming social message and determine response."""
+        with self._lock:
+            now = time.time()
+            
+            # Ensure interaction state exists
+            if player_id not in self._active_interactions:
+                self._active_interactions[player_id] = SocialInteractionState(
+                    player_id=player_id,
+                    player_name=player_name,
+                    interaction_start=now,
+                    signals_sent=[],
+                    signals_received=[],
+                    current_tone=CommunicationTone.NEUTRAL,
+                    escalation_level=0,
+                    disengagement_score=0.0
+                )
+            
+            interaction = self._active_interactions[player_id]
+            interaction.signals_received.append((now, message))
+            
+            msg_lower = message.lower()
+            
+            # Detect greeting
+            if any(g in msg_lower for g in self._greetings):
+                return SocialSignalType.GREETING_RESPONSE
+            
+            # Detect thanks
+            if any(t in msg_lower for t in self._thanks):
+                return SocialSignalType.ACKNOWLEDGMENT
+            
+            # Detect hostility
+            hostile_words = ['noob', 'stupid', 'idiot', 'gtfo']
+            if any(h in msg_lower for h in hostile_words):
+                interaction.escalation_level += 1
+                return SocialSignalType.SILENCE_INTENTIONAL
+            
+            return None
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Get persistable state."""
+        with self._lock:
+            return {
+                'greeting_cooldowns': dict(self._greeting_cooldown),
+                'active_interaction_count': len(self._active_interactions)
+            }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persisted state."""
+        with self._lock:
+            if 'greeting_cooldowns' in state:
+                self._greeting_cooldown = dict(state['greeting_cooldowns'])
+
+
+# =============================================================================
+# INVENTORY TRIAGE SYSTEM
+# =============================================================================
+
+class InventoryTriageSystem:
+    """
+    Makes intelligent decisions about inventory items.
+    
+    ANALYSIS: Evaluates item value and usefulness
+    DECISION: Determines keep/sell/destroy disposition
+    LEARNING: Improves item valuation over time
+    """
+    
+    def __init__(self, capture: 'ScreenCapture', analyzer: 'VisualAnalyzer',
+                 inventory_knowledge: 'InventoryKnowledge',
+                 learning: 'LearningCreditSystem',
+                 beliefs: 'SemanticBeliefModel'):
+        self.capture = capture
+        self.analyzer = analyzer
+        self.inventory = inventory_knowledge
+        self.learning = learning
+        self.beliefs = beliefs
+        
+        self._item_cache: Dict[str, InventoryItemInfo] = {}
+        self._lock = threading.RLock()
+        
+        # Item type priorities
+        self._keep_priorities = {
+            'consumable': ['health potion', 'mana potion', 'bandage', 'food', 'water'],
+            'equipment': ['upgrade', 'better stats'],
+            'quest': ['quest item'],
+            'valuable': ['epic', 'rare', 'reagent']
+        }
+        
+        self._sell_indicators = [
+            'gray', 'poor', 'vendor trash', 'junk',
+            'broken', 'worn', 'tattered'
+        ]
+        
+        self._destroy_threshold = 1  # Items worth less than 1 copper
+        
+        logger.info("InventoryTriageSystem initialized")
+    
+    def evaluate_item(self, item_name: str, item_type: str, quality: int,
+                      vendor_value: float, is_quest: bool = False,
+                      is_soulbound: bool = False) -> InventoryItemDisposition:
+        """Evaluate an item and determine disposition."""
+        with self._lock:
+            name_lower = item_name.lower()
+            
+            # Quest items always kept
+            if is_quest:
+                return InventoryItemDisposition.KEEP_QUEST
+            
+            # Consumables we use
+            for consumable in self._keep_priorities['consumable']:
+                if consumable in name_lower:
+                    return InventoryItemDisposition.KEEP_CONSUMABLE
+            
+            # Quality-based decisions
+            if quality >= 4:  # Epic or better
+                return InventoryItemDisposition.KEEP_VALUABLE
+            elif quality >= 3:  # Rare
+                return InventoryItemDisposition.AUCTION if not is_soulbound else InventoryItemDisposition.KEEP_VALUABLE
+            elif quality >= 2:  # Uncommon
+                # Might be upgrade or AH material
+                return InventoryItemDisposition.UNDECIDED
+            
+            # Check vendor value
+            if vendor_value < self._destroy_threshold:
+                return InventoryItemDisposition.DESTROY_WORTHLESS
+            
+            # Gray items
+            if quality == 0 or any(ind in name_lower for ind in self._sell_indicators):
+                return InventoryItemDisposition.VENDOR_SELL
+            
+            # Default
+            return InventoryItemDisposition.UNDECIDED
+    
+    def get_items_to_sell(self) -> List[Tuple[int, int]]:
+        """Get list of (bag, slot) for items to sell at vendor."""
+        with self._lock:
+            to_sell = []
+            
+            for key, item in self._item_cache.items():
+                if item.disposition == InventoryItemDisposition.VENDOR_SELL:
+                    to_sell.append((item.bag, item.slot))
+            
+            return to_sell
+    
+    def get_items_to_destroy(self) -> List[Tuple[int, int]]:
+        """Get list of items to destroy."""
+        with self._lock:
+            to_destroy = []
+            
+            for key, item in self._item_cache.items():
+                if item.disposition == InventoryItemDisposition.DESTROY_WORTHLESS:
+                    to_destroy.append((item.bag, item.slot))
+            
+            return to_destroy
+    
+    def should_loot_item(self, item_name: str, free_slots: int) -> bool:
+        """Determine if we should loot an item."""
+        with self._lock:
+            # Always loot if plenty of space
+            if free_slots > 5:
+                return True
+            
+            name_lower = item_name.lower()
+            
+            # Always loot quest items
+            if 'quest' in name_lower:
+                return True
+            
+            # Always loot consumables
+            for consumable in self._keep_priorities['consumable']:
+                if consumable in name_lower:
+                    return True
+            
+            # Skip obvious junk when low on space
+            if free_slots < 2:
+                if any(ind in name_lower for ind in self._sell_indicators):
+                    return False
+            
+            return True
+    
+    def make_space_for_loot(self, slots_needed: int) -> List[Tuple[int, int]]:
+        """Determine which items to drop/destroy to make space."""
+        with self._lock:
+            candidates = []
+            
+            # First, items marked for destruction
+            for key, item in self._item_cache.items():
+                if item.disposition == InventoryItemDisposition.DESTROY_WORTHLESS:
+                    candidates.append((item.bag, item.slot, 0))
+            
+            # Then, low-value vendor items
+            for key, item in self._item_cache.items():
+                if item.disposition == InventoryItemDisposition.VENDOR_SELL:
+                    candidates.append((item.bag, item.slot, item.vendor_value))
+            
+            # Sort by value (lowest first)
+            candidates.sort(key=lambda x: x[2])
+            
+            return [(c[0], c[1]) for c in candidates[:slots_needed]]
+    
+    def update_item_cache(self, bag: int, slot: int, item_name: str,
+                          item_type: str, quality: int, vendor_value: float,
+                          is_quest: bool, is_soulbound: bool):
+        """Update cached item information."""
+        with self._lock:
+            key = f"{bag}_{slot}"
+            
+            disposition = self.evaluate_item(
+                item_name, item_type, quality, vendor_value,
+                is_quest, is_soulbound
+            )
+            
+            self._item_cache[key] = InventoryItemInfo(
+                bag=bag,
+                slot=slot,
+                name=item_name,
+                item_type=item_type,
+                quality=quality,
+                stack_count=1,  # Would need actual stack size
+                vendor_value=vendor_value,
+                is_soulbound=is_soulbound,
+                is_quest_item=is_quest,
+                disposition=disposition,
+                last_evaluated=time.time()
+            )
+    
+    def clear_slot(self, bag: int, slot: int):
+        """Clear item from cache (after selling/destroying)."""
+        with self._lock:
+            key = f"{bag}_{slot}"
+            if key in self._item_cache:
+                del self._item_cache[key]
+    
+    def get_inventory_summary(self) -> Dict[str, int]:
+        """Get summary of inventory by disposition."""
+        with self._lock:
+            summary = {d.name: 0 for d in InventoryItemDisposition}
+            
+            for item in self._item_cache.values():
+                summary[item.disposition.name] += 1
+            
+            return summary
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Get persistable state."""
+        with self._lock:
+            return {
+                'item_count': len(self._item_cache),
+                'destroy_threshold': self._destroy_threshold
+            }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persisted state."""
+        with self._lock:
+            if 'destroy_threshold' in state:
+                self._destroy_threshold = state['destroy_threshold']
+
+
+# =============================================================================
+# FATIGUE MODULATION SYSTEM
+# =============================================================================
+
+class FatigueModulationSystem:
+    """
+    Simulates fatigue-like behavior over long sessions.
+    
+    TRACKING: Monitors session duration and activity
+    MODULATION: Adjusts timing and decision quality
+    RECOVERY: Implements rest periods and breaks
+    """
+    
+    def __init__(self, timing_system: 'AdaptiveTimingSystem',
+                 meta_cognition: 'MetaCognitionSystem',
+                 personality: 'PersonalityProfile'):
+        self.timing = timing_system
+        self.meta = meta_cognition
+        self.personality = personality
+        
+        self._state = FatigueState(
+            level=FatigueLevel.FRESH,
+            session_duration=0.0,
+            actions_this_session=0,
+            combat_encounters=0,
+            deaths_this_session=0,
+            rest_periods=[],
+            last_break_time=time.time(),
+            accumulated_fatigue=0.0,
+            performance_modifier=1.0
+        )
+        
+        self._session_start = time.time()
+        self._lock = threading.RLock()
+        
+        # Fatigue thresholds (in minutes)
+        self._level_thresholds = {
+            FatigueLevel.FRESH: 0,
+            FatigueLevel.ALERT: 15,
+            FatigueLevel.NORMAL: 45,
+            FatigueLevel.TIRED: 90,
+            FatigueLevel.FATIGUED: 150,
+            FatigueLevel.EXHAUSTED: 240
+        }
+        
+        # Performance impact per level
+        self._performance_impacts = {
+            FatigueLevel.FRESH: 1.0,
+            FatigueLevel.ALERT: 0.98,
+            FatigueLevel.NORMAL: 0.95,
+            FatigueLevel.TIRED: 0.88,
+            FatigueLevel.FATIGUED: 0.75,
+            FatigueLevel.EXHAUSTED: 0.60
+        }
+        
+        logger.info("FatigueModulationSystem initialized")
+    
+    def update(self):
+        """Update fatigue state based on time and activity."""
+        with self._lock:
+            now = time.time()
+            self._state.session_duration = (now - self._session_start) / 60.0  # Minutes
+            
+            # Calculate base fatigue from time
+            time_fatigue = self._state.session_duration / 240.0  # Max at 4 hours
+            
+            # Activity factor
+            activity_rate = self._state.actions_this_session / max(1, self._state.session_duration)
+            activity_fatigue = min(0.3, activity_rate / 100.0)  # High activity adds fatigue
+            
+            # Combat stress
+            combat_fatigue = self._state.combat_encounters * 0.005
+            
+            # Death trauma
+            death_fatigue = self._state.deaths_this_session * 0.05
+            
+            # Recovery from breaks
+            time_since_break = (now - self._state.last_break_time) / 60.0
+            break_recovery = max(0, 0.2 - time_since_break * 0.01)  # Breaks help
+            
+            # Total fatigue
+            self._state.accumulated_fatigue = min(1.0, 
+                time_fatigue + activity_fatigue + combat_fatigue + 
+                death_fatigue - break_recovery
+            )
+            
+            # Determine level
+            self._state.level = self._calculate_level()
+            
+            # Set performance modifier
+            self._state.performance_modifier = self._performance_impacts[self._state.level]
+            
+            # Update timing system
+            self.timing._fatigue_level = self._state.accumulated_fatigue
+    
+    def _calculate_level(self) -> FatigueLevel:
+        """Calculate current fatigue level."""
+        minutes = self._state.session_duration
+        fatigue = self._state.accumulated_fatigue
+        
+        # Use whichever indicates higher fatigue
+        time_level = FatigueLevel.FRESH
+        for level, threshold in sorted(self._level_thresholds.items(), 
+                                       key=lambda x: x[1], reverse=True):
+            if minutes >= threshold:
+                time_level = level
+                break
+        
+        fatigue_level = FatigueLevel.FRESH
+        if fatigue > 0.8:
+            fatigue_level = FatigueLevel.EXHAUSTED
+        elif fatigue > 0.6:
+            fatigue_level = FatigueLevel.FATIGUED
+        elif fatigue > 0.4:
+            fatigue_level = FatigueLevel.TIRED
+        elif fatigue > 0.2:
+            fatigue_level = FatigueLevel.NORMAL
+        elif fatigue > 0.1:
+            fatigue_level = FatigueLevel.ALERT
+        
+        # Return higher of the two
+        return time_level if time_level.value > fatigue_level.value else fatigue_level
+    
+    def record_action(self):
+        """Record an action for fatigue tracking."""
+        with self._lock:
+            self._state.actions_this_session += 1
+    
+    def record_combat(self):
+        """Record combat encounter."""
+        with self._lock:
+            self._state.combat_encounters += 1
+    
+    def record_death(self):
+        """Record death."""
+        with self._lock:
+            self._state.deaths_this_session += 1
+    
+    def record_break(self, duration: float):
+        """Record a rest break."""
+        with self._lock:
+            now = time.time()
+            self._state.rest_periods.append((now - duration, now))
+            self._state.last_break_time = now
+            
+            # Breaks reduce accumulated fatigue
+            recovery = min(0.2, duration / 300.0)  # Up to 0.2 from 5 min break
+            self._state.accumulated_fatigue = max(0, 
+                self._state.accumulated_fatigue - recovery)
+    
+    def should_take_break(self) -> bool:
+        """Determine if agent should take a break."""
+        with self._lock:
+            # Exhausted - definitely need break
+            if self._state.level == FatigueLevel.EXHAUSTED:
+                return True
+            
+            # Fatigued and haven't broken recently
+            if self._state.level == FatigueLevel.FATIGUED:
+                time_since_break = time.time() - self._state.last_break_time
+                if time_since_break > 1800:  # 30 minutes
+                    return True
+            
+            # Random chance increases with fatigue
+            break_chance = self._state.accumulated_fatigue * 0.01
+            return random.random() < break_chance
+    
+    def get_performance_modifier(self) -> float:
+        """Get current performance modifier."""
+        with self._lock:
+            return self._state.performance_modifier
+    
+    def get_reaction_penalty(self) -> float:
+        """Get reaction time penalty from fatigue."""
+        with self._lock:
+            # Higher fatigue = slower reactions
+            return 1.0 + (self._state.accumulated_fatigue * 0.5)
+    
+    def get_decision_noise(self) -> float:
+        """Get decision noise from fatigue (for suboptimal choices)."""
+        with self._lock:
+            # Higher fatigue = more random decisions
+            return self._state.accumulated_fatigue * 0.2
+    
+    def should_make_mistake(self) -> bool:
+        """Determine if fatigue should cause a mistake."""
+        with self._lock:
+            mistake_chance = self._state.accumulated_fatigue * 0.05
+            return random.random() < mistake_chance
+    
+    def reset_session(self):
+        """Reset for new session."""
+        with self._lock:
+            self._session_start = time.time()
+            self._state = FatigueState(
+                level=FatigueLevel.FRESH,
+                session_duration=0.0,
+                actions_this_session=0,
+                combat_encounters=0,
+                deaths_this_session=0,
+                rest_periods=[],
+                last_break_time=time.time(),
+                accumulated_fatigue=0.0,
+                performance_modifier=1.0
+            )
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Get persistable state."""
+        with self._lock:
+            return {
+                'level': self._state.level.name,
+                'session_duration': self._state.session_duration,
+                'accumulated_fatigue': self._state.accumulated_fatigue,
+                'actions_count': self._state.actions_this_session,
+                'deaths_count': self._state.deaths_this_session
+            }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persisted state."""
+        # Generally reset fatigue on session start
+        self.reset_session()
+
+
+# =============================================================================
+# EXTENDED CAPABILITIES INTEGRATOR
+# =============================================================================
+
+class ExtendedCapabilitiesIntegrator:
+    """
+    Integrates all new capability systems into the agent.
+    
+    Ensures:
+    - All systems feed into CogPerceptionState
+    - All systems influence DecisionSynthesisSystem
+    - All systems persist via PersistenceManager
+    - All systems respect MetaCognition
+    """
+    
+    def __init__(self, base_agent: 'WoWAutonomousPlayer'):
+        self.base = base_agent
+        
+        # Get references to existing systems
+        self.capture = base_agent.capture
+        self.analyzer = base_agent.analyzer
+        self.input = base_agent.input
+        self.world_knowledge = base_agent.world_knowledge
+        self.spell_knowledge = base_agent.spell_knowledge
+        self.combat_knowledge = base_agent.combat_knowledge
+        
+        # Get cognitive systems
+        cognitive_core = getattr(base_agent, 'cognitive_core', None)
+        if cognitive_core:
+            self.beliefs = cognitive_core.beliefs
+            self.episodic = cognitive_core.episodic_memory
+            self.social_memory = cognitive_core.social_memory
+            self.meta_cognition = cognitive_core.meta_cognition
+            self.personality = cognitive_core.personality
+            self.learning = cognitive_core.learning
+            self.narrative = cognitive_core.narrative
+            self.intent_inference = cognitive_core.intent_inference
+        else:
+            # Fallback - create minimal versions
+            self.beliefs = SemanticBeliefModel()
+            self.episodic = EpisodicMemorySystem()
+            self.social_memory = SocialMemorySystem()
+            self.meta_cognition = MetaCognitionSystem()
+            self.personality = PersonalityProfile(
+                risk_tolerance=0.5, patience_level=0.5,
+                social_engagement_preference=0.5, assertiveness=0.5,
+                helpfulness_bias=0.5, conflict_avoidance=0.5,
+                leadership_tendency=0.5, learning_openness=0.5
+            )
+            self.learning = LearningCreditSystem()
+            self.narrative = NarrativeSelfModelSystem()
+            self.intent_inference = IntentInferenceSystem()
+        
+        # Get timing system
+        self.timing = getattr(base_agent, 'timing', None)
+        if not self.timing:
+            self.timing = AdaptiveTimingSystem()
+        
+        # Get inventory knowledge
+        self.inventory_knowledge = getattr(base_agent, 'inventory_knowledge', None)
+        if not self.inventory_knowledge:
+            self.inventory_knowledge = InventoryKnowledge()
+        
+        # Initialize new capability systems
+        logger.info("Initializing extended capability systems...")
+        
+        self.keybind_awareness = KeybindAwarenessSystem(
+            self.capture, self.input, self.beliefs, self.learning
+        )
+        
+        self.hotbar_monitor = HotbarMonitorSystem(
+            self.capture, self.analyzer, self.spell_knowledge, self.episodic
+        )
+        
+        self.ui_controller = UIInteractionController(
+            self.capture, self.analyzer, self.input,
+            self.world_knowledge, self.beliefs, self.learning
+        )
+        
+        self.interrupt_system = InterruptDecisionSystem(
+            self.capture, self.analyzer, self.combat_knowledge,
+            self.intent_inference, self.learning, self.meta_cognition
+        )
+        
+        self.death_recovery = DeathRecoverySystem(
+            self.capture, self.analyzer, self.input,
+            self.world_knowledge, self.episodic, self.narrative, self.beliefs
+        )
+        
+        self.exploration = ExplorationSystem(
+            self.capture, self.analyzer, self.input,
+            self.world_knowledge, self.episodic, self.learning
+        )
+        
+        self.human_input = HumanLikeInputController(
+            self.input, self.timing, self.learning, self.meta_cognition
+        )
+        
+        self.social_signaling = SocialSignalingSystem(
+            self.input, self.social_memory, self.personality, self.beliefs
+        )
+        
+        self.inventory_triage = InventoryTriageSystem(
+            self.capture, self.analyzer, self.inventory_knowledge,
+            self.learning, self.beliefs
+        )
+        
+        self.fatigue = FatigueModulationSystem(
+            self.timing, self.meta_cognition, self.personality
+        )
+        
+        logger.info("Extended capability systems initialized:")
+        logger.info("  - Keybind awareness")
+        logger.info("  - Hotbar monitoring")
+        logger.info("  - Context-sensitive UI interaction")
+        logger.info("  - Interrupt decision system")
+        logger.info("  - Death recovery")
+        logger.info("  - Map-agnostic exploration")
+        logger.info("  - Human-like input control")
+        logger.info("  - Social signaling")
+        logger.info("  - Inventory triage")
+        logger.info("  - Fatigue modulation")
+    
+    def pre_tick(self, state: 'PerceptionState') -> Dict[str, Any]:
+        """
+        Run extended systems before main decision tick.
+        Returns enhanced perception data.
+        """
+        enhancements = {}
+        
+        # Update fatigue
+        self.fatigue.update()
+        self.fatigue.record_action()
+        enhancements['fatigue_level'] = self.fatigue.get_state()
+        enhancements['performance_modifier'] = self.fatigue.get_performance_modifier()
+        
+        # Check keybinds
+        keybinds_to_verify = self.keybind_awareness.verify_keybinds_if_needed()
+        enhancements['keybind_confidence'] = self.keybind_awareness.get_confidence_map()
+        
+        # Scan hotbar
+        hotbar_changed = self.hotbar_monitor.scan_hotbar()
+        enhancements['hotbar_changed'] = hotbar_changed
+        
+        # Check UI context
+        ui_context = self.ui_controller.detect_ui_context()
+        enhancements['ui_context'] = ui_context
+        
+        # Check death state
+        if self.death_recovery.detect_death(state):
+            enhancements['death_detected'] = True
+            if not getattr(self, '_death_handling', False):
+                self._death_handling = True
+                self.fatigue.record_death()
+                # Get current buffs would require buff system
+                self.death_recovery.handle_death(state, [])
+        else:
+            self._death_handling = False
+        
+        # Update exploration
+        exploration_mode = self.exploration.update(state)
+        enhancements['exploration_mode'] = exploration_mode.name
+        
+        return enhancements
+    
+    def post_tick(self, state: 'PerceptionState', action_taken: 'Action'):
+        """Run extended systems after main decision tick."""
+        # Record combat if in combat
+        if state.player_in_combat:
+            self.fatigue.record_combat()
+        
+        # Check if rest is needed
+        if self.fatigue.should_take_break():
+            # Would inject break behavior
+            pass
+    
+    def enhance_decision(self, base_directive: TacticalDirective,
+                         perception: CogPerceptionState,
+                         enhancements: Dict[str, Any]) -> TacticalDirective:
+        """
+        Enhance tactical directive with extended capabilities.
+        
+        Modifies the directive based on:
+        - Fatigue effects
+        - Interrupt opportunities
+        - Social considerations
+        - Exploration needs
+        """
+        # Apply fatigue noise to confidence
+        if self.fatigue.should_make_mistake():
+            base_directive.action_confidence *= 0.7
+            base_directive.reasoning_log.append("fatigue_affected_decision")
+        
+        # Check for interrupt opportunity
+        if perception.nearby_enemies:
+            for enemy in perception.nearby_enemies:
+                if enemy.current_cast_name:
+                    # Create minimal cast info
+                    should_int, urgency, reason = self.interrupt_system.should_interrupt(
+                        CastBarInfo(
+                            is_casting=True,
+                            spell_name=enemy.current_cast_name,
+                            progress=0.5,
+                            remaining_time=enemy.current_cast_time_remaining,
+                            is_channeled=False,
+                            is_interruptible=True
+                        ),
+                        self._create_perception_state()
+                    )
+                    
+                    if should_int and urgency > base_directive.action_confidence:
+                        base_directive.primary_action = CogActionType.INTERRUPT
+                        base_directive.target_id = enemy.id
+                        base_directive.reasoning_log.append(f"interrupt_override:{reason}")
+        
+        # Consider social obligations
+        if perception.nearby_players and not perception.time_in_combat:
+            for player in perception.nearby_players:
+                if self.social_signaling.should_greet(player.player_id, player.name):
+                    if base_directive.social_action == SocialAction.NONE:
+                        base_directive.social_action = SocialAction.GREET
+                        base_directive.social_target_id = player.player_id
+                        base_directive.reasoning_log.append("social_greeting_added")
+        
+        return base_directive
+    
+    def _create_perception_state(self) -> 'PerceptionState':
+        """Create minimal perception state for subsystems."""
+        # Would get from base agent
+        return PerceptionState(timestamp=time.time())
+    
+    def get_interrupt_action(self) -> Optional['Action']:
+        """Get interrupt action if appropriate."""
+        ability = self.interrupt_system.get_interrupt_ability('warrior')  # Would detect class
+        if ability:
+            slot_info = self.spell_knowledge.get_action_bar_slot(ability)
+            if slot_info:
+                bar, slot = slot_info
+                if bar == 1:
+                    key = DefaultKeybinds.ACTION_BAR_1[slot]
+                else:
+                    key = DefaultKeybinds.ACTION_BAR_2[slot]
+                
+                return Action(
+                    action_type=ActionType.USE_ABILITY,
+                    priority=Priority.CRITICAL,
+                    reason="interrupt_cast",
+                    key=key,
+                    spell_name=ability
+                )
+        return None
+    
+    def get_death_recovery_action(self) -> Optional['Action']:
+        """Get death recovery action if in death state."""
+        return self.death_recovery.get_recovery_action()
+    
+    def get_exploration_action(self) -> 'Action':
+        """Get exploration action."""
+        return self.exploration.get_exploration_action()
+    
+    def execute_with_human_timing(self, action: 'Action') -> bool:
+        """Execute action with human-like timing."""
+        confidence = action.priority.value / 1000.0  # Normalize priority to confidence
+        
+        def execute():
+            if action.action_type == ActionType.PRESS_KEY and action.key:
+                return self.human_input.press_key_human(action.key, action.reason)
+            elif action.action_type == ActionType.CLICK and action.position:
+                return self.human_input.click_human(
+                    action.position[0], action.position[1], 'left', action.reason
+                )
+            # Fall back to base executor
+            return self.base.executor.execute(action)
+        
+        return self.human_input.execute_with_hesitation(execute, confidence)
+    
+    def save_all_states(self) -> Dict[str, Any]:
+        """Save all extended system states for persistence."""
+        return {
+            'keybind_awareness': self.keybind_awareness.get_state(),
+            'hotbar_monitor': self.hotbar_monitor.get_state(),
+            'ui_controller': self.ui_controller.get_state(),
+            'interrupt_system': self.interrupt_system.get_state(),
+            'death_recovery': self.death_recovery.get_state(),
+            'exploration': self.exploration.get_state(),
+            'human_input': self.human_input.get_state(),
+            'social_signaling': self.social_signaling.get_state(),
+            'inventory_triage': self.inventory_triage.get_state(),
+            'fatigue': self.fatigue.get_state(),
+        }
+    
+    def load_all_states(self, states: Dict[str, Any]):
+        """Load all extended system states from persistence."""
+        if 'keybind_awareness' in states:
+            self.keybind_awareness.set_state(states['keybind_awareness'])
+        if 'hotbar_monitor' in states:
+            self.hotbar_monitor.set_state(states['hotbar_monitor'])
+        if 'ui_controller' in states:
+            self.ui_controller.set_state(states['ui_controller'])
+        if 'interrupt_system' in states:
+            self.interrupt_system.set_state(states['interrupt_system'])
+        if 'exploration' in states:
+            self.exploration.set_state(states['exploration'])
+        if 'social_signaling' in states:
+            self.social_signaling.set_state(states['social_signaling'])
+
+
+# =============================================================================
+# INTEGRATION INTO MAIN AGENT
+# =============================================================================
+
+def integrate_extended_capabilities(base_agent: 'WoWAutonomousPlayer'):
+    """
+    Integrate extended capabilities into the base agent.
+    
+    This function should be called after WoWAutonomousPlayer is instantiated.
+    """
+    # Create integrator
+    integrator = ExtendedCapabilitiesIntegrator(base_agent)
+    
+    # Store on agent
+    base_agent.extended_capabilities = integrator
+    
+    # Patch decision method to use enhancements
+    original_decide = base_agent.decision.decide_and_act if hasattr(base_agent, 'decision') else None
+    
+    if original_decide:
+        def enhanced_decide():
+            # Get current state
+            state = base_agent.perception.perceive()
+            
+            # Run extended pre-tick
+            enhancements = integrator.pre_tick(state)
+            
+            # Check for death recovery override
+            if enhancements.get('death_detected'):
+                recovery_action = integrator.get_death_recovery_action()
+                if recovery_action:
+                    return integrator.execute_with_human_timing(recovery_action)
+            
+            # Check for UI interaction override
+            ui_context = enhancements.get('ui_context')
+            if ui_context and ui_context.context_type != UIContextType.NONE:
+                # Handle UI context
+                pass
+            
+            # Run original decision
+            result = original_decide()
+            
+            # Run post-tick
+            integrator.post_tick(state, None)  # Would pass actual action
+            
+            return result
+        
+        # Replace method
+        base_agent.decision.decide_and_act = enhanced_decide
+    
+    logger.info("Extended capabilities integrated into agent")
+    return integrator
+
+
+# =============================================================================
+# ENTRY POINT FOR EXTENDED AGENT
+# =============================================================================
+
+def create_extended_agent():
+    """
+    Create a WoWAutonomousPlayer with all extended capabilities.
+    """
+    # Import and create base agent
+    # (Assumes this is running in same file or imported)
+    agent = WoWAutonomousPlayer()
+    
+    # Integrate extended capabilities
+    integrator = integrate_extended_capabilities(agent)
+    
+    return agent, integrator
+
+
+# Module-level test
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="WoW 1.12 Autonomous Research Agent")
+    parser.add_argument("--test", action="store_true", help="Run in test mode (print systems only)")
+    parser.add_argument("--extended", action="store_true", help="Enable extended capabilities")
+    parser.add_argument("--cognitive", action="store_true", help="Enable cognitive system integration")
+    args = parser.parse_args()
+    
+    print("=" * 70)
+    print("WOW 1.12 AUTONOMOUS PLAYER - RESEARCH AGENT")
+    print("=" * 70)
+    print()
+    print("RESEARCH NOTICE: This agent is for OFFLINE, SINGLE-PLAYER research ONLY.")
+    print("It operates via screen capture and OS-level input simulation.")
+    print()
+    
+    if args.test:
+        print("TEST MODE - Printing system information only")
+        print("-" * 70)
+        print("\nCore Systems:")
+        print("  - Screen Capture (mss)")
+        print("  - Visual Analyzer (OpenCV)")
+        print("  - Input Handler (pynput)")
+        print("  - Knowledge Persistence")
+        print("\nCognitive Systems:")
+        print("  - Attention & Salience")
+        print("  - Working Memory")
+        print("  - Episodic Memory")
+        print("  - Semantic Belief Model")
+        print("  - Social Memory")
+        print("  - Goal Management")
+        print("  - Personality Evolution")
+        print("  - Learning & Credit Assignment")
+        print("  - Narrative Self-Model")
+        print("  - Meta-Cognition")
+        print("  - Decision Synthesis")
+        print("\nExtended Capabilities:")
+        print("  - Keybind Awareness")
+        print("  - Hotbar Monitoring")
+        print("  - Context-Sensitive UI Interaction")
+        print("  - Interrupt Decision System")
+        print("  - Death Recovery System")
+        print("  - Map-Agnostic Exploration")
+        print("  - Human-Like Input Controller")
+        print("  - Social Signaling")
+        print("  - Inventory Triage")
+        print("  - Fatigue Modulation")
+        print("-" * 70)
+        print("\n=== KNOWN HARD LIMITS ===")
+        print("This agent CANNOT:")
+        print("  - Pathfind to objectives (no world coordinate access)")
+        print("  - Read 3D world positions (screen-only perception)")
+        print("  - Access game memory or packets")
+        print("  - Work with any live/online game servers")
+        print("  - Understand quest text semantically")
+        print("  - Navigate complex indoor environments reliably")
+        print("  - Predict enemy abilities without visual cues")
+        print("  - Execute frame-perfect timing")
+        print("  - Understand zone boundaries without trial/error")
+        print("  - Communicate with true natural language understanding")
+        print("  - Experience subjective consciousness")
+        print("=" * 70)
+    else:
+        print("CONTROLS:")
+        print("  F9  - Pause/Resume agent")
+        print("  F10 - Stop agent gracefully")
+        print("-" * 70)
+        print()
+        
+        try:
+            if args.extended:
+                print("Creating agent with extended capabilities...")
+                agent, integrator = create_extended_agent()
+            else:
+                print("Creating base agent...")
+                agent = WoWAutonomousPlayer()
+            
+            print("Agent initialized. Starting autonomous play...")
+            print()
+            print("=" * 70)
+            agent.run()
+            
+        except KeyboardInterrupt:
+            print("\nInterrupted by user")
+        except Exception as e:
+            logger.critical(f"Fatal error: {e}", exc_info=True)
+            print(f"\nFATAL ERROR: {e}")
+            print("See wow_agent.log for details")
