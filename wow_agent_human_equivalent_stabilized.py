@@ -2061,13 +2061,38 @@ class HumanEquivalentCognition:
         self.endgame_prep = EndgamePreparationPlanner()
         self.power_spikes = PowerSpikeDetectionSystem()
 
-        logger.info("Human Life Systems initialized:")
+        logger.info("Human Life Systems (Tier 1) initialized:")
         logger.info("  - Progression lifecycle (1-60 journey)")
         logger.info("  - Wealth emotional state (gold anxiety/security)")
         logger.info("  - Gear intuition learning (experience-based)")
         logger.info("  - Profession commitment tracking (identity)")
         logger.info("  - Endgame preparation planning (raid readiness)")
         logger.info("  - Power spike detection (excitement & confidence)")
+
+        # === TIER 2: SOCIAL LIFE, EXPLORATION, AND MASTERY ===
+        # These systems add the next layer: social bonds, exploration curiosity,
+        # death trauma, combat identity, quest engagement, and routines.
+
+        self.social_relationships = SocialRelationshipSystem()
+        self.exploration_discovery = ExplorationDiscoverySystem()
+        self.death_psychology = DeathPsychologySystem()
+        self.combat_mastery = CombatMasteryIdentity()
+        self.quest_narrative = QuestNarrativeEngagement()
+        self.routine_formation = RoutineFormationSystem()
+
+        logger.info("Human Life Systems (Tier 2) initialized:")
+        logger.info("  - Social relationships (friends, enemies, trust)")
+        logger.info("  - Exploration & discovery (curiosity-driven)")
+        logger.info("  - Death psychology (trauma, revenge, fear)")
+        logger.info("  - Combat mastery identity (personal fighting style)")
+        logger.info("  - Quest narrative engagement (story investment)")
+        logger.info("  - Routine formation (session goals, habits)")
+
+        # Tier 3: Unifying System - Autobiographical Memory
+        self.autobiographical_memory = AutobiographicalMemory()
+
+        logger.info("Unifying System (Tier 3) initialized:")
+        logger.info("  - Autobiographical memory (narrative identity, life story)")
 
         # Integration state
         self._last_state_features: Optional[Dict[str, Any]] = None
@@ -2101,6 +2126,36 @@ class HumanEquivalentCognition:
             current_level = perception['level']
             if current_level > self.progression.current_level:
                 self.progression.record_level_up(current_level)
+
+                # Record level up in autobiographical memory
+                # Check if this was a milestone
+                milestone_achieved = None
+                for milestone in self.progression.milestone_history:
+                    if milestone.level == current_level and milestone.achievement_time > time.time() - 2.0:
+                        milestone_achieved = milestone
+                        break
+
+                if milestone_achieved:
+                    # This was a significant milestone
+                    self.autobiographical_memory.record_life_event(
+                        event_type='milestone',
+                        description=f"Reached level {current_level}: {milestone_achieved.narrative_significance}",
+                        emotional_valence=milestone_achieved.emotional_valence,
+                        significance=0.8,  # Milestones are significant
+                        level_at_time=current_level,
+                        location=perception.get('zone', 'unknown'),
+                        defines_identity=(current_level in [20, 40, 60])  # Major milestones define identity
+                    )
+                else:
+                    # Regular level up
+                    self.autobiographical_memory.record_life_event(
+                        event_type='achievement',
+                        description=f"Reached level {current_level}",
+                        emotional_valence=0.3,
+                        significance=0.3,
+                        level_at_time=current_level,
+                        location=perception.get('zone', 'unknown')
+                    )
 
                 # Level up triggers power spike!
                 spike = self.power_spikes.detect_level_up(current_level)
@@ -2181,6 +2236,18 @@ class HumanEquivalentCognition:
                 if spike:
                     self.power_spikes.record_spike(spike)
 
+                    # Record significant gear upgrades in autobiographical memory
+                    if spike.magnitude > 0.15:  # Only record meaningful upgrades (>15% increase)
+                        self.autobiographical_memory.record_life_event(
+                            event_type='achievement',
+                            description=f"Major upgrade: {gear_info['name']} (+{spike.magnitude*100:.0f}% power)",
+                            emotional_valence=min(1.0, spike.magnitude * 3.0),  # Bigger upgrades = more emotional
+                            significance=min(0.9, spike.magnitude * 2.0),
+                            level_at_time=self.progression.current_level,
+                            location=perception.get('zone', 'unknown'),
+                            defines_identity=(spike.magnitude > 0.5)  # Huge upgrades define identity
+                        )
+
         # === PROFESSION COMMITMENT ===
         # Track profession choices
         if 'profession_learned' in perception:
@@ -2231,6 +2298,18 @@ class HumanEquivalentCognition:
         if 'guild_joined' in perception:
             self.endgame_prep.record_guild_join(perception['guild_joined'])
 
+            # Record in autobiographical memory - guild join is identity-defining
+            self.autobiographical_memory.record_life_event(
+                event_type='social',
+                description=f"Joined guild: {perception['guild_joined']}",
+                emotional_valence=0.7,
+                significance=0.9,  # Very significant life event
+                level_at_time=self.progression.current_level,
+                location=perception.get('zone', 'unknown'),
+                people_involved=[perception['guild_joined']],
+                defines_identity=True  # Guild membership defines who you are
+            )
+
         # === POWER SPIKE DETECTION ===
         # Decay excitement over time
         self.power_spikes.decay_excitement(1.0)
@@ -2258,6 +2337,84 @@ class HumanEquivalentCognition:
         power_confidence = self.power_spikes.get_confidence_from_power()
         if hasattr(self.drives.drives.get(DriveType.MASTERY), 'base_weight'):
             self.drives.drives[DriveType.MASTERY].base_weight = 0.8 + power_confidence * 0.4
+
+        # === TIER 2 LIFE SYSTEMS (SOCIAL, DEATH, EXPLORATION, ETC) ===
+        # Track deaths - traumatic life events
+        if 'player_died' in perception and perception['player_died']:
+            killer = perception.get('killed_by', 'unknown')
+            zone = perception.get('zone', 'unknown')
+
+            # Record in autobiographical memory
+            self.autobiographical_memory.record_life_event(
+                event_type='trauma',
+                description=f"Killed by {killer} in {zone}",
+                emotional_valence=-0.7,  # Negative emotion
+                significance=0.6,  # Deaths are memorable
+                level_at_time=self.progression.current_level,
+                location=zone,
+                people_involved=[killer] if killer != 'unknown' else []
+            )
+
+        # Track new friendships
+        if 'player_grouped' in perception:
+            player_name = perception['player_grouped']
+
+            # Record positive social interaction
+            self.autobiographical_memory.record_life_event(
+                event_type='social',
+                description=f"Grouped with {player_name}",
+                emotional_valence=0.4,
+                significance=0.3,
+                level_at_time=self.progression.current_level,
+                location=perception.get('zone', 'unknown'),
+                people_involved=[player_name]
+            )
+
+        # Track major discoveries
+        if 'new_zone_discovered' in perception:
+            zone_name = perception['new_zone_discovered']
+
+            # Record discovery
+            self.autobiographical_memory.record_life_event(
+                event_type='discovery',
+                description=f"Discovered new zone: {zone_name}",
+                emotional_valence=0.5,
+                significance=0.5,
+                level_at_time=self.progression.current_level,
+                location=zone_name
+            )
+
+        # Track quest completions (memorable ones)
+        if 'quest_completed' in perception:
+            quest_info = perception['quest_completed']
+            if quest_info.get('is_significant', False):  # Only record significant quests
+
+                # Record quest completion
+                self.autobiographical_memory.record_life_event(
+                    event_type='achievement',
+                    description=f"Completed quest: {quest_info.get('name', 'unknown quest')}",
+                    emotional_valence=0.4,
+                    significance=0.4,
+                    level_at_time=self.progression.current_level,
+                    location=perception.get('zone', 'unknown')
+                )
+
+        # Decay memories periodically (every ~100 ticks)
+        if self._tick_count % 100 == 0:
+            self.autobiographical_memory.decay_memories(delta_time / 100.0)
+
+        # Check for chapter transitions
+        if 'level' in perception:
+            self.autobiographical_memory.check_chapter_transition(
+                perception['level'],
+                perception.get('zone', 'unknown')
+            )
+
+        # Occasional nostalgic reflection
+        if random.random() < 0.001:  # Very rare, spontaneous nostalgia
+            nostalgia = self.autobiographical_memory.detect_nostalgia()
+            if nostalgia:
+                logger.info(f"[Nostalgia] {nostalgia}")
 
         # === DRIVE MODULATION FROM LIFE SYSTEMS ===
         # Progression momentum affects progress drive
@@ -2578,7 +2735,7 @@ class HumanEquivalentCognition:
     def _save_state(self):
         """Save cognitive state to disk."""
         state = {
-            'version': '3.0.0',  # Version with LIFE systems
+            'version': '5.0.0',  # Version with Tier 1 + Tier 2 + Tier 3 (Autobiographical Memory)
             'beliefs': self.beliefs.get_state(),
             'procedural_memory': self.procedural_memory.get_state(),
             'world_model': self.world_model.get_state(),
@@ -2588,13 +2745,24 @@ class HumanEquivalentCognition:
             'tick_count': self._tick_count,
             'saved_at': time.time(),
 
-            # === HUMAN LIFE SYSTEMS ===
+            # === HUMAN LIFE SYSTEMS (TIER 1) ===
             'progression': self.progression.get_state(),
             'wealth': self.wealth.get_state(),
             'gear_intuition': self.gear_intuition.get_state(),
             'professions': self.professions.get_state(),
             'endgame_prep': self.endgame_prep.get_state(),
             'power_spikes': self.power_spikes.get_state(),
+
+            # === HUMAN LIFE SYSTEMS (TIER 2) ===
+            'social_relationships': self.social_relationships.get_state(),
+            'exploration_discovery': self.exploration_discovery.get_state(),
+            'death_psychology': self.death_psychology.get_state(),
+            'combat_mastery': self.combat_mastery.get_state(),
+            'quest_narrative': self.quest_narrative.get_state(),
+            'routine_formation': self.routine_formation.get_state(),
+
+            # === UNIFYING SYSTEM (TIER 3) ===
+            'autobiographical_memory': self.autobiographical_memory.get_state(),
         }
 
         try:
@@ -2602,13 +2770,22 @@ class HumanEquivalentCognition:
                 json.dump(state, f, indent=2, default=str)
             logger.debug(f"Saved cognitive state (tick {self._tick_count})")
 
-            # Log life system summaries
-            logger.info(f"Life Systems State:")
+            # Log life system summaries (Tier 1)
+            logger.info(f"Life Systems State (Tier 1):")
             logger.info(f"  Progression: {self.progression.get_narrative_summary()}")
             logger.info(f"  Wealth: {self.wealth.get_emotional_summary()}")
             logger.info(f"  Professions: {self.professions.get_profession_identity_summary()}")
             logger.info(f"  Endgame: {self.endgame_prep.get_endgame_narrative()}")
             logger.info(f"  Power: {self.power_spikes.get_power_narrative()}")
+
+            # Log life system summaries (Tier 2)
+            logger.info(f"Life Systems State (Tier 2):")
+            logger.info(f"  Relationships: {len(self.social_relationships.relationships)} players known")
+            logger.info(f"  Exploration: {self.exploration_discovery.get_discovery_narrative()}")
+            logger.info(f"  Deaths: {self.death_psychology.total_deaths} total (anxiety: {self.death_psychology.death_anxiety:.2f})")
+            logger.info(f"  Combat Style: {self.combat_mastery.get_mastery_narrative()}")
+            logger.info(f"  Quests: {len(self.quest_narrative.completed_quests)} completed")
+            logger.info(f"  Routine: {self.routine_formation.get_session_summary()}")
 
         except Exception as e:
             logger.error(f"Failed to save cognitive state: {e}")
@@ -2657,6 +2834,32 @@ class HumanEquivalentCognition:
             if 'power_spikes' in state:
                 self.power_spikes.set_state(state['power_spikes'])
                 logger.info(f"  Power estimate: {self.power_spikes.current_power_estimate:.2f}x baseline")
+
+            # === HUMAN LIFE SYSTEMS (TIER 2) ===
+            if 'social_relationships' in state:
+                self.social_relationships.set_state(state['social_relationships'])
+                logger.info(f"  Restored relationships: {len(self.social_relationships.relationships)} players")
+            if 'exploration_discovery' in state:
+                self.exploration_discovery.set_state(state['exploration_discovery'])
+                logger.info(f"  Restored exploration: {self.exploration_discovery.total_discoveries} discoveries")
+            if 'death_psychology' in state:
+                self.death_psychology.set_state(state['death_psychology'])
+                logger.info(f"  Restored death history: {self.death_psychology.total_deaths} deaths")
+            if 'combat_mastery' in state:
+                self.combat_mastery.set_state(state['combat_mastery'])
+                logger.info(f"  Restored combat style: {self.combat_mastery.combat_style}")
+            if 'quest_narrative' in state:
+                self.quest_narrative.set_state(state['quest_narrative'])
+                logger.info(f"  Restored quest memory: {len(self.quest_narrative.completed_quests)} completed")
+            if 'routine_formation' in state:
+                self.routine_formation.set_state(state['routine_formation'])
+                logger.info(f"  Restored routines: Session #{self.routine_formation.session_count}")
+
+            # === UNIFYING SYSTEM (TIER 3) ===
+            if 'autobiographical_memory' in state:
+                self.autobiographical_memory.set_state(state['autobiographical_memory'])
+                logger.info(f"  Restored life story: {len(self.autobiographical_memory.life_events)} events, "
+                           f"{len(self.autobiographical_memory.life_chapters)} chapters")
 
             logger.info(f"Restored cognitive state: {self._tick_count} previous ticks, "
                        f"{len(self.beliefs.beliefs)} beliefs, "
@@ -4618,6 +4821,1960 @@ class PowerSpikeDetectionSystem:
                     confidence_boost=0.0,
                     risk_tolerance_increase=0.0,
                 ))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TIER 2 HUMAN LIFE SYSTEMS - SOCIAL, EXPLORATION, MASTERY, NARRATIVE, ROUTINE
+# ═══════════════════════════════════════════════════════════════════════════════
+# These systems add the next layer of human-equivalent behavior:
+# Social relationships, exploration curiosity, death trauma, combat identity,
+# quest narrative engagement, and habitual routines.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SOCIAL RELATIONSHIP SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Players are not just names - they're relationships with emotional history.
+# Friends, enemies, trusted allies, toxic players. This shapes social behavior.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class PlayerRelationship:
+    """An emotional relationship with another player."""
+    player_id: str
+    player_name: str
+
+    # Relationship dimensions
+    affinity: float = 0.0  # -1 (enemy) to +1 (best friend)
+    trust: float = 0.5  # How reliable they are
+    respect: float = 0.5  # How skilled/knowledgeable they seem
+
+    # Interaction history
+    positive_interactions: int = 0
+    negative_interactions: int = 0
+    times_grouped: int = 0
+    times_helped: int = 0
+    times_griefed: int = 0
+
+    # Memory
+    first_met: float = 0.0
+    last_interaction: float = 0.0
+    memorable_events: List[str] = field(default_factory=list)
+
+    # Behavioral tendencies
+    prefer_to_group: bool = False
+    avoid_interaction: bool = False
+
+    # Guild relationship
+    in_same_guild: bool = False
+    guild_rank_known: str = ""
+
+
+@dataclass
+class SocialEvent:
+    """A memorable social event."""
+    event_type: str  # 'helped', 'betrayed', 'grouped', 'traded', 'conflict'
+    player_id: str
+    description: str
+    emotional_impact: float  # -1 to +1
+    timestamp: float
+
+
+class SocialRelationshipSystem:
+    """
+    Manage emotional relationships with other players.
+
+    This is NOT a friend list - it's a living social memory where:
+    - Positive experiences build affinity
+    - Betrayals create lasting grudges
+    - Grouping together builds trust
+    - Guild members get preferential treatment
+    - Toxic players are avoided
+    """
+
+    def __init__(self):
+        self.relationships: Dict[str, PlayerRelationship] = {}
+        self.social_events: deque = deque(maxlen=100)  # Recent events
+
+        # Social preferences (personality)
+        self.baseline_friendliness = random.uniform(0.3, 0.8)
+        self.grudge_retention = random.uniform(0.5, 0.9)  # How long to hold grudges
+        self.group_preference = random.uniform(0.2, 0.8)  # Solo vs group tendency
+
+        # Current social state
+        self.preferred_group_members: List[str] = []
+        self.blacklisted_players: Set[str] = set()
+
+        logger.info("SocialRelationshipSystem initialized")
+
+    def get_or_create_relationship(self, player_id: str, player_name: str) -> PlayerRelationship:
+        """Get existing relationship or create new one."""
+        if player_id not in self.relationships:
+            self.relationships[player_id] = PlayerRelationship(
+                player_id=player_id,
+                player_name=player_name,
+                affinity=self.baseline_friendliness - 0.5,  # Start slightly below neutral
+                first_met=time.time(),
+                last_interaction=time.time(),
+            )
+        return self.relationships[player_id]
+
+    def record_positive_interaction(self, player_id: str, player_name: str,
+                                   interaction_type: str, intensity: float = 0.1):
+        """Record a positive interaction."""
+        rel = self.get_or_create_relationship(player_id, player_name)
+        rel.positive_interactions += 1
+        rel.last_interaction = time.time()
+
+        # Increase affinity
+        rel.affinity = min(1.0, rel.affinity + intensity)
+
+        if interaction_type == 'helped':
+            rel.times_helped += 1
+            rel.trust = min(1.0, rel.trust + intensity * 0.5)
+            rel.memorable_events.append(f"Helped me at {time.strftime('%H:%M')}")
+
+        elif interaction_type == 'grouped':
+            rel.times_grouped += 1
+            rel.trust = min(1.0, rel.trust + intensity * 0.3)
+            if rel.times_grouped >= 3:
+                rel.prefer_to_group = True
+                if player_id not in self.preferred_group_members:
+                    self.preferred_group_members.append(player_id)
+
+        elif interaction_type == 'skilled_play':
+            rel.respect = min(1.0, rel.respect + intensity * 0.4)
+
+        # Record event
+        event = SocialEvent(
+            event_type=interaction_type,
+            player_id=player_id,
+            description=f"Positive: {interaction_type} with {player_name}",
+            emotional_impact=intensity,
+            timestamp=time.time()
+        )
+        self.social_events.append(event)
+
+        logger.debug(f"Relationship with {player_name}: affinity={rel.affinity:.2f}, trust={rel.trust:.2f}")
+
+    def record_negative_interaction(self, player_id: str, player_name: str,
+                                   interaction_type: str, intensity: float = 0.2):
+        """Record a negative interaction."""
+        rel = self.get_or_create_relationship(player_id, player_name)
+        rel.negative_interactions += 1
+        rel.last_interaction = time.time()
+
+        # Decrease affinity (negative interactions have stronger impact)
+        rel.affinity = max(-1.0, rel.affinity - intensity * 1.5)
+
+        if interaction_type == 'griefed':
+            rel.times_griefed += 1
+            rel.trust = max(0.0, rel.trust - intensity)
+            rel.avoid_interaction = True
+            rel.memorable_events.append(f"GRIEFED ME - {time.strftime('%Y-%m-%d')}")
+
+            # Add to blacklist if severe
+            if rel.times_griefed >= 2 or intensity > 0.5:
+                self.blacklisted_players.add(player_id)
+                logger.warning(f"Player {player_name} blacklisted after griefing")
+
+        elif interaction_type == 'ninja_looted':
+            rel.trust = max(0.0, rel.trust - intensity * 1.5)
+            rel.avoid_interaction = True
+            rel.memorable_events.append(f"Ninja looted from me")
+
+        elif interaction_type == 'toxic_chat':
+            rel.respect = max(0.0, rel.respect - intensity)
+            if rel.affinity < -0.5:
+                rel.avoid_interaction = True
+
+        # Record event
+        event = SocialEvent(
+            event_type=interaction_type,
+            player_id=player_id,
+            description=f"Negative: {interaction_type} with {player_name}",
+            emotional_impact=-intensity,
+            timestamp=time.time()
+        )
+        self.social_events.append(event)
+
+        logger.info(f"Negative interaction with {player_name}: {interaction_type} (affinity now {rel.affinity:.2f})")
+
+    def record_guild_join(self, player_id: str, player_name: str, guild_name: str):
+        """Record that a player is in same guild."""
+        rel = self.get_or_create_relationship(player_id, player_name)
+        rel.in_same_guild = True
+
+        # Guild members get automatic affinity boost
+        rel.affinity = min(1.0, rel.affinity + 0.3)
+        rel.trust = min(1.0, rel.trust + 0.2)
+
+        logger.info(f"Guild mate discovered: {player_name} in {guild_name}")
+
+    def should_group_with(self, player_id: str) -> bool:
+        """Determine if agent wants to group with this player."""
+        if player_id in self.blacklisted_players:
+            return False
+
+        if player_id not in self.relationships:
+            # Unknown player - use base group preference
+            return random.random() < self.group_preference
+
+        rel = self.relationships[player_id]
+
+        # Avoid toxic players
+        if rel.avoid_interaction:
+            return False
+
+        # Prefer known good players
+        if rel.prefer_to_group:
+            return True
+
+        # Guild members - usually yes
+        if rel.in_same_guild:
+            return random.random() < 0.8
+
+        # Based on affinity
+        if rel.affinity > 0.5:
+            return random.random() < 0.7
+        elif rel.affinity > 0.0:
+            return random.random() < self.group_preference
+        else:
+            return random.random() < self.group_preference * 0.3
+
+    def should_help(self, player_id: str) -> bool:
+        """Determine if agent wants to help this player."""
+        if player_id in self.blacklisted_players:
+            return False
+
+        if player_id not in self.relationships:
+            # Unknown - use baseline friendliness
+            return random.random() < self.baseline_friendliness * 0.5
+
+        rel = self.relationships[player_id]
+
+        if rel.avoid_interaction:
+            return False
+
+        # Friends get help
+        if rel.affinity > 0.6:
+            return random.random() < 0.9
+
+        # Guild members get help
+        if rel.in_same_guild:
+            return random.random() < 0.7
+
+        # Neutral/positive
+        if rel.affinity > 0.0:
+            return random.random() < self.baseline_friendliness
+
+        return False
+
+    def get_relationship_summary(self, player_id: str) -> str:
+        """Get human-readable relationship summary."""
+        if player_id not in self.relationships:
+            return "Unknown player"
+
+        rel = self.relationships[player_id]
+
+        if rel.affinity > 0.7:
+            return f"Close friend ({rel.times_grouped} groups together)"
+        elif rel.affinity > 0.4:
+            return f"Friendly ({rel.positive_interactions} positive interactions)"
+        elif rel.affinity > 0.0:
+            return "Acquaintance"
+        elif rel.affinity > -0.4:
+            return "Neutral"
+        elif rel.affinity > -0.7:
+            return f"Dislike ({rel.negative_interactions} negative interactions)"
+        else:
+            return f"ENEMY ({rel.times_griefed} times griefed)"
+
+    def get_friends_list(self, min_affinity: float = 0.5) -> List[str]:
+        """Get list of player IDs considered friends."""
+        return [
+            pid for pid, rel in self.relationships.items()
+            if rel.affinity >= min_affinity and not rel.avoid_interaction
+        ]
+
+    def decay_relationships(self, decay_rate: float = 0.01):
+        """Decay relationship strength over time (forgetting)."""
+        now = time.time()
+        for rel in self.relationships.values():
+            time_since_interaction = (now - rel.last_interaction) / 86400.0  # Days
+
+            if time_since_interaction > 7:  # After a week
+                # Positive relationships decay faster than negative (easier to forget friends than enemies)
+                if rel.affinity > 0:
+                    rel.affinity = max(0.0, rel.affinity - decay_rate * 2)
+                elif rel.affinity < 0:
+                    # Grudges decay slower
+                    rel.affinity = min(0.0, rel.affinity + decay_rate * self.grudge_retention)
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'relationships': {
+                pid: {
+                    'player_id': rel.player_id,
+                    'player_name': rel.player_name,
+                    'affinity': rel.affinity,
+                    'trust': rel.trust,
+                    'respect': rel.respect,
+                    'positive_interactions': rel.positive_interactions,
+                    'negative_interactions': rel.negative_interactions,
+                    'times_grouped': rel.times_grouped,
+                    'times_helped': rel.times_helped,
+                    'times_griefed': rel.times_griefed,
+                    'first_met': rel.first_met,
+                    'last_interaction': rel.last_interaction,
+                    'memorable_events': rel.memorable_events[-5:],  # Keep last 5
+                    'prefer_to_group': rel.prefer_to_group,
+                    'avoid_interaction': rel.avoid_interaction,
+                    'in_same_guild': rel.in_same_guild,
+                } for pid, rel in self.relationships.items()
+            },
+            'preferred_group_members': self.preferred_group_members,
+            'blacklisted_players': list(self.blacklisted_players),
+            'baseline_friendliness': self.baseline_friendliness,
+            'grudge_retention': self.grudge_retention,
+            'group_preference': self.group_preference,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'relationships' in state:
+            self.relationships = {}
+            for pid, rel_state in state['relationships'].items():
+                rel = PlayerRelationship(
+                    player_id=rel_state['player_id'],
+                    player_name=rel_state['player_name'],
+                    affinity=rel_state.get('affinity', 0.0),
+                    trust=rel_state.get('trust', 0.5),
+                    respect=rel_state.get('respect', 0.5),
+                    positive_interactions=rel_state.get('positive_interactions', 0),
+                    negative_interactions=rel_state.get('negative_interactions', 0),
+                    times_grouped=rel_state.get('times_grouped', 0),
+                    times_helped=rel_state.get('times_helped', 0),
+                    times_griefed=rel_state.get('times_griefed', 0),
+                    first_met=rel_state.get('first_met', time.time()),
+                    last_interaction=rel_state.get('last_interaction', time.time()),
+                    memorable_events=rel_state.get('memorable_events', []),
+                    prefer_to_group=rel_state.get('prefer_to_group', False),
+                    avoid_interaction=rel_state.get('avoid_interaction', False),
+                    in_same_guild=rel_state.get('in_same_guild', False),
+                )
+                self.relationships[pid] = rel
+
+        self.preferred_group_members = state.get('preferred_group_members', [])
+        self.blacklisted_players = set(state.get('blacklisted_players', []))
+        self.baseline_friendliness = state.get('baseline_friendliness', 0.5)
+        self.grudge_retention = state.get('grudge_retention', 0.7)
+        self.group_preference = state.get('group_preference', 0.5)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXPLORATION & DISCOVERY SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# The world should excite curiosity. Discovering new zones, landmarks, and areas
+# should feel rewarding. This isn't just navigation - it's adventure.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class DiscoveredLocation:
+    """A discovered location in the world."""
+    location_name: str
+    location_type: str  # 'zone', 'landmark', 'poi', 'cave', 'town'
+    first_discovered: float
+    visit_count: int = 0
+    excitement_level: float = 0.5  # How exciting this discovery was
+    danger_assessment: float = 0.5  # How dangerous it seems
+    last_visited: float = 0.0
+
+    # Memory
+    memorable: bool = False
+    description: str = ""
+
+
+class ExplorationDiscoverySystem:
+    """
+    Drive curiosity-based exploration and reward discovery.
+
+    This system makes the agent WANT to explore:
+    - New zones trigger excitement
+    - Landmarks become memorable
+    - Undiscovered areas pull curiosity
+    - Familiar areas feel safe
+    """
+
+    def __init__(self):
+        self.discovered_locations: Dict[str, DiscoveredLocation] = {}
+        self.exploration_frontier: List[str] = []  # Places heard about but not visited
+
+        # Exploration personality
+        self.curiosity_level = random.uniform(0.4, 0.9)
+        self.risk_tolerance_for_exploration = random.uniform(0.3, 0.8)
+
+        # Discovery tracking
+        self.total_discoveries = 0
+        self.recent_discoveries: deque = deque(maxlen=10)
+        self.discovery_excitement = 0.0  # Current excitement from recent discoveries
+
+        # Zone completion awareness
+        self.zone_exploration_progress: Dict[str, float] = {}  # zone -> % explored
+
+        logger.info("ExplorationDiscoverySystem initialized")
+
+    def discover_location(self, location_name: str, location_type: str,
+                         excitement: float = 0.5, description: str = ""):
+        """Record discovering a new location."""
+        if location_name in self.discovered_locations:
+            # Already discovered - just visit
+            loc = self.discovered_locations[location_name]
+            loc.visit_count += 1
+            loc.last_visited = time.time()
+            return False
+
+        # NEW DISCOVERY!
+        discovery = DiscoveredLocation(
+            location_name=location_name,
+            location_type=location_type,
+            first_discovered=time.time(),
+            visit_count=1,
+            excitement_level=excitement,
+            last_visited=time.time(),
+            description=description,
+        )
+
+        # Major discoveries are memorable
+        if excitement > 0.7 or location_type in ['zone', 'landmark']:
+            discovery.memorable = True
+
+        self.discovered_locations[location_name] = discovery
+        self.total_discoveries += 1
+        self.recent_discoveries.append((location_name, time.time()))
+
+        # Boost discovery excitement
+        self.discovery_excitement = min(1.0, self.discovery_excitement + excitement)
+
+        logger.info(f"╔══════════════════════════════════════════════════════════╗")
+        logger.info(f"║  NEW DISCOVERY: {location_name[:40]:<40} ║")
+        logger.info(f"║  Type: {location_type[:48]:<48} ║")
+        if description:
+            logger.info(f"║  {description[:54]:<54} ║")
+        logger.info(f"║  Excitement: {excitement:.2f}                                ║")
+        logger.info(f"╚══════════════════════════════════════════════════════════╝")
+
+        return True
+
+    def add_to_frontier(self, location_name: str):
+        """Add location to exploration frontier (heard about but not visited)."""
+        if location_name not in self.discovered_locations and location_name not in self.exploration_frontier:
+            self.exploration_frontier.append(location_name)
+            logger.debug(f"Added {location_name} to exploration frontier")
+
+    def get_exploration_motivation(self) -> float:
+        """
+        Get current motivation to explore (0-1).
+        Increases with curiosity, decreases with recent discoveries.
+        """
+        base_motivation = self.curiosity_level
+
+        # Recent discoveries reduce motivation (satisfied curiosity)
+        recent_count = len(self.recent_discoveries)
+        if recent_count > 5:
+            satisfaction_penalty = (recent_count - 5) * 0.1
+            base_motivation = max(0.0, base_motivation - satisfaction_penalty)
+
+        # Frontier locations increase motivation
+        if len(self.exploration_frontier) > 0:
+            frontier_boost = min(0.3, len(self.exploration_frontier) * 0.05)
+            base_motivation = min(1.0, base_motivation + frontier_boost)
+
+        # Excitement from recent discoveries boosts motivation temporarily
+        base_motivation = min(1.0, base_motivation + self.discovery_excitement * 0.2)
+
+        return base_motivation
+
+    def should_explore_unknown_area(self, danger_estimate: float) -> bool:
+        """Determine if agent should venture into unknown territory."""
+        exploration_motivation = self.get_exploration_motivation()
+
+        # Risk vs reward
+        acceptable_risk = self.risk_tolerance_for_exploration * exploration_motivation
+
+        if danger_estimate > acceptable_risk:
+            logger.debug(f"Too dangerous to explore (danger={danger_estimate:.2f}, tolerance={acceptable_risk:.2f})")
+            return False
+
+        # High curiosity + low danger = explore
+        explore_chance = exploration_motivation * (1.0 - danger_estimate * 0.5)
+        return random.random() < explore_chance
+
+    def get_next_exploration_target(self) -> Optional[str]:
+        """Get next location from frontier to explore."""
+        if not self.exploration_frontier:
+            return None
+
+        # Prefer locations we're most curious about
+        # (For now, random from frontier)
+        target = random.choice(self.exploration_frontier)
+        self.exploration_frontier.remove(target)
+        return target
+
+    def assess_zone_familiarity(self, zone_name: str) -> float:
+        """
+        Get familiarity with a zone (0-1).
+        Higher = more explored/comfortable.
+        """
+        if zone_name not in self.zone_exploration_progress:
+            return 0.0
+
+        return self.zone_exploration_progress[zone_name]
+
+    def increase_zone_familiarity(self, zone_name: str, amount: float = 0.01):
+        """Increase familiarity with zone through exploration."""
+        if zone_name not in self.zone_exploration_progress:
+            self.zone_exploration_progress[zone_name] = 0.0
+
+        self.zone_exploration_progress[zone_name] = min(1.0,
+            self.zone_exploration_progress[zone_name] + amount
+        )
+
+    def decay_excitement(self, delta_time: float):
+        """Decay discovery excitement over time."""
+        decay_rate = 0.01  # Per second
+        self.discovery_excitement = max(0.0, self.discovery_excitement - decay_rate * delta_time)
+
+    def get_discovery_narrative(self) -> str:
+        """Get narrative summary of exploration."""
+        if self.total_discoveries < 5:
+            return f"Just beginning to explore ({self.total_discoveries} locations discovered)"
+        elif self.total_discoveries < 20:
+            return f"Learning the world ({self.total_discoveries} locations discovered)"
+        elif self.total_discoveries < 50:
+            return f"Experienced explorer ({self.total_discoveries} locations discovered)"
+        else:
+            return f"World veteran ({self.total_discoveries} locations discovered)"
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'discovered_locations': {
+                name: {
+                    'location_name': loc.location_name,
+                    'location_type': loc.location_type,
+                    'first_discovered': loc.first_discovered,
+                    'visit_count': loc.visit_count,
+                    'excitement_level': loc.excitement_level,
+                    'memorable': loc.memorable,
+                    'description': loc.description,
+                } for name, loc in self.discovered_locations.items()
+            },
+            'exploration_frontier': self.exploration_frontier,
+            'total_discoveries': self.total_discoveries,
+            'curiosity_level': self.curiosity_level,
+            'zone_exploration_progress': self.zone_exploration_progress,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'discovered_locations' in state:
+            self.discovered_locations = {}
+            for name, loc_state in state['discovered_locations'].items():
+                loc = DiscoveredLocation(
+                    location_name=loc_state['location_name'],
+                    location_type=loc_state['location_type'],
+                    first_discovered=loc_state.get('first_discovered', time.time()),
+                    visit_count=loc_state.get('visit_count', 0),
+                    excitement_level=loc_state.get('excitement_level', 0.5),
+                    memorable=loc_state.get('memorable', False),
+                    description=loc_state.get('description', ''),
+                )
+                self.discovered_locations[name] = loc
+
+        self.exploration_frontier = state.get('exploration_frontier', [])
+        self.total_discoveries = state.get('total_discoveries', 0)
+        self.curiosity_level = state.get('curiosity_level', 0.5)
+        self.zone_exploration_progress = state.get('zone_exploration_progress', {})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DEATH PSYCHOLOGY SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Death is not just a setback - it's traumatic. Fear, revenge, and learning
+# from death patterns should emerge naturally.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class DeathEvent:
+    """A death and its psychological impact."""
+    timestamp: float
+    location: Tuple[float, float]  # Where died
+    killer_name: str
+    killer_type: str  # 'player', 'elite', 'mob', 'environmental'
+    level_difference: int  # Killer level - agent level
+
+    # Emotional impact
+    trauma_level: float = 0.5  # How traumatic (0-1)
+    anger_level: float = 0.3  # Desire for revenge
+    learned_lesson: bool = False  # Did we learn from this?
+
+    # Memory
+    description: str = ""
+
+
+class DeathPsychologySystem:
+    """
+    Model emotional and behavioral impact of death.
+
+    Deaths should:
+    - Create fear of dangerous areas
+    - Generate revenge motivation against killers
+    - Teach lessons about risk
+    - Build trauma that affects future decisions
+    """
+
+    def __init__(self):
+        self.death_history: List[DeathEvent] = []
+        self.total_deaths = 0
+
+        # Psychological state
+        self.death_anxiety = 0.0  # General fear of dying (0-1)
+        self.revenge_targets: Dict[str, float] = {}  # killer -> anger level
+        self.dangerous_locations: Dict[Tuple[float, float], float] = {}  # location -> danger
+
+        # Learning from death
+        self.death_patterns: Dict[str, int] = {}  # What kills us most
+        self.lessons_learned: List[str] = []
+
+        # Personality
+        self.death_tolerance = random.uniform(0.3, 0.8)  # Some agents rage more
+        self.revenge_tendency = random.uniform(0.2, 0.9)  # Desire for revenge
+        self.risk_aversion_from_death = random.uniform(0.5, 1.0)  # How much death scares us
+
+        logger.info("DeathPsychologySystem initialized")
+
+    def record_death(self, killer_name: str, killer_type: str,
+                    location: Tuple[float, float], level_diff: int,
+                    circumstances: str = ""):
+        """
+        Record a death event and process psychological impact.
+        """
+        self.total_deaths += 1
+
+        # Calculate trauma based on circumstances
+        trauma = 0.5
+        if killer_type == 'player':
+            trauma = 0.8  # PvP deaths are more traumatic
+        elif killer_type == 'elite':
+            trauma = 0.7
+        elif level_diff > 3:
+            trauma = min(1.0, 0.5 + level_diff * 0.1)  # Higher level = more scary
+
+        # Calculate anger/revenge desire
+        anger = 0.3
+        if killer_type == 'player':
+            anger = 0.9 * self.revenge_tendency
+        elif killer_type == 'elite':
+            anger = 0.6 * self.revenge_tendency
+
+        # Create death event
+        death = DeathEvent(
+            timestamp=time.time(),
+            location=location,
+            killer_name=killer_name,
+            killer_type=killer_type,
+            level_difference=level_diff,
+            trauma_level=trauma,
+            anger_level=anger,
+            description=circumstances,
+        )
+
+        self.death_history.append(death)
+
+        # Update psychological state
+        self.death_anxiety = min(1.0, self.death_anxiety + trauma * 0.1)
+
+        # Mark location as dangerous
+        if location not in self.dangerous_locations:
+            self.dangerous_locations[location] = 0.0
+        self.dangerous_locations[location] = min(1.0,
+            self.dangerous_locations[location] + trauma * 0.3
+        )
+
+        # Add revenge target
+        if anger > 0.3:
+            if killer_name not in self.revenge_targets:
+                self.revenge_targets[killer_name] = 0.0
+            self.revenge_targets[killer_name] = min(1.0,
+                self.revenge_targets[killer_name] + anger
+            )
+
+        # Track death patterns
+        if killer_type not in self.death_patterns:
+            self.death_patterns[killer_type] = 0
+        self.death_patterns[killer_type] += 1
+
+        logger.warning(f"╔══════════════════════════════════════════════════════════╗")
+        logger.warning(f"║  DEATH #{self.total_deaths}                              ║")
+        logger.warning(f"║  Killed by: {killer_name[:44]:<44} ║")
+        logger.warning(f"║  Type: {killer_type[:49]:<49} ║")
+        logger.warning(f"║  Trauma: {trauma:.2f}  Anger: {anger:.2f}                ║")
+        if circumstances:
+            logger.warning(f"║  {circumstances[:54]:<54} ║")
+        logger.warning(f"╚══════════════════════════════════════════════════════════╝")
+
+    def should_avoid_location(self, location: Tuple[float, float], radius: float = 50.0) -> bool:
+        """Determine if agent should avoid a location due to death trauma."""
+        # Check nearby dangerous locations
+        for dangerous_loc, danger_level in self.dangerous_locations.items():
+            distance = ((location[0] - dangerous_loc[0])**2 +
+                       (location[1] - dangerous_loc[1])**2)**0.5
+
+            if distance < radius:
+                # Avoid if danger + anxiety is high
+                avoid_threshold = 0.5
+                if danger_level * self.death_anxiety * self.risk_aversion_from_death > avoid_threshold:
+                    return True
+
+        return False
+
+    def should_seek_revenge(self, target_name: str) -> bool:
+        """Determine if agent wants revenge on a target."""
+        if target_name not in self.revenge_targets:
+            return False
+
+        anger = self.revenge_targets[target_name]
+        return random.random() < anger * self.revenge_tendency
+
+    def learn_from_death(self, death_event: DeathEvent, lesson: str):
+        """Mark that agent learned something from a death."""
+        death_event.learned_lesson = True
+        self.lessons_learned.append(lesson)
+
+        # Learning reduces trauma
+        self.death_anxiety = max(0.0, self.death_anxiety - 0.05)
+
+        logger.info(f"Lesson learned from death: {lesson}")
+
+    def get_dominant_threat(self) -> Optional[str]:
+        """Get what kills us most (to prioritize defenses)."""
+        if not self.death_patterns:
+            return None
+
+        return max(self.death_patterns.items(), key=lambda x: x[1])[0]
+
+    def decay_trauma(self, decay_rate: float = 0.01):
+        """Decay death anxiety and revenge over time (healing)."""
+        self.death_anxiety = max(0.0, self.death_anxiety - decay_rate)
+
+        # Revenge fades
+        for target in list(self.revenge_targets.keys()):
+            self.revenge_targets[target] = max(0.0, self.revenge_targets[target] - decay_rate)
+            if self.revenge_targets[target] < 0.1:
+                del self.revenge_targets[target]
+
+        # Dangerous locations fade from memory
+        for loc in list(self.dangerous_locations.keys()):
+            self.dangerous_locations[loc] = max(0.0, self.dangerous_locations[loc] - decay_rate * 0.5)
+            if self.dangerous_locations[loc] < 0.1:
+                del self.dangerous_locations[loc]
+
+    def get_risk_tolerance_modifier(self) -> float:
+        """
+        Get risk tolerance modifier based on death psychology.
+        Recent deaths make agent more cautious.
+        """
+        # Base modifier from death anxiety
+        modifier = -self.death_anxiety * self.risk_aversion_from_death
+
+        # Recent deaths have stronger impact
+        recent_deaths = [d for d in self.death_history if time.time() - d.timestamp < 3600]
+        if len(recent_deaths) > 0:
+            recent_penalty = -len(recent_deaths) * 0.1
+            modifier += recent_penalty
+
+        return max(-0.5, modifier)  # Cap at -50% risk tolerance
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'total_deaths': self.total_deaths,
+            'death_anxiety': self.death_anxiety,
+            'revenge_targets': self.revenge_targets,
+            'dangerous_locations': {f"{loc[0]},{loc[1]}": danger
+                                   for loc, danger in self.dangerous_locations.items()},
+            'death_patterns': self.death_patterns,
+            'lessons_learned': self.lessons_learned[-10:],  # Keep last 10
+            'death_tolerance': self.death_tolerance,
+            'revenge_tendency': self.revenge_tendency,
+            'risk_aversion_from_death': self.risk_aversion_from_death,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        self.total_deaths = state.get('total_deaths', 0)
+        self.death_anxiety = state.get('death_anxiety', 0.0)
+        self.revenge_targets = state.get('revenge_targets', {})
+
+        if 'dangerous_locations' in state:
+            self.dangerous_locations = {}
+            for loc_str, danger in state['dangerous_locations'].items():
+                x, y = map(float, loc_str.split(','))
+                self.dangerous_locations[(x, y)] = danger
+
+        self.death_patterns = state.get('death_patterns', {})
+        self.lessons_learned = state.get('lessons_learned', [])
+        self.death_tolerance = state.get('death_tolerance', 0.5)
+        self.revenge_tendency = state.get('revenge_tendency', 0.5)
+        self.risk_aversion_from_death = state.get('risk_aversion_from_death', 0.7)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMBAT MASTERY IDENTITY SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Combat style becomes part of identity. Favorite openers, preferred tactics,
+# signature moves. Muscle memory forms through repetition.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class CombatPattern:
+    """A learned combat pattern (opener, rotation, etc)."""
+    pattern_name: str
+    pattern_type: str  # 'opener', 'rotation', 'finisher', 'emergency'
+    ability_sequence: List[str]
+
+    # Performance
+    times_used: int = 0
+    success_rate: float = 0.5
+    average_effectiveness: float = 0.5  # DPS or survival
+
+    # Mastery
+    mastery_level: float = 0.0  # 0-1, how well-practiced
+    confidence: float = 0.5
+
+    # Preference
+    preference_weight: float = 0.5  # How much agent likes using this
+
+
+class CombatMasteryIdentity:
+    """
+    Develop personal combat style and identity.
+
+    This system makes combat feel PERSONAL:
+    - Favorite openers emerge from success
+    - Signature combos develop through repetition
+    - Combat style identity (aggressive, cautious, efficient)
+    - Pride in execution quality
+    """
+
+    def __init__(self):
+        self.combat_patterns: Dict[str, CombatPattern] = {}
+        self.favorite_abilities: List[str] = []
+
+        # Combat style identity
+        self.combat_style = 'balanced'  # 'aggressive', 'defensive', 'efficient', 'chaotic'
+        self.style_confidence = 0.3  # How committed to this style
+
+        # Mastery metrics
+        self.total_combats = 0
+        self.perfect_executions = 0  # Times rotation was executed perfectly
+        self.fumbles = 0  # Times rotation was messed up
+
+        # Personality
+        self.aggression_tendency = random.uniform(0.3, 0.9)
+        self.creativity_in_combat = random.uniform(0.2, 0.8)
+
+        # Current state
+        self.muscle_memory_active = False  # In flow state?
+        self.favorite_opener: Optional[str] = None
+
+        logger.info("CombatMasteryIdentity initialized")
+
+    def record_pattern_usage(self, pattern_name: str, pattern_type: str,
+                            abilities_used: List[str], success: bool,
+                            effectiveness: float):
+        """Record using a combat pattern."""
+        if pattern_name not in self.combat_patterns:
+            self.combat_patterns[pattern_name] = CombatPattern(
+                pattern_name=pattern_name,
+                pattern_type=pattern_type,
+                ability_sequence=abilities_used,
+            )
+
+        pattern = self.combat_patterns[pattern_name]
+        pattern.times_used += 1
+
+        # Update success rate (running average)
+        success_value = 1.0 if success else 0.0
+        pattern.success_rate = (
+            (pattern.success_rate * (pattern.times_used - 1) + success_value) /
+            pattern.times_used
+        )
+
+        # Update effectiveness
+        pattern.average_effectiveness = (
+            (pattern.average_effectiveness * (pattern.times_used - 1) + effectiveness) /
+            pattern.times_used
+        )
+
+        # Increase mastery with practice
+        mastery_gain = 0.01 * (1.0 - pattern.mastery_level)  # Diminishing returns
+        pattern.mastery_level = min(1.0, pattern.mastery_level + mastery_gain)
+
+        # Confidence grows with success
+        if success:
+            pattern.confidence = min(1.0, pattern.confidence + 0.02)
+        else:
+            pattern.confidence = max(0.0, pattern.confidence - 0.01)
+
+        # Preference adjusts based on success and effectiveness
+        if success and effectiveness > 0.6:
+            pattern.preference_weight = min(1.0, pattern.preference_weight + 0.05)
+        elif not success:
+            pattern.preference_weight = max(0.1, pattern.preference_weight - 0.03)
+
+        # Update favorite opener
+        if pattern_type == 'opener' and pattern.times_used >= 5:
+            if self.favorite_opener is None or pattern.preference_weight > self.combat_patterns[self.favorite_opener].preference_weight:
+                self.favorite_opener = pattern_name
+
+    def get_preferred_pattern(self, pattern_type: str) -> Optional[str]:
+        """Get preferred pattern for a given type."""
+        candidates = [p for p in self.combat_patterns.values() if p.pattern_type == pattern_type]
+
+        if not candidates:
+            return None
+
+        # Choose based on preference weight + mastery
+        best = max(candidates, key=lambda p: p.preference_weight * 0.7 + p.mastery_level * 0.3)
+        return best.pattern_name
+
+    def should_use_muscle_memory(self) -> bool:
+        """Determine if agent should use practiced patterns vs improvise."""
+        # High mastery + low creativity = stick to patterns
+        if self.favorite_opener and self.combat_patterns[self.favorite_opener].mastery_level > 0.7:
+            return random.random() < (1.0 - self.creativity_in_combat * 0.5)
+        return False
+
+    def record_perfect_execution(self):
+        """Record flawless rotation execution."""
+        self.perfect_executions += 1
+
+        # Build muscle memory confidence
+        self.muscle_memory_active = True
+
+        logger.debug("Perfect rotation execution - muscle memory reinforced")
+
+    def record_fumble(self):
+        """Record messing up rotation."""
+        self.fumbles += 1
+        self.muscle_memory_active = False
+
+        logger.debug("Fumbled rotation - need more practice")
+
+    def assess_combat_style(self):
+        """
+        Assess and update combat style based on behavior patterns.
+        """
+        # Analyze patterns to infer style
+        if not self.combat_patterns:
+            return
+
+        avg_aggression = sum(p.preference_weight for p in self.combat_patterns.values()
+                           if 'aggressive' in p.pattern_name or 'damage' in p.pattern_name)
+        avg_defense = sum(p.preference_weight for p in self.combat_patterns.values()
+                         if 'defensive' in p.pattern_name or 'survive' in p.pattern_name)
+
+        if avg_aggression > avg_defense * 1.5:
+            new_style = 'aggressive'
+        elif avg_defense > avg_aggression * 1.5:
+            new_style = 'defensive'
+        else:
+            new_style = 'balanced'
+
+        if new_style != self.combat_style:
+            logger.info(f"Combat style shifted: {self.combat_style} → {new_style}")
+            self.combat_style = new_style
+            self.style_confidence = 0.3
+        else:
+            self.style_confidence = min(1.0, self.style_confidence + 0.01)
+
+    def get_execution_quality(self) -> float:
+        """Get overall execution quality (0-1)."""
+        if self.total_combats == 0:
+            return 0.5
+
+        perfection_rate = self.perfect_executions / max(1, self.total_combats)
+        fumble_penalty = self.fumbles / max(1, self.total_combats)
+
+        return max(0.0, min(1.0, perfection_rate - fumble_penalty))
+
+    def get_mastery_narrative(self) -> str:
+        """Get narrative summary of combat mastery."""
+        if not self.combat_patterns:
+            return "No combat patterns learned yet"
+
+        mastery_avg = sum(p.mastery_level for p in self.combat_patterns.values()) / len(self.combat_patterns)
+
+        if mastery_avg < 0.3:
+            return f"{self.combat_style.capitalize()} fighter, still learning"
+        elif mastery_avg < 0.6:
+            return f"Competent {self.combat_style} fighter"
+        elif mastery_avg < 0.8:
+            return f"Skilled {self.combat_style} combatant"
+        else:
+            return f"Master {self.combat_style} fighter"
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'combat_patterns': {
+                name: {
+                    'pattern_name': p.pattern_name,
+                    'pattern_type': p.pattern_type,
+                    'ability_sequence': p.ability_sequence,
+                    'times_used': p.times_used,
+                    'success_rate': p.success_rate,
+                    'mastery_level': p.mastery_level,
+                    'confidence': p.confidence,
+                    'preference_weight': p.preference_weight,
+                } for name, p in self.combat_patterns.items()
+            },
+            'favorite_abilities': self.favorite_abilities,
+            'combat_style': self.combat_style,
+            'style_confidence': self.style_confidence,
+            'total_combats': self.total_combats,
+            'perfect_executions': self.perfect_executions,
+            'fumbles': self.fumbles,
+            'favorite_opener': self.favorite_opener,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'combat_patterns' in state:
+            self.combat_patterns = {}
+            for name, p_state in state['combat_patterns'].items():
+                pattern = CombatPattern(
+                    pattern_name=p_state['pattern_name'],
+                    pattern_type=p_state['pattern_type'],
+                    ability_sequence=p_state.get('ability_sequence', []),
+                    times_used=p_state.get('times_used', 0),
+                    success_rate=p_state.get('success_rate', 0.5),
+                    mastery_level=p_state.get('mastery_level', 0.0),
+                    confidence=p_state.get('confidence', 0.5),
+                    preference_weight=p_state.get('preference_weight', 0.5),
+                )
+                self.combat_patterns[name] = pattern
+
+        self.favorite_abilities = state.get('favorite_abilities', [])
+        self.combat_style = state.get('combat_style', 'balanced')
+        self.style_confidence = state.get('style_confidence', 0.3)
+        self.total_combats = state.get('total_combats', 0)
+        self.perfect_executions = state.get('perfect_executions', 0)
+        self.fumbles = state.get('fumbles', 0)
+        self.favorite_opener = state.get('favorite_opener')
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# QUEST NARRATIVE ENGAGEMENT SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Quests are stories, not just XP sources. Investment in narratives, favorite
+# quest givers, satisfaction from completion, story memory.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class QuestMemory:
+    """Memory of a quest and its narrative."""
+    quest_id: str
+    quest_name: str
+    quest_giver: str
+    zone: str
+
+    # Engagement
+    narrative_interest: float = 0.5  # How interesting the story was
+    completion_satisfaction: float = 0.5  # How good completion felt
+    difficulty: float = 0.5
+
+    # Progress
+    started_at: float = 0.0
+    completed_at: Optional[float] = None
+    abandoned: bool = False
+
+    # Memory
+    memorable: bool = False
+    story_summary: str = ""
+
+
+class QuestNarrativeEngagement:
+    """
+    Engage with quests as narratives, not just objectives.
+
+    This system makes questing MEANINGFUL:
+    - Story investment (not just XP grinding)
+    - Favorite quest givers emerge
+    - Quest chain completion satisfaction
+    - Zone storyline awareness
+    """
+
+    def __init__(self):
+        self.quest_memories: Dict[str, QuestMemory] = {}
+        self.active_quests: Set[str] = set()
+        self.completed_quests: Set[str] = set()
+
+        # Engagement tracking
+        self.favorite_quest_givers: Dict[str, float] = {}  # npc -> affinity
+        self.zone_story_progress: Dict[str, float] = {}  # zone -> completion %
+
+        # Personality
+        self.story_investment_tendency = random.uniform(0.3, 0.9)
+        self.quest_completion_drive = random.uniform(0.5, 1.0)
+
+        # Current state
+        self.current_narrative_investment = 0.0  # How invested in current quest
+
+        logger.info("QuestNarrativeEngagement initialized")
+
+    def accept_quest(self, quest_id: str, quest_name: str, quest_giver: str,
+                    zone: str, has_interesting_story: bool = False):
+        """Record accepting a quest."""
+        memory = QuestMemory(
+            quest_id=quest_id,
+            quest_name=quest_name,
+            quest_giver=quest_giver,
+            zone=zone,
+            started_at=time.time(),
+            narrative_interest=0.7 if has_interesting_story else 0.4,
+        )
+
+        self.quest_memories[quest_id] = memory
+        self.active_quests.add(quest_id)
+
+        # Increase investment based on story interest
+        self.current_narrative_investment = min(1.0,
+            self.current_narrative_investment + memory.narrative_interest * 0.2
+        )
+
+        logger.info(f"Quest accepted: {quest_name} from {quest_giver}")
+
+    def complete_quest(self, quest_id: str, satisfaction: float = 0.7):
+        """Record completing a quest."""
+        if quest_id not in self.quest_memories:
+            return
+
+        memory = self.quest_memories[quest_id]
+        memory.completed_at = time.time()
+        memory.completion_satisfaction = satisfaction
+
+        # Mark as memorable if highly satisfying
+        if satisfaction > 0.8 or memory.narrative_interest > 0.7:
+            memory.memorable = True
+
+        self.active_quests.discard(quest_id)
+        self.completed_quests.add(quest_id)
+
+        # Increase affinity with quest giver
+        if memory.quest_giver not in self.favorite_quest_givers:
+            self.favorite_quest_givers[memory.quest_giver] = 0.0
+
+        self.favorite_quest_givers[memory.quest_giver] = min(1.0,
+            self.favorite_quest_givers[memory.quest_giver] + satisfaction * 0.2
+        )
+
+        # Update zone story progress
+        if memory.zone not in self.zone_story_progress:
+            self.zone_story_progress[memory.zone] = 0.0
+
+        self.zone_story_progress[memory.zone] = min(1.0,
+            self.zone_story_progress[memory.zone] + 0.05
+        )
+
+        logger.info(f"╔══════════════════════════════════════════════════════════╗")
+        logger.info(f"║  QUEST COMPLETE: {quest_name[:40]:<40} ║")
+        logger.info(f"║  Satisfaction: {satisfaction:.2f}                        ║")
+        if memory.memorable:
+            logger.info(f"║  ★ MEMORABLE QUEST ★                                     ║")
+        logger.info(f"╚══════════════════════════════════════════════════════════╝")
+
+    def abandon_quest(self, quest_id: str, reason: str = ""):
+        """Record abandoning a quest."""
+        if quest_id not in self.quest_memories:
+            return
+
+        memory = self.quest_memories[quest_id]
+        memory.abandoned = True
+
+        self.active_quests.discard(quest_id)
+
+        # Reduce affinity with quest giver
+        if memory.quest_giver in self.favorite_quest_givers:
+            self.favorite_quest_givers[memory.quest_giver] = max(0.0,
+                self.favorite_quest_givers[memory.quest_giver] - 0.1
+            )
+
+        logger.info(f"Quest abandoned: {memory.quest_name} - {reason}")
+
+    def should_prioritize_quest(self, quest_id: str) -> bool:
+        """Determine if quest should be prioritized."""
+        if quest_id not in self.quest_memories:
+            return False
+
+        memory = self.quest_memories[quest_id]
+
+        # High narrative interest = prioritize
+        if memory.narrative_interest > 0.7:
+            return random.random() < 0.8
+
+        # Favorite quest giver = prioritize
+        if memory.quest_giver in self.favorite_quest_givers:
+            affinity = self.favorite_quest_givers[memory.quest_giver]
+            if affinity > 0.6:
+                return random.random() < 0.7
+
+        # Base completion drive
+        return random.random() < self.quest_completion_drive
+
+    def get_zone_story_engagement(self, zone: str) -> float:
+        """Get how engaged with zone storyline (0-1)."""
+        return self.zone_story_progress.get(zone, 0.0)
+
+    def get_favorite_quest_giver(self) -> Optional[str]:
+        """Get most favored quest giver."""
+        if not self.favorite_quest_givers:
+            return None
+
+        return max(self.favorite_quest_givers.items(), key=lambda x: x[1])[0]
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'quest_memories': {
+                qid: {
+                    'quest_id': m.quest_id,
+                    'quest_name': m.quest_name,
+                    'quest_giver': m.quest_giver,
+                    'zone': m.zone,
+                    'narrative_interest': m.narrative_interest,
+                    'completion_satisfaction': m.completion_satisfaction,
+                    'completed_at': m.completed_at,
+                    'abandoned': m.abandoned,
+                    'memorable': m.memorable,
+                } for qid, m in self.quest_memories.items()
+            },
+            'active_quests': list(self.active_quests),
+            'completed_quests': list(self.completed_quests),
+            'favorite_quest_givers': self.favorite_quest_givers,
+            'zone_story_progress': self.zone_story_progress,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'quest_memories' in state:
+            self.quest_memories = {}
+            for qid, m_state in state['quest_memories'].items():
+                memory = QuestMemory(
+                    quest_id=m_state['quest_id'],
+                    quest_name=m_state['quest_name'],
+                    quest_giver=m_state['quest_giver'],
+                    zone=m_state['zone'],
+                    narrative_interest=m_state.get('narrative_interest', 0.5),
+                    completion_satisfaction=m_state.get('completion_satisfaction', 0.5),
+                    completed_at=m_state.get('completed_at'),
+                    abandoned=m_state.get('abandoned', False),
+                    memorable=m_state.get('memorable', False),
+                )
+                self.quest_memories[qid] = memory
+
+        self.active_quests = set(state.get('active_quests', []))
+        self.completed_quests = set(state.get('completed_quests', []))
+        self.favorite_quest_givers = state.get('favorite_quest_givers', {})
+        self.zone_story_progress = state.get('zone_story_progress', {})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ROUTINE FORMATION SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Humans form routines and habits. Session goals, daily patterns, login rituals.
+# This makes the agent's "life" in WoW feel rhythmic and habitual.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class SessionGoal:
+    """A goal for the current play session."""
+    goal_type: str  # 'level_up', 'quest_complete', 'gold_farm', 'profession_grind'
+    description: str
+    priority: float = 0.5
+    completed: bool = False
+    progress: float = 0.0  # 0-1
+
+
+class RoutineFormationSystem:
+    """
+    Form habitual routines and session patterns.
+
+    This system makes gameplay feel LIVED-IN:
+    - Login routines (check mail, repair, restock)
+    - Session goals emerge
+    - Play patterns form (morning grinder, evening quester)
+    - Logout rituals
+    """
+
+    def __init__(self):
+        self.session_goals: List[SessionGoal] = []
+        self.session_count = 0
+
+        # Routine tracking
+        self.login_routine: List[str] = []  # Sequence of login actions
+        self.logout_routine: List[str] = []
+        self.typical_session_duration = 7200.0  # 2 hours default
+
+        # Habit formation
+        self.habitual_actions: Dict[str, int] = {}  # action -> frequency
+        self.preferred_play_time: Optional[str] = None  # 'morning', 'afternoon', 'evening', 'night'
+
+        # Current session
+        self.session_start_time = time.time()
+        self.session_goals_completed = 0
+
+        logger.info("RoutineFormationSystem initialized")
+
+    def start_session(self):
+        """Begin a new play session."""
+        self.session_count += 1
+        self.session_start_time = time.time()
+        self.session_goals = []
+        self.session_goals_completed = 0
+
+        # Generate session goals
+        self._generate_session_goals()
+
+        logger.info(f"═══════════════════════════════════════════════════════════════")
+        logger.info(f"Session #{self.session_count} started")
+        logger.info(f"Session goals:")
+        for goal in self.session_goals:
+            logger.info(f"  - {goal.description} (priority: {goal.priority:.2f})")
+        logger.info(f"═══════════════════════════════════════════════════════════════")
+
+    def _generate_session_goals(self):
+        """Generate goals for this session based on context."""
+        # Always have at least one goal
+        self.session_goals.append(SessionGoal(
+            goal_type='progress',
+            description="Make meaningful progress",
+            priority=0.8,
+        ))
+
+        # Additional goals based on context
+        # (In full implementation, these would be context-aware)
+        goal_types = ['level_up', 'quest_complete', 'gold_farm', 'profession_grind']
+        chosen_goal = random.choice(goal_types)
+
+        if chosen_goal == 'level_up':
+            self.session_goals.append(SessionGoal(
+                goal_type='level_up',
+                description="Gain a level",
+                priority=0.9,
+            ))
+        elif chosen_goal == 'quest_complete':
+            self.session_goals.append(SessionGoal(
+                goal_type='quest_complete',
+                description="Complete 3-5 quests",
+                priority=0.7,
+            ))
+        elif chosen_goal == 'gold_farm':
+            self.session_goals.append(SessionGoal(
+                goal_type='gold_farm',
+                description="Earn 10+ gold",
+                priority=0.6,
+            ))
+        elif chosen_goal == 'profession_grind':
+            self.session_goals.append(SessionGoal(
+                goal_type='profession_grind',
+                description="Gain profession skill points",
+                priority=0.6,
+            ))
+
+    def complete_session_goal(self, goal_type: str):
+        """Mark a session goal as completed."""
+        for goal in self.session_goals:
+            if goal.goal_type == goal_type and not goal.completed:
+                goal.completed = True
+                goal.progress = 1.0
+                self.session_goals_completed += 1
+
+                logger.info(f"Session goal completed: {goal.description}")
+                break
+
+    def update_goal_progress(self, goal_type: str, progress: float):
+        """Update progress on a session goal."""
+        for goal in self.session_goals:
+            if goal.goal_type == goal_type:
+                goal.progress = min(1.0, progress)
+                if goal.progress >= 1.0 and not goal.completed:
+                    goal.completed = True
+                    self.session_goals_completed += 1
+
+    def record_habitual_action(self, action: str):
+        """Record an action that may become habitual."""
+        if action not in self.habitual_actions:
+            self.habitual_actions[action] = 0
+        self.habitual_actions[action] += 1
+
+        # Form routine if done frequently
+        if self.habitual_actions[action] == 10:
+            logger.info(f"Habit formed: {action} (done {self.habitual_actions[action]} times)")
+
+    def should_perform_routine_action(self, action: str) -> bool:
+        """Determine if agent should perform a routine action."""
+        frequency = self.habitual_actions.get(action, 0)
+
+        if frequency < 5:
+            return False  # Not a habit yet
+
+        # Strong habits = high chance
+        habit_strength = min(1.0, frequency / 50.0)
+        return random.random() < habit_strength
+
+    def get_session_summary(self) -> str:
+        """Get summary of current session."""
+        duration = time.time() - self.session_start_time
+        duration_mins = int(duration / 60)
+
+        completed = sum(1 for g in self.session_goals if g.completed)
+        total = len(self.session_goals)
+
+        return f"Session {self.session_count} ({duration_mins}min): {completed}/{total} goals completed"
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'session_count': self.session_count,
+            'login_routine': self.login_routine,
+            'logout_routine': self.logout_routine,
+            'typical_session_duration': self.typical_session_duration,
+            'habitual_actions': self.habitual_actions,
+            'preferred_play_time': self.preferred_play_time,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        self.session_count = state.get('session_count', 0)
+        self.login_routine = state.get('login_routine', [])
+        self.logout_routine = state.get('logout_routine', [])
+        self.typical_session_duration = state.get('typical_session_duration', 7200.0)
+        self.habitual_actions = state.get('habitual_actions', {})
+        self.preferred_play_time = state.get('preferred_play_time')
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AUTOBIOGRAPHICAL MEMORY & NARRATIVE IDENTITY SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# The unifying system: organize all life experiences into a coherent narrative.
+# Memory decay, temporal organization, identity reflection, life story construction.
+# This transforms disconnected systems into a LIVED LIFE with past, present, future.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class LifeEvent:
+    """A significant life event in the agent's journey."""
+    timestamp: float
+    event_type: str  # 'milestone', 'trauma', 'achievement', 'social', 'discovery', 'failure'
+    description: str
+    emotional_valence: float  # -1 to +1
+    significance: float  # 0-1, how important this was
+
+    # Context
+    level_at_time: int = 1
+    location: Optional[str] = None
+    people_involved: List[str] = field(default_factory=list)
+
+    # Memory properties
+    vividness: float = 1.0  # Decays over time
+    times_recalled: int = 0  # Remembering reinforces memory
+    last_recalled: float = 0.0
+
+    # Narrative integration
+    part_of_chapter: Optional[str] = None  # Which life chapter this belongs to
+    defines_identity: bool = False  # Does this event define who we are?
+
+
+@dataclass
+class LifeChapter:
+    """A distinct phase of the agent's WoW life."""
+    chapter_name: str
+    start_time: float
+    end_time: Optional[float] = None
+    start_level: int = 1
+    end_level: Optional[int] = None
+
+    # Chapter characteristics
+    dominant_emotion: str = "curious"  # Overall feel of this chapter
+    key_relationships: List[str] = field(default_factory=list)
+    major_achievements: List[str] = field(default_factory=list)
+    defining_moments: List[str] = field(default_factory=list)
+
+    # Reflection
+    lessons_learned: List[str] = field(default_factory=list)
+    how_i_changed: str = ""
+
+
+class AutobiographicalMemory:
+    """
+    Organize all life experiences into temporal, emotional, narrative structure.
+
+    This system answers:
+    - "Who am I?" (identity)
+    - "What's my story?" (narrative)
+    - "How have I changed?" (growth)
+    - "What do I remember about...?" (episodic recall)
+    - "What defined me?" (significant events)
+
+    This is the UNIFYING system that makes all other systems feel like a life.
+    """
+
+    def __init__(self):
+        # Temporal memory organization
+        self.life_events: List[LifeEvent] = []
+        self.event_index: Dict[str, List[LifeEvent]] = {
+            'milestone': [],
+            'trauma': [],
+            'achievement': [],
+            'social': [],
+            'discovery': [],
+            'failure': [],
+        }
+
+        # Life chapters
+        self.chapters: List[LifeChapter] = []
+        self.current_chapter: Optional[LifeChapter] = None
+
+        # Identity narrative
+        self.identity_statements: List[str] = []  # "I am...", "I've...", "I..."
+        self.core_values: Dict[str, float] = {}  # Emerged values (courage, caution, etc.)
+
+        # Self-concept
+        self.character_birth_time = time.time()
+        self.total_play_time = 0.0
+        self.self_description = "A new adventurer beginning their journey"
+
+        # Memory triggers (associative recall)
+        self.location_memories: Dict[str, List[LifeEvent]] = {}  # Place → memories
+        self.person_memories: Dict[str, List[LifeEvent]] = {}   # Person → memories
+
+        # Emotional timeline
+        self.emotional_trajectory: deque = deque(maxlen=1000)  # (time, emotion, intensity)
+
+        # Nostalgia and reflection
+        self.nostalgia_triggers: List[str] = []  # Things that make us nostalgic
+        self.proudest_moments: List[LifeEvent] = []
+        self.deepest_regrets: List[LifeEvent] = []
+        self.defining_friendships: List[str] = []
+
+        # Identity evolution tracking
+        self.identity_checkpoints: List[Dict[str, Any]] = []  # Snapshots over time
+
+        # Initialize first chapter
+        self._start_new_chapter("The Beginning", "Everything is new and unknown")
+
+        logger.info("AutobiographicalMemory initialized - life story begins")
+
+    def _start_new_chapter(self, chapter_name: str, emotion: str = "curious"):
+        """Begin a new chapter in the life story."""
+        # End previous chapter
+        if self.current_chapter:
+            self.current_chapter.end_time = time.time()
+
+        # Start new chapter
+        new_chapter = LifeChapter(
+            chapter_name=chapter_name,
+            start_time=time.time(),
+            dominant_emotion=emotion,
+        )
+
+        self.chapters.append(new_chapter)
+        self.current_chapter = new_chapter
+
+        logger.info(f"╔══════════════════════════════════════════════════════════╗")
+        logger.info(f"║  NEW LIFE CHAPTER: {chapter_name[:38]:<38} ║")
+        logger.info(f"╚══════════════════════════════════════════════════════════╝")
+
+    def record_life_event(self, event_type: str, description: str,
+                         emotional_valence: float, significance: float,
+                         level: int = 1, location: str = None,
+                         people: List[str] = None) -> LifeEvent:
+        """
+        Record a significant life event.
+
+        This is the PRIMARY interface for other systems to contribute to life story.
+        """
+        event = LifeEvent(
+            timestamp=time.time(),
+            event_type=event_type,
+            description=description,
+            emotional_valence=emotional_valence,
+            significance=significance,
+            level_at_time=level,
+            location=location,
+            people_involved=people or [],
+            part_of_chapter=self.current_chapter.chapter_name if self.current_chapter else None,
+        )
+
+        # Mark highly significant events as identity-defining
+        if significance > 0.8:
+            event.defines_identity = True
+            self._update_identity_from_event(event)
+
+        # Store event
+        self.life_events.append(event)
+        if event_type in self.event_index:
+            self.event_index[event_type].append(event)
+
+        # Associate with location
+        if location:
+            if location not in self.location_memories:
+                self.location_memories[location] = []
+            self.location_memories[location].append(event)
+
+        # Associate with people
+        for person in (people or []):
+            if person not in self.person_memories:
+                self.person_memories[person] = []
+            self.person_memories[person].append(event)
+
+        # Track emotional state
+        self.emotional_trajectory.append((time.time(), event_type, emotional_valence))
+
+        # Update chapter
+        if self.current_chapter:
+            if significance > 0.7:
+                self.current_chapter.defining_moments.append(description)
+
+        # Update proudest moments / regrets
+        if emotional_valence > 0.7 and significance > 0.7:
+            self.proudest_moments.append(event)
+            self.proudest_moments = sorted(self.proudest_moments,
+                                          key=lambda e: e.significance * e.emotional_valence,
+                                          reverse=True)[:10]  # Keep top 10
+
+        if emotional_valence < -0.6 and significance > 0.6:
+            self.deepest_regrets.append(event)
+            self.deepest_regrets = sorted(self.deepest_regrets,
+                                         key=lambda e: abs(e.emotional_valence) * e.significance,
+                                         reverse=True)[:10]
+
+        logger.debug(f"Life event recorded: {description} (significance: {significance:.2f})")
+
+        return event
+
+    def _update_identity_from_event(self, event: LifeEvent):
+        """Update identity statements based on significant event."""
+        # Extract identity implications
+        if event.event_type == 'achievement':
+            self.identity_statements.append(f"I achieved {event.description}")
+        elif event.event_type == 'trauma':
+            self.identity_statements.append(f"I survived {event.description}")
+        elif event.event_type == 'milestone':
+            self.identity_statements.append(f"I reached {event.description}")
+
+        # Update core values
+        if event.emotional_valence > 0.5:
+            # Positive events suggest values
+            if 'friend' in event.description.lower():
+                self.core_values['loyalty'] = self.core_values.get('loyalty', 0) + 0.1
+            if 'help' in event.description.lower():
+                self.core_values['altruism'] = self.core_values.get('altruism', 0) + 0.1
+
+        # Limit identity statements
+        self.identity_statements = self.identity_statements[-50:]  # Keep last 50
+
+    def recall_memories_about(self, trigger: str, limit: int = 5) -> List[LifeEvent]:
+        """
+        Recall memories triggered by location, person, or concept.
+        """
+        memories = []
+
+        # Location-based recall
+        if trigger in self.location_memories:
+            memories.extend(self.location_memories[trigger])
+
+        # Person-based recall
+        if trigger in self.person_memories:
+            memories.extend(self.person_memories[trigger])
+
+        # Concept-based recall (search descriptions)
+        for event in self.life_events:
+            if trigger.lower() in event.description.lower():
+                memories.append(event)
+
+        # Sort by recency + significance
+        now = time.time()
+        memories.sort(key=lambda e: (now - e.timestamp) / 86400 + e.significance * 10, reverse=True)
+
+        # Increment recall counters
+        for mem in memories[:limit]:
+            mem.times_recalled += 1
+            mem.last_recalled = time.time()
+            # Recalling reinforces vividness
+            mem.vividness = min(1.0, mem.vividness + 0.05)
+
+        return memories[:limit]
+
+    def decay_memories(self, delta_time: float):
+        """
+        Decay memory vividness over time.
+        Recent and frequently-recalled memories decay slower.
+        """
+        decay_rate = 0.00001  # Very slow decay per second
+
+        for event in self.life_events:
+            # Time since event
+            age = time.time() - event.timestamp
+
+            # Reinforcement from recall
+            recall_boost = min(0.5, event.times_recalled * 0.05)
+
+            # Significance resists decay
+            significance_resistance = event.significance
+
+            # Calculate decay
+            effective_decay = decay_rate * delta_time * (1.0 - significance_resistance - recall_boost)
+            event.vividness = max(0.0, event.vividness - effective_decay)
+
+    def get_temporal_categorization(self, event: LifeEvent) -> str:
+        """Categorize event by time: recent, days ago, weeks ago, long ago."""
+        age = (time.time() - event.timestamp) / 3600.0  # Age in hours
+
+        if age < 1:
+            return "just now"
+        elif age < 24:
+            return "today"
+        elif age < 72:
+            return "a few days ago"
+        elif age < 168:  # 1 week
+            return "last week"
+        elif age < 720:  # 1 month
+            return "weeks ago"
+        else:
+            return "long ago"
+
+    def construct_life_narrative(self) -> str:
+        """
+        Construct a coherent narrative of the agent's life journey.
+        """
+        lines = []
+
+        # Opening
+        age = (time.time() - self.character_birth_time) / 86400.0  # Days
+        lines.append(f"My WoW Life Story ({age:.1f} days old)")
+        lines.append("=" * 60)
+        lines.append("")
+
+        # Identity
+        lines.append("WHO I AM:")
+        lines.append(f"  {self.self_description}")
+        if self.core_values:
+            top_values = sorted(self.core_values.items(), key=lambda x: x[1], reverse=True)[:3]
+            values_str = ", ".join([v[0] for v in top_values])
+            lines.append(f"  Core values: {values_str}")
+        lines.append("")
+
+        # Chapters
+        if self.chapters:
+            lines.append("MY JOURNEY:")
+            for chapter in self.chapters:
+                duration = ((chapter.end_time or time.time()) - chapter.start_time) / 86400.0
+                lines.append(f"  • {chapter.chapter_name} ({duration:.1f} days)")
+                if chapter.defining_moments:
+                    lines.append(f"    Key moments: {len(chapter.defining_moments)}")
+        lines.append("")
+
+        # Proudest moments
+        if self.proudest_moments:
+            lines.append("PROUDEST MOMENTS:")
+            for event in self.proudest_moments[:5]:
+                when = self.get_temporal_categorization(event)
+                lines.append(f"  • {event.description} ({when})")
+        lines.append("")
+
+        # Regrets
+        if self.deepest_regrets:
+            lines.append("LESSONS LEARNED (from mistakes):")
+            for event in self.deepest_regrets[:3]:
+                when = self.get_temporal_categorization(event)
+                lines.append(f"  • {event.description} ({when})")
+        lines.append("")
+
+        # Relationships
+        if self.defining_friendships:
+            lines.append("MEANINGFUL RELATIONSHIPS:")
+            for friend in self.defining_friendships[:5]:
+                lines.append(f"  • {friend}")
+
+        return "\n".join(lines)
+
+    def check_chapter_transition(self, level: int, major_event: str = None):
+        """Check if we should transition to a new life chapter."""
+        if not self.current_chapter:
+            return
+
+        # Level-based chapter transitions
+        if level >= 20 and self.current_chapter.start_level < 20:
+            self._start_new_chapter("Finding My Footing", "confident")
+        elif level >= 40 and self.current_chapter.start_level < 40:
+            self._start_new_chapter("The Road to Endgame", "determined")
+        elif level >= 55 and self.current_chapter.start_level < 55:
+            self._start_new_chapter("Approaching the Summit", "ambitious")
+        elif level >= 60 and self.current_chapter.start_level < 60:
+            self._start_new_chapter("Endgame Life", "accomplished")
+
+        # Event-based transitions
+        if major_event:
+            if "guild" in major_event.lower():
+                self._start_new_chapter("Guild Life", "belonging")
+
+    def snapshot_identity(self, level: int, session_count: int):
+        """Take a snapshot of current identity for evolution tracking."""
+        snapshot = {
+            'timestamp': time.time(),
+            'level': level,
+            'session_count': session_count,
+            'identity_statements': self.identity_statements.copy(),
+            'core_values': self.core_values.copy(),
+            'self_description': self.self_description,
+            'total_events': len(self.life_events),
+        }
+
+        self.identity_checkpoints.append(snapshot)
+
+        # Limit checkpoints
+        self.identity_checkpoints = self.identity_checkpoints[-20:]
+
+    def detect_nostalgia(self) -> Optional[str]:
+        """
+        Detect if agent should feel nostalgic.
+        Nostalgia = longing for early/simpler times.
+        """
+        # Need to be far enough along
+        if len(self.life_events) < 50:
+            return None
+
+        # Check for markers of nostalgia
+        early_events = [e for e in self.life_events if e.timestamp < self.character_birth_time + 604800]  # First week
+
+        if early_events and random.random() < 0.1:  # 10% chance when triggered
+            # Pick a random early positive event
+            positive_early = [e for e in early_events if e.emotional_valence > 0.3]
+            if positive_early:
+                event = random.choice(positive_early)
+                return f"I remember when {event.description}... those were simpler times."
+
+        return None
+
+    def get_significant_firsts(self) -> List[LifeEvent]:
+        """Get all significant 'first time' events."""
+        firsts = []
+        seen_types = set()
+
+        for event in self.life_events:
+            event_category = event.description.split()[0].lower()  # First word
+            if event_category not in seen_types and event.significance > 0.5:
+                seen_types.add(event_category)
+                firsts.append(event)
+
+        return firsts[:10]
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'life_events': [{
+                'timestamp': e.timestamp,
+                'event_type': e.event_type,
+                'description': e.description,
+                'emotional_valence': e.emotional_valence,
+                'significance': e.significance,
+                'level_at_time': e.level_at_time,
+                'location': e.location,
+                'people_involved': e.people_involved,
+                'vividness': e.vividness,
+                'times_recalled': e.times_recalled,
+                'part_of_chapter': e.part_of_chapter,
+                'defines_identity': e.defines_identity,
+            } for e in self.life_events[-500:]],  # Keep last 500 events
+
+            'chapters': [{
+                'chapter_name': c.chapter_name,
+                'start_time': c.start_time,
+                'end_time': c.end_time,
+                'start_level': c.start_level,
+                'end_level': c.end_level,
+                'dominant_emotion': c.dominant_emotion,
+                'defining_moments': c.defining_moments,
+                'lessons_learned': c.lessons_learned,
+            } for c in self.chapters],
+
+            'identity_statements': self.identity_statements,
+            'core_values': self.core_values,
+            'self_description': self.self_description,
+            'character_birth_time': self.character_birth_time,
+            'total_play_time': self.total_play_time,
+            'defining_friendships': self.defining_friendships,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'life_events' in state:
+            self.life_events = []
+            for e_state in state['life_events']:
+                event = LifeEvent(
+                    timestamp=e_state['timestamp'],
+                    event_type=e_state['event_type'],
+                    description=e_state['description'],
+                    emotional_valence=e_state.get('emotional_valence', 0.0),
+                    significance=e_state.get('significance', 0.5),
+                    level_at_time=e_state.get('level_at_time', 1),
+                    location=e_state.get('location'),
+                    people_involved=e_state.get('people_involved', []),
+                    vividness=e_state.get('vividness', 1.0),
+                    times_recalled=e_state.get('times_recalled', 0),
+                    part_of_chapter=e_state.get('part_of_chapter'),
+                    defines_identity=e_state.get('defines_identity', False),
+                )
+                self.life_events.append(event)
+
+                # Rebuild indices
+                if event.event_type in self.event_index:
+                    self.event_index[event.event_type].append(event)
+                if event.location:
+                    if event.location not in self.location_memories:
+                        self.location_memories[event.location] = []
+                    self.location_memories[event.location].append(event)
+
+        if 'chapters' in state:
+            self.chapters = []
+            for c_state in state['chapters']:
+                chapter = LifeChapter(
+                    chapter_name=c_state['chapter_name'],
+                    start_time=c_state['start_time'],
+                    end_time=c_state.get('end_time'),
+                    start_level=c_state.get('start_level', 1),
+                    end_level=c_state.get('end_level'),
+                    dominant_emotion=c_state.get('dominant_emotion', 'curious'),
+                    defining_moments=c_state.get('defining_moments', []),
+                    lessons_learned=c_state.get('lessons_learned', []),
+                )
+                self.chapters.append(chapter)
+
+            if self.chapters:
+                self.current_chapter = self.chapters[-1]
+
+        self.identity_statements = state.get('identity_statements', [])
+        self.core_values = state.get('core_values', {})
+        self.self_description = state.get('self_description', "An adventurer on their journey")
+        self.character_birth_time = state.get('character_birth_time', time.time())
+        self.total_play_time = state.get('total_play_time', 0.0)
+        self.defining_friendships = state.get('defining_friendships', [])
 
 
 # =============================================================================
