@@ -2094,6 +2094,12 @@ class HumanEquivalentCognition:
         logger.info("Unifying System (Tier 3) initialized:")
         logger.info("  - Autobiographical memory (narrative identity, life story)")
 
+        # Tier 4: Temporal Awareness - Human Relationship With Time
+        self.temporal_awareness = TemporalLifeAwareness()
+
+        logger.info("Temporal System (Tier 4) initialized:")
+        logger.info("  - Temporal life awareness (fatigue, burnout, rest-seeking)")
+
         # Integration state
         self._last_state_features: Optional[Dict[str, Any]] = None
         self._last_action: Optional[str] = None
@@ -2116,6 +2122,11 @@ class HumanEquivalentCognition:
         This is where the agent transitions from learning to LIVING.
         """
         delta_time = time.time() - self._session_start_time
+
+        # === TEMPORAL AWARENESS (UPDATE FIRST) ===
+        # Track session fatigue, burnout, rest-seeking
+        current_activity = perception.get('current_activity', 'unknown')
+        self.temporal_awareness.tick(1.0, current_activity)
 
         # === PROGRESSION LIFECYCLE ===
         # Track time played
@@ -2735,7 +2746,7 @@ class HumanEquivalentCognition:
     def _save_state(self):
         """Save cognitive state to disk."""
         state = {
-            'version': '5.0.0',  # Version with Tier 1 + Tier 2 + Tier 3 (Autobiographical Memory)
+            'version': '6.0.0',  # Version with Tier 1+2+3+4 (Temporal Awareness)
             'beliefs': self.beliefs.get_state(),
             'procedural_memory': self.procedural_memory.get_state(),
             'world_model': self.world_model.get_state(),
@@ -2763,6 +2774,9 @@ class HumanEquivalentCognition:
 
             # === UNIFYING SYSTEM (TIER 3) ===
             'autobiographical_memory': self.autobiographical_memory.get_state(),
+
+            # === TEMPORAL SYSTEM (TIER 4) ===
+            'temporal_awareness': self.temporal_awareness.get_state(),
         }
 
         try:
@@ -2860,6 +2874,12 @@ class HumanEquivalentCognition:
                 self.autobiographical_memory.set_state(state['autobiographical_memory'])
                 logger.info(f"  Restored life story: {len(self.autobiographical_memory.life_events)} events, "
                            f"{len(self.autobiographical_memory.life_chapters)} chapters")
+
+            # === TEMPORAL SYSTEM (TIER 4) ===
+            if 'temporal_awareness' in state:
+                self.temporal_awareness.set_state(state['temporal_awareness'])
+                logger.info(f"  Restored temporal state: {self.temporal_awareness.play_style}, "
+                           f"Fatigue: {self.temporal_awareness.current_fatigue:.2f}")
 
             logger.info(f"Restored cognitive state: {self._tick_count} previous ticks, "
                        f"{len(self.beliefs.beliefs)} beliefs, "
@@ -6778,6 +6798,394 @@ class AutobiographicalMemory:
 
 
 # =============================================================================
+# TEMPORAL LIFE AWARENESS - Human Relationship With Time
+# =============================================================================
+
+@dataclass
+class PlaySession:
+    """A discrete play session with temporal boundaries."""
+    start_time: float
+    end_time: Optional[float] = None
+    duration_seconds: float = 0.0
+    activities: List[str] = field(default_factory=list)
+    dominant_activity: str = "mixed"
+    burnout_level_at_end: float = 0.0
+    fatigue_at_end: float = 0.0
+    mistakes_made: int = 0
+    session_number: int = 0
+
+
+class TemporalLifeAwareness:
+    """
+    Models the agent's human-like relationship with time.
+
+    Humans don't experience gameplay as uniform decision ticks.
+    They experience:
+    - Session fatigue (hour 1 ≠ hour 4)
+    - Burnout from repetition
+    - Fresh start energy after breaks
+    - Play pattern identity ("I play 2 hours daily")
+    - Goal time pressure
+    - Rest-seeking when exhausted
+
+    This system makes time FELT, not just tracked.
+    """
+
+    def __init__(self):
+        # Current session state
+        self.current_session_start = time.time()
+        self.current_session_duration = 0.0
+        self.session_count = 0
+
+        # Fatigue modeling (0-1, higher = more exhausted)
+        self.current_fatigue = 0.0  # Mental/attentional fatigue
+        self.fatigue_accumulation_rate = 0.05  # Per hour
+        self.fatigue_recovery_rate = 0.3  # Per hour offline
+
+        # Burnout modeling (0-1, higher = more burned out)
+        self.current_burnout = 0.0  # Activity-specific exhaustion
+        self.burnout_threshold = 0.7  # When to seek variety
+        self.current_activity = None
+        self.activity_start_time = None
+        self.activity_duration_limit = 7200.0  # 2 hours before burnout kicks in
+
+        # Play pattern learning
+        self.play_sessions: List[PlaySession] = []
+        self.typical_session_duration = 10800.0  # 3 hours default
+        self.typical_inter_session_gap = 86400.0  # 24 hours default
+        self.preferred_play_times: Dict[int, int] = {}  # hour_of_day -> count
+
+        # Temporal identity
+        self.play_style = "unknown"  # "marathon", "daily_regular", "weekend_warrior", "casual_sporadic"
+        self.total_lifetime_play_time = 0.0
+
+        # Goal time awareness
+        self.active_goal_start_times: Dict[str, float] = {}  # goal_id -> start_time
+        self.goal_patience_threshold = 259200.0  # 3 days before impatience
+
+        # Last played tracking
+        self.last_session_end = None
+        self.time_since_last_play = 0.0
+
+        # Fresh start effect
+        self.fresh_start_bonus = 0.0  # 0-0.2, bonus to confidence/focus after breaks
+        self.freshness_decay_rate = 0.1  # Per hour
+
+        # Decision quality impact
+        self.attention_quality = 1.0  # 1.0 = full focus, 0.5 = distracted
+        self.error_proneness = 0.0  # 0-0.5, probability of suboptimal choices
+
+        # Rest-seeking drive
+        self.rest_drive = 0.0  # 0-1, desire to stop playing
+        self.rest_drive_threshold = 0.8  # When rest becomes dominant
+
+        # Temporal urgency
+        self.goal_urgency: Dict[str, float] = {}  # goal_id -> urgency (0-1)
+
+    def start_new_session(self):
+        """Called when agent begins playing (login)."""
+        now = time.time()
+
+        # Calculate gap since last session
+        if self.last_session_end:
+            self.time_since_last_play = now - self.last_session_end
+        else:
+            self.time_since_last_play = 0.0
+
+        # Fresh start effect based on break duration
+        if self.time_since_last_play > 28800:  # 8+ hours
+            self.fresh_start_bonus = 0.2  # Significant energy restoration
+        elif self.time_since_last_play > 14400:  # 4+ hours
+            self.fresh_start_bonus = 0.15
+        elif self.time_since_last_play > 3600:  # 1+ hours
+            self.fresh_start_bonus = 0.1
+        else:
+            self.fresh_start_bonus = 0.05  # Short break
+
+        # Reset session state
+        self.current_session_start = now
+        self.current_session_duration = 0.0
+        self.session_count += 1
+        self.current_fatigue = max(0.0, self.current_fatigue - 0.3)  # Partial recovery
+        self.current_burnout = max(0.0, self.current_burnout * 0.5)  # Burnout decays between sessions
+        self.rest_drive = 0.0
+
+        # Update attention quality (fresh start)
+        self.attention_quality = 1.0
+        self.error_proneness = 0.0
+
+        # Track play time patterns
+        hour_of_day = datetime.fromtimestamp(now).hour
+        self.preferred_play_times[hour_of_day] = self.preferred_play_times.get(hour_of_day, 0) + 1
+
+        logger.info(f"Session {self.session_count} started | "
+                   f"Gap since last: {self.time_since_last_play/3600:.1f}h | "
+                   f"Fresh start bonus: +{self.fresh_start_bonus*100:.0f}% | "
+                   f"Residual fatigue: {self.current_fatigue:.2f}")
+
+    def end_session(self):
+        """Called when agent stops playing (logout/shutdown)."""
+        now = time.time()
+
+        # Finalize current session
+        duration = now - self.current_session_start
+        session = PlaySession(
+            start_time=self.current_session_start,
+            end_time=now,
+            duration_seconds=duration,
+            dominant_activity=self.current_activity or "unknown",
+            burnout_level_at_end=self.current_burnout,
+            fatigue_at_end=self.current_fatigue,
+            session_number=self.session_count
+        )
+        self.play_sessions.append(session)
+
+        # Update lifetime stats
+        self.total_lifetime_play_time += duration
+        self.last_session_end = now
+
+        # Update typical session duration (rolling average)
+        if len(self.play_sessions) > 1:
+            recent_durations = [s.duration_seconds for s in self.play_sessions[-10:]]
+            self.typical_session_duration = sum(recent_durations) / len(recent_durations)
+
+        # Classify play style
+        self._update_play_style()
+
+        logger.info(f"Session {self.session_count} ended | "
+                   f"Duration: {duration/3600:.1f}h | "
+                   f"Fatigue: {self.current_fatigue:.2f} | "
+                   f"Burnout: {self.current_burnout:.2f} | "
+                   f"Style: {self.play_style}")
+
+    def tick(self, delta_seconds: float, current_activity: str = None):
+        """
+        Update temporal state each decision tick.
+
+        Args:
+            delta_seconds: Time since last tick (usually ~1 second)
+            current_activity: What the agent is doing ("combat", "travel", "rest", etc.)
+        """
+        self.current_session_duration += delta_seconds
+        self.total_lifetime_play_time += delta_seconds
+
+        # === FATIGUE ACCUMULATION ===
+        # Fatigue grows with session duration (mental exhaustion)
+        hours_played = self.current_session_duration / 3600.0
+        self.current_fatigue = min(1.0, hours_played * self.fatigue_accumulation_rate)
+
+        # Faster fatigue accumulation during intense activities
+        if current_activity in ['combat', 'pvp', 'difficult_quest']:
+            self.current_fatigue = min(1.0, self.current_fatigue + delta_seconds / 7200.0)  # Faster drain
+
+        # === BURNOUT TRACKING ===
+        # Burnout from doing the same thing too long
+        if current_activity and current_activity != self.current_activity:
+            # Activity changed - reset burnout timer
+            self.current_activity = current_activity
+            self.activity_start_time = time.time()
+
+        if self.activity_start_time:
+            activity_duration = time.time() - self.activity_start_time
+            if activity_duration > self.activity_duration_limit:
+                # Been doing this too long - burnout increases
+                excess_time = activity_duration - self.activity_duration_limit
+                self.current_burnout = min(1.0, excess_time / 3600.0)  # 1 hour excess = full burnout
+
+        # === FRESH START DECAY ===
+        # Energy bonus from breaks decays over session
+        if self.fresh_start_bonus > 0:
+            self.fresh_start_bonus = max(0.0,
+                self.fresh_start_bonus - self.freshness_decay_rate * (delta_seconds / 3600.0))
+
+        # === ATTENTION QUALITY ===
+        # Focus degrades with fatigue
+        self.attention_quality = max(0.4, 1.0 - (self.current_fatigue * 0.6))
+        self.error_proneness = min(0.5, self.current_fatigue * 0.5)
+
+        # === REST DRIVE ===
+        # Desire to stop playing emerges with extreme fatigue
+        if self.current_fatigue > 0.7:
+            self.rest_drive = (self.current_fatigue - 0.7) / 0.3  # 0 at 0.7, 1.0 at 1.0
+        else:
+            self.rest_drive = 0.0
+
+        # Burnout also contributes to rest drive
+        if self.current_burnout > self.burnout_threshold:
+            self.rest_drive = max(self.rest_drive, self.current_burnout)
+
+        # === GOAL URGENCY ===
+        # Update time pressure for active goals
+        for goal_id, start_time in list(self.active_goal_start_times.items()):
+            time_on_goal = time.time() - start_time
+            if time_on_goal > self.goal_patience_threshold:
+                # Goal taking too long - urgency increases
+                excess_time = time_on_goal - self.goal_patience_threshold
+                urgency = min(1.0, excess_time / 86400.0)  # Full urgency after 1 day excess
+                self.goal_urgency[goal_id] = urgency
+
+    def start_goal_tracking(self, goal_id: str):
+        """Begin tracking time investment for a goal."""
+        if goal_id not in self.active_goal_start_times:
+            self.active_goal_start_times[goal_id] = time.time()
+            self.goal_urgency[goal_id] = 0.0
+            logger.debug(f"Started tracking goal time: {goal_id}")
+
+    def complete_goal(self, goal_id: str):
+        """Goal completed - stop tracking time pressure."""
+        if goal_id in self.active_goal_start_times:
+            duration = time.time() - self.active_goal_start_times[goal_id]
+            del self.active_goal_start_times[goal_id]
+            if goal_id in self.goal_urgency:
+                del self.goal_urgency[goal_id]
+            logger.debug(f"Goal completed: {goal_id} | Time: {duration/3600:.1f}h")
+
+    def get_fatigue_modifiers(self) -> Dict[str, float]:
+        """
+        Get decision modifiers based on current fatigue.
+
+        Returns:
+            Dict with modifier values (multiply or add to base stats)
+        """
+        return {
+            'attention_multiplier': self.attention_quality,
+            'confidence_penalty': -self.current_fatigue * 0.3,  # Up to -30%
+            'risk_increase': self.error_proneness,  # Up to +50% risky behavior
+            'reaction_time_penalty': self.current_fatigue * 0.4,  # Up to 40% slower
+            'learning_efficiency': self.attention_quality,  # Worse learning when tired
+            'fresh_bonus': self.fresh_start_bonus,  # Early session bonus
+        }
+
+    def should_seek_rest(self) -> bool:
+        """Returns True if agent should prioritize resting/logging out."""
+        return self.rest_drive > self.rest_drive_threshold
+
+    def should_seek_variety(self) -> bool:
+        """Returns True if agent should change activities (burnout)."""
+        return self.current_burnout > self.burnout_threshold
+
+    def get_goal_urgency(self, goal_id: str) -> float:
+        """Get time pressure for a specific goal (0-1)."""
+        return self.goal_urgency.get(goal_id, 0.0)
+
+    def _update_play_style(self):
+        """Classify play pattern based on session history."""
+        if len(self.play_sessions) < 3:
+            self.play_style = "new_player"
+            return
+
+        recent = self.play_sessions[-10:]
+        avg_duration = sum(s.duration_seconds for s in recent) / len(recent)
+
+        # Calculate inter-session gaps
+        gaps = []
+        for i in range(1, len(self.play_sessions)):
+            gap = self.play_sessions[i].start_time - self.play_sessions[i-1].end_time
+            gaps.append(gap)
+        avg_gap = sum(gaps[-10:]) / len(gaps[-10:]) if gaps else 86400.0
+
+        # Classify
+        if avg_duration > 14400:  # 4+ hour sessions
+            self.play_style = "marathon_player"
+        elif avg_gap < 43200 and avg_duration > 3600:  # <12h gaps, >1h sessions
+            self.play_style = "daily_regular"
+        elif avg_gap > 172800:  # >2 day gaps
+            if avg_duration > 10800:  # But long sessions
+                self.play_style = "weekend_warrior"
+            else:
+                self.play_style = "casual_sporadic"
+        else:
+            self.play_style = "moderate_regular"
+
+    def get_temporal_identity_summary(self) -> str:
+        """Get human-readable summary of temporal identity."""
+        hours_played = self.total_lifetime_play_time / 3600.0
+        sessions = len(self.play_sessions)
+
+        summary = []
+        summary.append(f"Play Style: {self.play_style.replace('_', ' ').title()}")
+        summary.append(f"Total Play Time: {hours_played:.1f} hours across {sessions} sessions")
+
+        if self.play_sessions:
+            avg_session = self.typical_session_duration / 3600.0
+            summary.append(f"Typical Session: {avg_session:.1f} hours")
+
+        if self.preferred_play_times:
+            peak_hour = max(self.preferred_play_times, key=self.preferred_play_times.get)
+            summary.append(f"Usually plays around: {peak_hour:02d}:00")
+
+        return " | ".join(summary)
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'session_count': self.session_count,
+            'current_fatigue': self.current_fatigue,
+            'current_burnout': self.current_burnout,
+            'current_activity': self.current_activity,
+            'activity_start_time': self.activity_start_time,
+            'play_sessions': [
+                {
+                    'start': s.start_time,
+                    'end': s.end_time,
+                    'duration': s.duration_seconds,
+                    'activity': s.dominant_activity,
+                    'burnout': s.burnout_level_at_end,
+                    'fatigue': s.fatigue_at_end,
+                    'number': s.session_number,
+                }
+                for s in self.play_sessions[-50:]  # Keep last 50 sessions
+            ],
+            'typical_session_duration': self.typical_session_duration,
+            'typical_inter_session_gap': self.typical_inter_session_gap,
+            'preferred_play_times': self.preferred_play_times,
+            'play_style': self.play_style,
+            'total_lifetime_play_time': self.total_lifetime_play_time,
+            'last_session_end': self.last_session_end,
+            'active_goal_start_times': self.active_goal_start_times,
+            'goal_urgency': self.goal_urgency,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        self.session_count = state.get('session_count', 0)
+        self.current_fatigue = state.get('current_fatigue', 0.0)
+        self.current_burnout = state.get('current_burnout', 0.0)
+        self.current_activity = state.get('current_activity')
+        self.activity_start_time = state.get('activity_start_time')
+
+        # Restore sessions
+        self.play_sessions = []
+        for s in state.get('play_sessions', []):
+            self.play_sessions.append(PlaySession(
+                start_time=s['start'],
+                end_time=s['end'],
+                duration_seconds=s['duration'],
+                dominant_activity=s['activity'],
+                burnout_level_at_end=s['burnout'],
+                fatigue_at_end=s['fatigue'],
+                session_number=s['number'],
+            ))
+
+        self.typical_session_duration = state.get('typical_session_duration', 10800.0)
+        self.typical_inter_session_gap = state.get('typical_inter_session_gap', 86400.0)
+        self.preferred_play_times = state.get('preferred_play_times', {})
+        self.play_style = state.get('play_style', 'unknown')
+        self.total_lifetime_play_time = state.get('total_lifetime_play_time', 0.0)
+        self.last_session_end = state.get('last_session_end')
+        self.active_goal_start_times = state.get('active_goal_start_times', {})
+        self.goal_urgency = state.get('goal_urgency', {})
+
+        # Recalculate current state
+        if self.last_session_end:
+            self.time_since_last_play = time.time() - self.last_session_end
+
+        logger.info(f"Restored temporal awareness: {self.play_style}, "
+                   f"{self.total_lifetime_play_time/3600:.1f}h total, "
+                   f"{len(self.play_sessions)} sessions")
+
+
+# =============================================================================
 # ENUMERATIONS
 # =============================================================================
 
@@ -9288,6 +9696,61 @@ class CognitiveCore:
         # Nostalgia → occasional pull toward early zones (emotional, not optimal)
         if random.random() < 0.001 and life.autobiographical_memory.detect_nostalgia():
             directive.reasoning_log.append("nostalgia: remembering early adventures")
+
+        # === TEMPORAL AWARENESS (TIER 4) ===
+        # Fatigue, burnout, and rest-seeking modify ALL decisions
+        temporal = life.temporal_awareness
+        fatigue_mods = temporal.get_fatigue_modifiers()
+
+        # Fresh start bonus (early session energy)
+        if fatigue_mods['fresh_bonus'] > 0:
+            directive.action_confidence += fatigue_mods['fresh_bonus']
+            directive.reasoning_log.append(f"fresh_energy: early session bonus (+{fatigue_mods['fresh_bonus']*100:.0f}%)")
+
+        # Fatigue penalties (late session degradation)
+        if temporal.current_fatigue > 0.3:
+            # Confidence decreases with fatigue
+            directive.action_confidence += fatigue_mods['confidence_penalty']  # Negative value
+            # Risk-taking increases (more errors)
+            directive.risk_estimate = min(1.0, directive.risk_estimate + fatigue_mods['risk_increase'])
+            # Reasoning quality degrades
+            if temporal.current_fatigue > 0.7:
+                directive.reasoning_log.append(f"FATIGUE: exhausted ({temporal.current_fatigue:.2f}), "
+                                             f"attention -{(1.0-fatigue_mods['attention_multiplier'])*100:.0f}%")
+            elif temporal.current_fatigue > 0.5:
+                directive.reasoning_log.append(f"fatigue: tired, making more mistakes")
+
+        # Burnout → seek activity variety
+        if temporal.should_seek_variety():
+            directive.reasoning_log.append(f"BURNOUT: been doing {temporal.current_activity} too long, need change")
+            # Reduce confidence in current action type
+            directive.action_confidence *= 0.8
+
+        # Rest drive → overrides other drives when extreme
+        if temporal.should_seek_rest():
+            # Strong desire to stop playing
+            directive.primary_action = CogActionType.REST
+            directive.reasoning_log.append(f"REST_DRIVE: exhausted (fatigue={temporal.current_fatigue:.2f}), "
+                                         f"need to stop playing")
+            directive.time_horizon_seconds = 1.0  # Very short-term thinking
+            directive.action_confidence = 0.9  # Very confident in need to rest
+
+        # Goal urgency → time pressure affects patience
+        for goal_id, urgency in temporal.goal_urgency.items():
+            if urgency > 0.5:
+                # Goal taking too long → frustration, shortcuts
+                directive.risk_estimate = min(1.0, directive.risk_estimate + urgency * 0.2)
+                directive.time_horizon_seconds *= 0.7  # Less patient
+                directive.reasoning_log.append(f"goal_urgency: {goal_id} taking too long, feeling impatient")
+
+        # Play style identity affects behavior
+        if temporal.play_style == "marathon_player" and temporal.current_fatigue < 0.5:
+            # Marathon players push through longer
+            directive.action_confidence *= 1.05
+        elif temporal.play_style == "casual_sporadic":
+            # Casual players more cautious, less urgent
+            directive.risk_estimate = min(1.0, directive.risk_estimate * 1.1)
+            directive.time_horizon_seconds *= 1.2
 
         return directive
 
