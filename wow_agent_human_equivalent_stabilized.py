@@ -8976,8 +8976,15 @@ class CognitiveCore:
             initial_exploration_rate=0.5,
             min_exploration_rate=0.05
         )
-        self.human_cognition = HumanEquivalentCognition()
-        
+
+        # BUG FIX: Removed unused HumanEquivalentCognition instantiation
+        # - Was using ~5-10 MB memory with no execution path
+        # - Contains 13 life systems (progression, wealth, gear, social, death, etc.)
+        # - To integrate: would need to bridge perception formats (Dict vs CogPerceptionState)
+        #   and decision outputs (Dict vs TacticalDirective)
+        # TODO: Decide integration strategy - merge into CognitiveCore or create adapter
+        # self.human_cognition = HumanEquivalentCognition()
+
         self.personality = PersonalityProfile(
             risk_tolerance=0.4,
             patience_level=0.5,
@@ -9058,7 +9065,24 @@ class CognitiveCore:
             self.personality = state['personality']
         if 'tick_count' in state:
             self._tick_count = state['tick_count']
-    
+
+        # === CRITICAL: Restore Human-Equivalent Learning Systems ===
+        if 'probabilistic_beliefs' in state:
+            self.probabilistic_beliefs.set_state(state['probabilistic_beliefs'])
+            logger.info(f"  Restored probabilistic beliefs: {len(self.probabilistic_beliefs.beliefs)} beliefs")
+        if 'procedural_memory' in state:
+            self.procedural_memory.set_state(state['procedural_memory'])
+            logger.info(f"  Restored procedural memory: {len(self.procedural_memory.skills)} skills")
+        if 'world_model' in state:
+            self.world_model.set_state(state['world_model'])
+            logger.info(f"  Restored world model: {len(self.world_model.visited_locations)} locations")
+        if 'drive_system' in state:
+            self.drive_system.set_state(state['drive_system'])
+            logger.info(f"  Restored drive system")
+        if 'rl_learner' in state:
+            self.rl_learner.set_state(state['rl_learner'])
+            logger.info(f"  Restored Q-learning: {len(self.rl_learner.q_values)} Q-values")
+
     def _enter_amnesiac_mode(self):
         logger.warning("Cognitive system entering amnesiac recovery mode")
         self.meta_cognition.enter_recovery_mode("memory_corruption", time.time())
@@ -9248,9 +9272,17 @@ class CognitiveCore:
                 'meta_cognition': self.meta_cognition.get_state_dict(),
                 'decision_synthesis': self.decision_synthesis.get_state(),
                 'personality': self.personality,
-                'tick_count': self._tick_count
+                'tick_count': self._tick_count,
+
+                # === CRITICAL: Human-Equivalent Learning Systems ===
+                # These were missing - caused complete learning loss on restart
+                'probabilistic_beliefs': self.probabilistic_beliefs.get_state(),
+                'procedural_memory': self.procedural_memory.get_state(),
+                'world_model': self.world_model.get_state(),
+                'drive_system': self.drive_system.get_state(),
+                'rl_learner': self.rl_learner.get_state(),
             }
-            
+
             return self.persistence.save(state)
     
     def shutdown(self):
@@ -11618,12 +11650,13 @@ class DecisionEngine:
                 'death': not success,
                 'damage_taken': 0 if success else 50,
             }
-            self.cognitive_core.record_combat_outcome(outcome)
-            
+            # BUG FIX: record_combat_outcome() doesn't exist - already called record_outcome() above
+
             # Update procedural memory for combat skills
             combat_skill = f"combat_{outcome_type}"
-            self.cognitive_core.update_from_experience(
-                'combat', success, 'combat'
+            # BUG FIX: update_from_experience() is on probabilistic_beliefs, not cognitive_core
+            self.cognitive_core.probabilistic_beliefs.update_from_experience(
+                BeliefType.CAPABILITY, 'combat', success
             )
             
             # Record to RL learner
@@ -11649,7 +11682,8 @@ class DecisionEngine:
                     self.cognitive_core.world_model.record_kill(pos[0], pos[1], 'unknown_enemy')
                     
         except Exception as e:
-            logger.debug(f"Enhanced learning update error: {e}")
+            # BUG FIX: Changed from debug to error so critical issues are visible
+            logger.error(f"Enhanced learning update error: {e}", exc_info=True)
         
         logger.debug(f"Recorded cognitive outcome: {outcome_type}")
     
@@ -11673,7 +11707,8 @@ class DecisionEngine:
                         logger.debug(f"Cognitive metrics: ticks={metrics['tick_count']}, "
                                     f"sessions={metrics['session_count']}")
             except Exception as e:
-                logger.debug(f"Cognitive processing error: {e}")
+                # BUG FIX: Changed from debug to error so critical issues are visible
+                logger.error(f"Cognitive processing error: {e}", exc_info=True)
         
         # Handle death
         if state.player_is_dead:
@@ -11696,14 +11731,18 @@ class DecisionEngine:
             # Get human-equivalent cognitive input for combat
             if self._use_cognitive_system and self.cognitive_core is not None:
                 try:
-                    # Get skill confidence for combat
-                    combat_skill = self.cognitive_core.get_skill_confidence('combat')
-                    
-                    # Add hesitation based on confidence (human-like uncertainty delay)
-                    hesitation = self.cognitive_core.get_action_hesitation('combat', combat_skill)
-                    if hesitation > 0:
-                        time.sleep(min(0.5, hesitation))  # Cap at 0.5s
-                    
+                    # BUG FIX: get_skill_confidence() and get_action_hesitation() don't exist
+                    # Use procedural memory to estimate combat confidence
+                    combat_confidence = 0.5  # Default
+                    combat_skill = self.cognitive_core.procedural_memory.get_skill('combat')
+                    if combat_skill:
+                        combat_confidence = combat_skill.competence
+
+                    # Add small hesitation if low confidence (human-like uncertainty)
+                    if combat_confidence < 0.5:
+                        hesitation = (0.5 - combat_confidence) * 0.3  # Max 0.15s delay
+                        time.sleep(hesitation)
+
                     # Get risk tolerance from drives
                     risk_tolerance = self.cognitive_core.drive_system.get_risk_tolerance()
                     
@@ -11713,7 +11752,8 @@ class DecisionEngine:
                         logger.info("Risk aversion triggered - considering flee")
                         
                 except Exception as e:
-                    logger.debug(f"Human cognition combat error: {e}")
+                    # BUG FIX: Changed from debug to error so critical issues are visible
+                    logger.error(f"Human cognition combat error: {e}", exc_info=True)
             
             return self._handle_combat(state)
         
