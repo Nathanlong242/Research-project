@@ -163,6 +163,7 @@ import logging
 import sys
 import atexit
 import json
+import hashlib
 import os
 import re
 from pathlib import Path
@@ -2045,23 +2046,240 @@ class HumanEquivalentCognition:
         
         # Behavioral momentum for identity continuity
         self.momentum = BehavioralMomentum()
-        
+
+        # ═══════════════════════════════════════════════════════════════════
+        # HUMAN LIFE SYSTEMS - Transform learner into liver
+        # ═══════════════════════════════════════════════════════════════════
+        # These systems make the agent LIVE in WoW, not just learn it.
+        # They add long-horizon goals, emotional investment, and persistent
+        # identity across the full 1-60 journey and into endgame.
+
+        self.progression = ProgressionLifecycle()
+        self.wealth = WealthEmotionalState()
+        self.gear_intuition = GearIntuitionSystem()
+        self.professions = ProfessionCommitmentTracker()
+        self.endgame_prep = EndgamePreparationPlanner()
+        self.power_spikes = PowerSpikeDetectionSystem()
+
+        logger.info("Human Life Systems initialized:")
+        logger.info("  - Progression lifecycle (1-60 journey)")
+        logger.info("  - Wealth emotional state (gold anxiety/security)")
+        logger.info("  - Gear intuition learning (experience-based)")
+        logger.info("  - Profession commitment tracking (identity)")
+        logger.info("  - Endgame preparation planning (raid readiness)")
+        logger.info("  - Power spike detection (excitement & confidence)")
+
         # Integration state
         self._last_state_features: Optional[Dict[str, Any]] = None
         self._last_action: Optional[str] = None
         self._tick_count = 0
         self._session_start_time = time.time()
-        
+
         # Hesitation and uncertainty modeling
         self._confidence_threshold = 0.6  # Below this, hesitate
         self._hesitation_duration = 0.0
-        
+
         # Load persisted state
         self._load_state()
-        
+
         # Validate identity continuity
         self._validate_identity_continuity()
-    
+
+    def _update_life_systems(self, perception: Dict[str, Any]):
+        """
+        Update all life systems based on current perception.
+        This is where the agent transitions from learning to LIVING.
+        """
+        delta_time = time.time() - self._session_start_time
+
+        # === PROGRESSION LIFECYCLE ===
+        # Track time played
+        self.progression.tick_session(1.0)  # Approximate 1 second per tick
+
+        # Update level from perception
+        if 'level' in perception:
+            current_level = perception['level']
+            if current_level > self.progression.current_level:
+                self.progression.record_level_up(current_level)
+
+                # Level up triggers power spike!
+                spike = self.power_spikes.detect_level_up(current_level)
+                self.power_spikes.record_spike(spike)
+
+                # Check endgame transition
+                self.endgame_prep.check_endgame_transition(current_level)
+
+                # Update wealth savings goal
+                self.wealth.set_active_savings_goal(current_level)
+
+        # Track XP gains (if provided)
+        if 'xp_gained' in perception:
+            self.progression.record_xp_gain(perception['xp_gained'])
+
+        # Track zone changes
+        if 'zone_name' in perception and perception['zone_name'] != 'unknown':
+            if perception['zone_name'] != self.progression.current_zone_name:
+                self.progression.record_zone_entry(perception['zone_name'])
+
+        # Increase zone comfort gradually
+        self.progression.increase_zone_comfort(0.001)
+
+        # === WEALTH EMOTIONAL STATE ===
+        # Update gold from perception
+        if 'gold' in perception:
+            current_gold = perception['gold']
+            if current_gold != self.wealth.current_gold:
+                self.wealth.update_gold(current_gold)
+
+        # Track income from looting
+        if 'gold_looted' in perception and perception['gold_looted'] > 0:
+            self.wealth.record_income(perception['gold_looted'], 'loot')
+
+        # Track expenses
+        if 'gold_spent' in perception and perception['gold_spent'] > 0:
+            self.wealth.record_expense(perception['gold_spent'], perception.get('expense_reason', 'unknown'))
+
+        # Wealth modulates drives
+        wealth_risk_modifier = self.wealth.get_risk_tolerance_modifier()
+        if hasattr(self.drives.drives.get(DriveType.COMFORT), 'base_weight'):
+            # Poor = higher comfort drive (risk averse)
+            self.drives.drives[DriveType.COMFORT].base_weight = 1.0 - wealth_risk_modifier
+            # Rich = higher acquisition drive (can afford to take risks)
+            self.drives.drives[DriveType.ACQUISITION].base_weight = 1.0 + wealth_risk_modifier * 0.5
+
+        # === GEAR INTUITION SYSTEM ===
+        # Track combat start/end for gear performance
+        if 'combat_started' in perception and perception['combat_started']:
+            self.gear_intuition.start_combat()
+
+        if 'damage_dealt' in perception:
+            self.gear_intuition.record_damage_dealt(perception['damage_dealt'])
+
+        if 'damage_taken' in perception:
+            self.gear_intuition.record_damage_taken(perception['damage_taken'])
+
+        if 'combat_ended' in perception and perception['combat_ended']:
+            won = perception.get('combat_won', False)
+            self.gear_intuition.end_combat(won)
+
+        # Track gear changes
+        if 'gear_equipped' in perception:
+            gear_info = perception['gear_equipped']
+            self.gear_intuition.equip_gear(
+                gear_info['name'],
+                gear_info['slot'],
+                gear_info.get('stats', {})
+            )
+
+            # Check if this is a power spike
+            if 'old_dps' in gear_info and 'new_dps' in gear_info:
+                spike = self.power_spikes.detect_gear_upgrade(
+                    gear_info['old_dps'],
+                    gear_info['new_dps'],
+                    gear_info['name']
+                )
+                if spike:
+                    self.power_spikes.record_spike(spike)
+
+        # === PROFESSION COMMITMENT ===
+        # Track profession choices
+        if 'profession_learned' in perception:
+            prof_info = perception['profession_learned']
+            self.professions.choose_profession(
+                prof_info['name'],
+                self.progression.current_level
+            )
+
+        # Track profession skill-ups
+        if 'profession_skill_up' in perception:
+            skill_info = perception['profession_skill_up']
+            self.professions.record_skill_up(
+                skill_info['profession'],
+                skill_info['new_level']
+            )
+
+        # Track profession practice
+        if 'profession_practice' in perception:
+            practice_info = perception['profession_practice']
+            self.professions.record_practice(
+                practice_info['profession'],
+                practice_info.get('success', True)
+            )
+
+        # Track gathering
+        if 'material_gathered' in perception:
+            gather_info = perception['material_gathered']
+            self.professions.record_material_gathered(
+                gather_info['profession'],
+                gather_info['material'],
+                gather_info.get('quantity', 1)
+            )
+
+        # === ENDGAME PREPARATION ===
+        # Track attunement progress
+        if 'attunement_completed' in perception:
+            self.endgame_prep.record_attunement_progress(
+                perception['attunement_completed'],
+                completed=True
+            )
+
+        # Track pre-BiS acquisition
+        if 'prebis_obtained' in perception:
+            self.endgame_prep.record_prebis_obtained(perception['prebis_obtained'])
+
+        # Track guild join
+        if 'guild_joined' in perception:
+            self.endgame_prep.record_guild_join(perception['guild_joined'])
+
+        # === POWER SPIKE DETECTION ===
+        # Decay excitement over time
+        self.power_spikes.decay_excitement(1.0)
+
+        # Track spell learning
+        if 'spell_learned' in perception:
+            spell_info = perception['spell_learned']
+            spike = self.power_spikes.detect_spell_unlock(
+                spell_info['name'],
+                spell_info.get('power_estimate', 0.5)
+            )
+            self.power_spikes.record_spike(spike)
+
+        # Track talent allocation
+        if 'talent_allocated' in perception:
+            talent_info = perception['talent_allocated']
+            spike = self.power_spikes.detect_talent_point(
+                talent_info['name'],
+                talent_info.get('points', 1),
+                talent_info.get('is_capstone', False)
+            )
+            self.power_spikes.record_spike(spike)
+
+        # Power confidence modulates mastery drive
+        power_confidence = self.power_spikes.get_confidence_from_power()
+        if hasattr(self.drives.drives.get(DriveType.MASTERY), 'base_weight'):
+            self.drives.drives[DriveType.MASTERY].base_weight = 0.8 + power_confidence * 0.4
+
+        # === DRIVE MODULATION FROM LIFE SYSTEMS ===
+        # Progression momentum affects progress drive
+        prog_emotions = self.progression.get_progression_emotional_state()
+        if hasattr(self.drives.drives.get(DriveType.PROGRESS), 'base_weight'):
+            self.drives.drives[DriveType.PROGRESS].base_weight = (
+                0.8 + prog_emotions['momentum'] * 0.4 + prog_emotions['endgame_awareness'] * 0.2
+            )
+
+        # Wealth anxiety affects survival drive
+        if self.wealth.financial_anxiety > 0.5:
+            if hasattr(self.drives.drives.get(DriveType.SURVIVAL), 'base_weight'):
+                self.drives.drives[DriveType.SURVIVAL].base_weight = 1.0 + self.wealth.financial_anxiety * 0.3
+
+        # Profession pride affects mastery drive
+        prof_boost = self.professions.get_profession_motivation_boost()
+        if prof_boost > 0.3:
+            if hasattr(self.drives.drives.get(DriveType.MASTERY), 'intensity'):
+                self.drives.drives[DriveType.MASTERY].intensity = min(1.0,
+                    self.drives.drives[DriveType.MASTERY].intensity + prof_boost * 0.1
+                )
+
     def tick(self, perception: Dict[str, Any]) -> Dict[str, Any]:
         """
         Main cognitive tick. Process perception and decide action.
@@ -2073,10 +2291,15 @@ class HumanEquivalentCognition:
         - reasoning: Why this action was chosen
         """
         self._tick_count += 1
-        
+
         # Update drives
         self.drives.update()
-        
+
+        # ═══════════════════════════════════════════════════════════════════
+        # UPDATE LIFE SYSTEMS - Make the agent "live" not just "learn"
+        # ═══════════════════════════════════════════════════════════════════
+        self._update_life_systems(perception)
+
         # Build state features
         state_features = self._build_state_features(perception)
         
@@ -2355,7 +2578,7 @@ class HumanEquivalentCognition:
     def _save_state(self):
         """Save cognitive state to disk."""
         state = {
-            'version': '2.0.0',  # Version with continuity support
+            'version': '3.0.0',  # Version with LIFE systems
             'beliefs': self.beliefs.get_state(),
             'procedural_memory': self.procedural_memory.get_state(),
             'world_model': self.world_model.get_state(),
@@ -2364,12 +2587,29 @@ class HumanEquivalentCognition:
             'momentum': self.momentum.get_state(),
             'tick_count': self._tick_count,
             'saved_at': time.time(),
+
+            # === HUMAN LIFE SYSTEMS ===
+            'progression': self.progression.get_state(),
+            'wealth': self.wealth.get_state(),
+            'gear_intuition': self.gear_intuition.get_state(),
+            'professions': self.professions.get_state(),
+            'endgame_prep': self.endgame_prep.get_state(),
+            'power_spikes': self.power_spikes.get_state(),
         }
-        
+
         try:
             with open(self.persistence_path, 'w') as f:
                 json.dump(state, f, indent=2, default=str)
             logger.debug(f"Saved cognitive state (tick {self._tick_count})")
+
+            # Log life system summaries
+            logger.info(f"Life Systems State:")
+            logger.info(f"  Progression: {self.progression.get_narrative_summary()}")
+            logger.info(f"  Wealth: {self.wealth.get_emotional_summary()}")
+            logger.info(f"  Professions: {self.professions.get_profession_identity_summary()}")
+            logger.info(f"  Endgame: {self.endgame_prep.get_endgame_narrative()}")
+            logger.info(f"  Power: {self.power_spikes.get_power_narrative()}")
+
         except Exception as e:
             logger.error(f"Failed to save cognitive state: {e}")
     
@@ -2378,10 +2618,10 @@ class HumanEquivalentCognition:
         try:
             with open(self.persistence_path, 'r') as f:
                 state = json.load(f)
-            
+
             version = state.get('version', '1.0.0')
             logger.info(f"Loading cognitive state (version {version})")
-            
+
             if 'beliefs' in state:
                 self.beliefs.set_state(state['beliefs'])
             if 'procedural_memory' in state:
@@ -2396,11 +2636,33 @@ class HumanEquivalentCognition:
                 self.momentum.set_state(state['momentum'])
             if 'tick_count' in state:
                 self._tick_count = state['tick_count']
-            
+
+            # === HUMAN LIFE SYSTEMS ===
+            if 'progression' in state:
+                self.progression.set_state(state['progression'])
+                logger.info(f"  Restored progression: Level {self.progression.current_level}")
+            if 'wealth' in state:
+                self.wealth.set_state(state['wealth'])
+                logger.info(f"  Restored wealth: {self.wealth.current_gold:.2f}g")
+            if 'gear_intuition' in state:
+                self.gear_intuition.set_state(state['gear_intuition'])
+                logger.info(f"  Restored gear intuition: {len(self.gear_intuition.gear_experiences)} items tracked")
+            if 'professions' in state:
+                self.professions.set_state(state['professions'])
+                logger.info(f"  Restored professions: {len(self.professions.professions)} learned")
+            if 'endgame_prep' in state:
+                self.endgame_prep.set_state(state['endgame_prep'])
+                if self.endgame_prep.in_endgame_prep_mode:
+                    logger.info(f"  Endgame prep mode active")
+            if 'power_spikes' in state:
+                self.power_spikes.set_state(state['power_spikes'])
+                logger.info(f"  Power estimate: {self.power_spikes.current_power_estimate:.2f}x baseline")
+
             logger.info(f"Restored cognitive state: {self._tick_count} previous ticks, "
                        f"{len(self.beliefs.beliefs)} beliefs, "
                        f"{len(self.procedural_memory.skills)} skills, "
                        f"{len(self.learner.q_values)} Q-values")
+
         except FileNotFoundError:
             logger.info("No previous cognitive state found, starting fresh")
         except Exception as e:
@@ -2428,6 +2690,1934 @@ class HumanEquivalentCognition:
         logger.info(f"  - Is improving: {report['is_improving']}")
         logger.info(f"  - Improvement rate: {report['improvement_rate']:.3f}")
         logger.info(f"  - Success rate: {report['cumulative_success_rate']:.3f}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HUMAN LIFE SYSTEMS - PROGRESSION, WEALTH, GEAR, PROFESSIONS, ENDGAME, POWER
+# ═══════════════════════════════════════════════════════════════════════════════
+# These systems transform the agent from a "learner" into a "liver" - someone who
+# experiences WoW as a persistent life journey, not just a learning environment.
+#
+# CRITICAL: These systems add LONG-HORIZON striving, emotional investment in wealth,
+# gear learning through experience, profession commitment, endgame preparation, and
+# power spike recognition - the missing pieces for human-equivalent WoW life.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROGRESSION LIFECYCLE SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tracks leveling 1-60 as a persistent life goal with emotional milestones.
+# This is NOT just XP tracking - it's the agent's long-term aspiration.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class LevelMilestone:
+    """A significant level milestone with emotional resonance."""
+    level: int
+    milestone_type: str  # 'talent_unlock', 'mount_unlock', 'zone_transition', 'power_spike'
+    emotional_valence: float  # How exciting is this milestone
+    narrative_significance: str  # What this means to the agent's journey
+    achieved: bool = False
+    achievement_time: float = 0.0
+
+
+class ProgressionLifecycle:
+    """
+    Manages the agent's 1-60 leveling journey as a persistent life goal.
+
+    This system makes leveling feel like a LIFE, not just a grind:
+    - Emotional anticipation for upcoming milestones
+    - Zone progression as narrative chapters
+    - Power growth consciousness
+    - Endgame aspiration building
+    """
+
+    def __init__(self):
+        self.current_level = 1
+        self.current_xp = 0
+        self.xp_to_next_level = 400  # Level 1->2
+
+        # Milestone tracking
+        self.milestones = self._initialize_milestones()
+        self.next_milestone: Optional[LevelMilestone] = None
+        self.milestone_history: List[LevelMilestone] = []
+
+        # Zone progression (learned, not hardcoded)
+        self.zone_history: List[Tuple[int, str, float]] = []  # (level, zone_name, time)
+        self.current_zone_name = "unknown"
+        self.zone_comfort_level = 0.0  # 0-1, how comfortable in current zone
+
+        # Emotional state related to progression
+        self.leveling_momentum = 0.5  # How fast we're leveling (perceived)
+        self.milestone_anticipation = 0.0  # Excitement for next milestone
+        self.endgame_awareness = 0.0  # Awareness of level 60 goal (grows over time)
+
+        # Long-horizon planning
+        self.daily_xp_average = 0.0
+        self.estimated_days_to_60 = 999.0
+        self.leveling_confidence = 0.5  # Belief in reaching 60
+
+        # Persistence
+        self.total_time_played = 0.0
+        self.session_count = 0
+        self.creation_time = time.time()
+
+        self._update_next_milestone()
+
+    def _initialize_milestones(self) -> List[LevelMilestone]:
+        """Initialize significant leveling milestones."""
+        milestones = []
+
+        # Early milestones (discovery phase)
+        milestones.append(LevelMilestone(
+            level=5, milestone_type='survival', emotional_valence=0.3,
+            narrative_significance="Survived past the first zone"
+        ))
+        milestones.append(LevelMilestone(
+            level=10, milestone_type='talent_unlock', emotional_valence=0.5,
+            narrative_significance="First talent point - build begins"
+        ))
+
+        # Mid-early (building power)
+        milestones.append(LevelMilestone(
+            level=20, milestone_type='mount_unlock', emotional_valence=0.8,
+            narrative_significance="First mount - the world opens up"
+        ))
+        milestones.append(LevelMilestone(
+            level=30, milestone_type='power_spike', emotional_valence=0.6,
+            narrative_significance="Halfway to endgame, power growing"
+        ))
+
+        # Mid-late (serious progression)
+        milestones.append(LevelMilestone(
+            level=40, milestone_type='mount_upgrade', emotional_valence=0.9,
+            narrative_significance="Epic mount unlocked - true speed"
+        ))
+        milestones.append(LevelMilestone(
+            level=50, milestone_type='endgame_approach', emotional_valence=0.7,
+            narrative_significance="Endgame in sight - preparation begins"
+        ))
+
+        # Late (endgame preparation)
+        milestones.append(LevelMilestone(
+            level=55, milestone_type='endgame_prep', emotional_valence=0.8,
+            narrative_significance="Pre-raid preparation phase"
+        ))
+        milestones.append(LevelMilestone(
+            level=58, milestone_type='endgame_imminent', emotional_valence=0.9,
+            narrative_significance="Almost there - final push"
+        ))
+
+        # THE GOAL
+        milestones.append(LevelMilestone(
+            level=60, milestone_type='endgame_achieved', emotional_valence=1.0,
+            narrative_significance="Maximum level - endgame life begins"
+        ))
+
+        return milestones
+
+    def _update_next_milestone(self):
+        """Update next unachieved milestone."""
+        for milestone in self.milestones:
+            if not milestone.achieved:
+                self.next_milestone = milestone
+
+                # Calculate anticipation based on proximity
+                if milestone.level > self.current_level:
+                    levels_away = milestone.level - self.current_level
+                    proximity_factor = 1.0 / (1.0 + levels_away * 0.5)
+                    self.milestone_anticipation = (
+                        milestone.emotional_valence * proximity_factor
+                    )
+                break
+
+    def record_level_up(self, new_level: int):
+        """
+        Record a level up event. This is a BIG DEAL emotionally.
+        """
+        logger.info(f"╔══════════════════════════════════════════════════════════╗")
+        logger.info(f"║  LEVEL UP! → {new_level}                                 ║")
+        logger.info(f"╚══════════════════════════════════════════════════════════╝")
+
+        old_level = self.current_level
+        self.current_level = new_level
+        self.current_xp = 0
+
+        # Update XP needed (approximation - real values would be learned)
+        self.xp_to_next_level = int(400 * (1.1 ** new_level))
+
+        # Check for milestone achievement
+        for milestone in self.milestones:
+            if milestone.level == new_level and not milestone.achieved:
+                milestone.achieved = True
+                milestone.achievement_time = time.time()
+                self.milestone_history.append(milestone)
+
+                logger.info(f"MILESTONE ACHIEVED: {milestone.narrative_significance}")
+                logger.info(f"Emotional significance: {milestone.emotional_valence:.2f}")
+
+                # Major milestones boost leveling confidence
+                self.leveling_confidence = min(1.0,
+                    self.leveling_confidence + milestone.emotional_valence * 0.1
+                )
+
+        # Update endgame awareness (grows as you level)
+        self.endgame_awareness = min(1.0, self.current_level / 60.0)
+
+        # Recalculate momentum
+        levels_gained = new_level - 1  # From level 1
+        time_played_hours = self.total_time_played / 3600.0
+        if time_played_hours > 0:
+            levels_per_hour = levels_gained / time_played_hours
+            # Fast leveling = high momentum, slow = low momentum
+            self.leveling_momentum = min(1.0, levels_per_hour / 0.5)  # 0.5 = baseline
+
+        # Update next milestone
+        self._update_next_milestone()
+
+    def record_xp_gain(self, xp_amount: int):
+        """Record XP gain (granular tracking for momentum calculation)."""
+        self.current_xp += xp_amount
+
+        # Check for level up
+        while self.current_xp >= self.xp_to_next_level:
+            self.current_xp -= self.xp_to_next_level
+            self.record_level_up(self.current_level + 1)
+
+    def record_zone_entry(self, zone_name: str):
+        """Record entering a new zone."""
+        if zone_name != self.current_zone_name:
+            logger.info(f"Zone transition: {self.current_zone_name} → {zone_name}")
+
+            self.zone_history.append((
+                self.current_level,
+                zone_name,
+                time.time()
+            ))
+
+            self.current_zone_name = zone_name
+            self.zone_comfort_level = 0.0  # New zone = unfamiliar
+
+    def increase_zone_comfort(self, amount: float = 0.1):
+        """Increase comfort in current zone through experience."""
+        self.zone_comfort_level = min(1.0, self.zone_comfort_level + amount)
+
+    def should_consider_zone_change(self) -> bool:
+        """
+        Determine if agent should consider moving to a new zone.
+        Based on level, zone comfort, and progression momentum.
+        """
+        # High comfort + slow progression = maybe time to move on
+        if self.zone_comfort_level > 0.8 and self.leveling_momentum < 0.4:
+            return True
+
+        # Significantly outleveled the zone (would need zone level awareness)
+        # For now, use session-based heuristic
+        if self.zone_comfort_level > 0.9:
+            return True
+
+        return False
+
+    def get_progression_emotional_state(self) -> Dict[str, float]:
+        """
+        Get current emotional state related to progression.
+        This feeds into the drive system and decision-making.
+        """
+        return {
+            'anticipation': self.milestone_anticipation,
+            'confidence': self.leveling_confidence,
+            'momentum': self.leveling_momentum,
+            'endgame_awareness': self.endgame_awareness,
+            'zone_security': self.zone_comfort_level,
+        }
+
+    def get_narrative_summary(self) -> str:
+        """Get narrative summary of leveling journey."""
+        milestones_achieved = len(self.milestone_history)
+        total_milestones = len([m for m in self.milestones if m.level <= 60])
+
+        if self.current_level < 10:
+            phase = "just beginning the journey"
+        elif self.current_level < 20:
+            phase = "finding my footing in the world"
+        elif self.current_level < 40:
+            phase = "growing stronger, halfway there"
+        elif self.current_level < 55:
+            phase = "approaching endgame power"
+        elif self.current_level < 60:
+            phase = "preparing for the endgame"
+        else:
+            phase = "living the endgame"
+
+        return (
+            f"Level {self.current_level}, {phase}. "
+            f"{milestones_achieved}/{total_milestones} milestones achieved. "
+            f"Current zone: {self.current_zone_name}."
+        )
+
+    def tick_session(self, delta_seconds: float):
+        """Update per-tick tracking."""
+        self.total_time_played += delta_seconds
+
+        # Recalculate estimates periodically
+        if self.total_time_played > 0:
+            hours_played = self.total_time_played / 3600.0
+            if hours_played > 1.0:  # Need at least an hour of data
+                levels_per_hour = (self.current_level - 1) / hours_played
+                if levels_per_hour > 0:
+                    levels_remaining = 60 - self.current_level
+                    hours_to_60 = levels_remaining / levels_per_hour
+                    self.estimated_days_to_60 = hours_to_60 / 24.0
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'current_level': self.current_level,
+            'current_xp': self.current_xp,
+            'xp_to_next_level': self.xp_to_next_level,
+            'milestones': [{
+                'level': m.level,
+                'milestone_type': m.milestone_type,
+                'achieved': m.achieved,
+                'achievement_time': m.achievement_time,
+            } for m in self.milestones],
+            'zone_history': self.zone_history,
+            'current_zone_name': self.current_zone_name,
+            'zone_comfort_level': self.zone_comfort_level,
+            'leveling_momentum': self.leveling_momentum,
+            'endgame_awareness': self.endgame_awareness,
+            'leveling_confidence': self.leveling_confidence,
+            'total_time_played': self.total_time_played,
+            'session_count': self.session_count,
+            'creation_time': self.creation_time,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        self.current_level = state.get('current_level', 1)
+        self.current_xp = state.get('current_xp', 0)
+        self.xp_to_next_level = state.get('xp_to_next_level', 400)
+
+        if 'milestones' in state:
+            for i, m_state in enumerate(state['milestones']):
+                if i < len(self.milestones):
+                    self.milestones[i].achieved = m_state.get('achieved', False)
+                    self.milestones[i].achievement_time = m_state.get('achievement_time', 0.0)
+
+        self.zone_history = state.get('zone_history', [])
+        self.current_zone_name = state.get('current_zone_name', 'unknown')
+        self.zone_comfort_level = state.get('zone_comfort_level', 0.0)
+        self.leveling_momentum = state.get('leveling_momentum', 0.5)
+        self.endgame_awareness = state.get('endgame_awareness', 0.0)
+        self.leveling_confidence = state.get('leveling_confidence', 0.5)
+        self.total_time_played = state.get('total_time_played', 0.0)
+        self.session_count = state.get('session_count', 0)
+        self.creation_time = state.get('creation_time', time.time())
+
+        self._update_next_milestone()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WEALTH EMOTIONAL STATE SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Gold is not just a number - it's an emotional resource that affects all decisions.
+# Being poor causes anxiety. Being rich causes security. This is human-like.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class WealthThreshold:
+    """A significant wealth threshold with emotional impact."""
+    amount: float
+    label: str
+    emotional_state: str  # 'desperate', 'anxious', 'comfortable', 'secure', 'wealthy'
+    risk_tolerance_modifier: float
+
+
+class WealthEmotionalState:
+    """
+    Models wealth (gold) as an emotional resource that affects behavior.
+
+    Poor = anxious, conservative, vendor trash grinding
+    Rich = confident, generous, risk-taking
+
+    This is a CORE human behavior: money stress affects everything.
+    """
+
+    def __init__(self):
+        self.current_gold = 0.0
+        self.gold_history: deque = deque(maxlen=1000)  # Track over time
+
+        # Wealth thresholds (learned and adjusted over time)
+        self.thresholds = [
+            WealthThreshold(0.0, 'broke', 'desperate', -0.3),
+            WealthThreshold(1.0, 'struggling', 'anxious', -0.2),
+            WealthThreshold(10.0, 'getting_by', 'cautious', -0.1),
+            WealthThreshold(50.0, 'comfortable', 'stable', 0.0),
+            WealthThreshold(100.0, 'secure', 'confident', 0.1),
+            WealthThreshold(500.0, 'wealthy', 'generous', 0.2),
+            WealthThreshold(1000.0, 'rich', 'extravagant', 0.3),
+        ]
+
+        # Major savings goals (creates purpose for wealth accumulation)
+        self.savings_goals: List[Dict[str, Any]] = []
+        self.active_savings_goal: Optional[Dict[str, Any]] = None
+
+        # Emotional state
+        self.current_emotional_state = 'broke'
+        self.financial_anxiety = 1.0  # 0-1, how anxious about money
+        self.spending_confidence = 0.0  # 0-1, how willing to spend
+
+        # Behavioral tendencies based on wealth
+        self.vendor_trash_motivation = 1.0  # How motivated to grind vendor trash
+        self.repair_anxiety = 1.0  # Anxiety about repair costs
+        self.training_hesitation = 1.0  # Hesitation to buy new spells
+
+        # Wealth tracking
+        self.total_earned = 0.0
+        self.total_spent = 0.0
+        self.biggest_purchase = 0.0
+        self.broke_incidents = 0  # Times dropped below 1g
+
+        self._initialize_default_goals()
+
+    def _initialize_default_goals(self):
+        """Initialize common savings goals."""
+        self.savings_goals = [
+            {
+                'name': 'level_20_mount',
+                'target_amount': 20.0,  # Apprentice riding skill (simplified)
+                'priority': 0.8,
+                'level_requirement': 20,
+                'achieved': False,
+                'emotional_weight': 0.8,
+            },
+            {
+                'name': 'level_40_mount',
+                'target_amount': 90.0,  # Journeyman riding skill
+                'priority': 0.9,
+                'level_requirement': 40,
+                'achieved': False,
+                'emotional_weight': 0.9,
+            },
+            {
+                'name': 'level_60_mount',
+                'target_amount': 900.0,  # Epic mount
+                'priority': 1.0,
+                'level_requirement': 60,
+                'achieved': False,
+                'emotional_weight': 1.0,
+            },
+        ]
+
+    def update_gold(self, new_gold_amount: float):
+        """
+        Update current gold amount and recalculate emotional state.
+        This should be called whenever gold changes.
+        """
+        old_gold = self.current_gold
+        self.current_gold = new_gold_amount
+
+        # Track change
+        self.gold_history.append({
+            'time': time.time(),
+            'amount': new_gold_amount,
+            'delta': new_gold_amount - old_gold,
+        })
+
+        # Check for broke incident
+        if new_gold_amount < 1.0 and old_gold >= 1.0:
+            self.broke_incidents += 1
+            logger.warning(f"BROKE INCIDENT #{self.broke_incidents}: Down to {new_gold_amount:.2f}g")
+
+        # Update emotional state
+        self._recalculate_emotional_state()
+
+        # Check savings goals
+        self._check_savings_goals()
+
+    def record_income(self, amount: float, source: str):
+        """Record gold gained."""
+        self.total_earned += amount
+        self.update_gold(self.current_gold + amount)
+
+        logger.debug(f"Income: +{amount:.2f}g from {source} (Total: {self.current_gold:.2f}g)")
+
+    def record_expense(self, amount: float, purpose: str) -> bool:
+        """
+        Record gold spent. Returns False if can't afford.
+        """
+        if amount > self.current_gold:
+            logger.warning(f"Can't afford {purpose}: {amount:.2f}g (have {self.current_gold:.2f}g)")
+            return False
+
+        self.total_spent += amount
+        self.update_gold(self.current_gold - amount)
+
+        if amount > self.biggest_purchase:
+            self.biggest_purchase = amount
+            logger.info(f"New biggest purchase: {amount:.2f}g for {purpose}")
+
+        logger.debug(f"Expense: -{amount:.2f}g for {purpose} (Remaining: {self.current_gold:.2f}g)")
+        return True
+
+    def _recalculate_emotional_state(self):
+        """Recalculate emotional state based on current wealth."""
+        # Find current threshold
+        current_threshold = self.thresholds[0]
+        for threshold in self.thresholds:
+            if self.current_gold >= threshold.amount:
+                current_threshold = threshold
+            else:
+                break
+
+        self.current_emotional_state = current_threshold.emotional_state
+
+        # Calculate anxiety (inverse of wealth, bounded)
+        if self.current_gold < 1.0:
+            self.financial_anxiety = 1.0
+        elif self.current_gold < 10.0:
+            self.financial_anxiety = 0.8
+        elif self.current_gold < 50.0:
+            self.financial_anxiety = 0.5
+        elif self.current_gold < 100.0:
+            self.financial_anxiety = 0.3
+        else:
+            self.financial_anxiety = max(0.0, 0.3 - (self.current_gold - 100.0) / 1000.0)
+
+        # Spending confidence (more gold = more willing to spend)
+        self.spending_confidence = min(1.0, self.current_gold / 100.0)
+
+        # Behavioral adjustments
+        self.vendor_trash_motivation = self.financial_anxiety  # Desperate = grind more
+        self.repair_anxiety = self.financial_anxiety
+        self.training_hesitation = self.financial_anxiety
+
+    def _check_savings_goals(self):
+        """Check if any savings goals have been achieved."""
+        for goal in self.savings_goals:
+            if not goal['achieved'] and self.current_gold >= goal['target_amount']:
+                goal['achieved'] = True
+                logger.info(f"═══════════════════════════════════════════════════════════════")
+                logger.info(f"SAVINGS GOAL ACHIEVED: {goal['name']}!")
+                logger.info(f"Saved {goal['target_amount']:.2f}g - {goal['name']} is now affordable!")
+                logger.info(f"═══════════════════════════════════════════════════════════════")
+
+                # Boost spending confidence temporarily
+                self.spending_confidence = min(1.0, self.spending_confidence + 0.2)
+
+    def set_active_savings_goal(self, level: int):
+        """Set active savings goal based on current level."""
+        # Find highest priority achievable goal
+        best_goal = None
+        for goal in self.savings_goals:
+            if not goal['achieved'] and level >= goal['level_requirement']:
+                if best_goal is None or goal['priority'] > best_goal['priority']:
+                    best_goal = goal
+
+        if best_goal != self.active_savings_goal:
+            self.active_savings_goal = best_goal
+            if best_goal:
+                logger.info(f"Active savings goal: {best_goal['name']} ({best_goal['target_amount']:.2f}g)")
+
+    def get_savings_progress(self) -> Optional[float]:
+        """Get progress toward active savings goal (0-1)."""
+        if self.active_savings_goal:
+            return min(1.0, self.current_gold / self.active_savings_goal['target_amount'])
+        return None
+
+    def can_afford(self, amount: float, essential: bool = False) -> bool:
+        """
+        Determine if agent can afford something.
+
+        essential=True: Just check raw gold
+        essential=False: Factor in savings goals and risk tolerance
+        """
+        if amount > self.current_gold:
+            return False
+
+        if essential:
+            return True
+
+        # Non-essential purchases require buffer
+        # Poor agents hoard more aggressively
+        if self.financial_anxiety > 0.5:
+            buffer = amount * 2.0  # Need 2x the cost to feel comfortable spending
+        else:
+            buffer = amount * 1.2
+
+        # Also protect savings goal progress
+        if self.active_savings_goal:
+            goal_amount = self.active_savings_goal['target_amount']
+            if self.current_gold - amount < goal_amount * 0.8:  # Don't drop below 80% of goal
+                return False
+
+        return self.current_gold >= buffer
+
+    def should_grind_gold(self) -> bool:
+        """Determine if agent should prioritize gold grinding."""
+        # High anxiety + active goal = grind
+        if self.financial_anxiety > 0.6:
+            return True
+
+        # Close to goal = push for it
+        if self.active_savings_goal:
+            progress = self.get_savings_progress()
+            if progress and progress > 0.7:  # Within 30% of goal
+                return True
+
+        return False
+
+    def get_risk_tolerance_modifier(self) -> float:
+        """
+        Get risk tolerance modifier based on wealth.
+        Poor = risk averse (can't afford repairs)
+        Rich = risk tolerant (repairs are cheap)
+        """
+        current_threshold = self.thresholds[0]
+        for threshold in self.thresholds:
+            if self.current_gold >= threshold.amount:
+                current_threshold = threshold
+
+        return current_threshold.risk_tolerance_modifier
+
+    def get_emotional_summary(self) -> str:
+        """Get narrative summary of financial state."""
+        if self.financial_anxiety > 0.7:
+            return f"Broke ({self.current_gold:.2f}g) - desperately need gold"
+        elif self.financial_anxiety > 0.4:
+            return f"Poor ({self.current_gold:.2f}g) - worried about money"
+        elif self.current_gold < 100.0:
+            return f"Getting by ({self.current_gold:.2f}g) - stable but cautious"
+        elif self.current_gold < 500.0:
+            return f"Comfortable ({self.current_gold:.2f}g) - secure financially"
+        else:
+            return f"Wealthy ({self.current_gold:.2f}g) - money is no concern"
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'current_gold': self.current_gold,
+            'savings_goals': self.savings_goals,
+            'active_savings_goal': self.active_savings_goal,
+            'total_earned': self.total_earned,
+            'total_spent': self.total_spent,
+            'biggest_purchase': self.biggest_purchase,
+            'broke_incidents': self.broke_incidents,
+            'financial_anxiety': self.financial_anxiety,
+            'spending_confidence': self.spending_confidence,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        self.current_gold = state.get('current_gold', 0.0)
+        self.savings_goals = state.get('savings_goals', [])
+        self.active_savings_goal = state.get('active_savings_goal')
+        self.total_earned = state.get('total_earned', 0.0)
+        self.total_spent = state.get('total_spent', 0.0)
+        self.biggest_purchase = state.get('biggest_purchase', 0.0)
+        self.broke_incidents = state.get('broke_incidents', 0)
+
+        self._recalculate_emotional_state()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GEAR INTUITION LEARNING SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Learn which gear is better through COMBAT EXPERIENCE, not data mining.
+# Stat weights are discovered, not known. Early choices may be wrong.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class GearExperience:
+    """Experience with a specific piece of gear."""
+    gear_hash: str  # Unique identifier for this gear piece
+    gear_name: str
+    slot: str
+
+    # Combat performance while wearing this gear
+    combats_won: int = 0
+    combats_lost: int = 0
+    total_damage_dealt: float = 0.0
+    total_damage_taken: float = 0.0
+    total_healing_done: float = 0.0
+    average_combat_duration: float = 0.0
+
+    # Derived metrics
+    win_rate: float = 0.5
+    dps: float = 0.0
+    survivability: float = 0.5
+
+    # Usage tracking
+    combats_count: int = 0
+    time_equipped: float = 0.0
+    first_equipped: float = 0.0
+    last_used: float = 0.0
+
+
+class GearIntuitionSystem:
+    """
+    Learn gear value through combat experience, not omniscient knowledge.
+
+    This system:
+    - Tracks performance with each gear piece
+    - Learns stat weights from outcomes
+    - Makes upgrade decisions based on experience
+    - Can be WRONG initially and learn over time
+    """
+
+    def __init__(self):
+        self.gear_experiences: Dict[str, GearExperience] = {}
+        self.currently_equipped: Dict[str, str] = {}  # slot -> gear_hash
+
+        # Learned stat weights (start uncertain, learn over time)
+        self.stat_weights = {
+            'strength': 1.0,
+            'agility': 1.0,
+            'stamina': 1.0,
+            'intellect': 1.0,
+            'spirit': 1.0,
+            'attack_power': 1.0,
+            'spell_power': 1.0,
+            'armor': 1.0,
+            'crit': 1.0,
+            'hit': 1.0,
+        }
+        self.stat_weight_confidence: Dict[str, float] = {stat: 0.1 for stat in self.stat_weights}
+
+        # Learning state
+        self.total_gear_comparisons = 0
+        self.correct_upgrade_decisions = 0
+        self.wrong_upgrade_decisions = 0
+
+        # Current combat tracking
+        self._combat_start_time: Optional[float] = None
+        self._combat_damage_dealt = 0.0
+        self._combat_damage_taken = 0.0
+
+    def equip_gear(self, gear_name: str, slot: str, stats: Dict[str, float]):
+        """
+        Record equipping a piece of gear.
+        """
+        gear_hash = self._hash_gear(gear_name, stats)
+
+        # Create or get experience record
+        if gear_hash not in self.gear_experiences:
+            self.gear_experiences[gear_hash] = GearExperience(
+                gear_hash=gear_hash,
+                gear_name=gear_name,
+                slot=slot,
+                first_equipped=time.time(),
+            )
+
+        # Update currently equipped
+        old_gear = self.currently_equipped.get(slot)
+        self.currently_equipped[slot] = gear_hash
+
+        logger.debug(f"Equipped {gear_name} in slot {slot}")
+
+        # Log if this is a perceived upgrade
+        if old_gear and old_gear in self.gear_experiences:
+            old_exp = self.gear_experiences[old_gear]
+            new_exp = self.gear_experiences[gear_hash]
+            logger.debug(f"  Replacing {old_exp.gear_name} "
+                        f"(WR: {old_exp.win_rate:.2f}, DPS: {old_exp.dps:.1f})")
+
+    def _hash_gear(self, gear_name: str, stats: Dict[str, float]) -> str:
+        """Create unique hash for a gear piece."""
+        stat_str = json.dumps(stats, sort_keys=True)
+        combined = f"{gear_name}:{stat_str}"
+        return hashlib.md5(combined.encode()).hexdigest()[:16]
+
+    def start_combat(self):
+        """Mark start of combat encounter."""
+        self._combat_start_time = time.time()
+        self._combat_damage_dealt = 0.0
+        self._combat_damage_taken = 0.0
+
+    def record_damage_dealt(self, amount: float):
+        """Record damage dealt during combat."""
+        self._combat_damage_dealt += amount
+
+    def record_damage_taken(self, amount: float):
+        """Record damage taken during combat."""
+        self._combat_damage_taken += amount
+
+    def end_combat(self, won: bool):
+        """
+        End combat and update gear experience.
+        This is where learning happens!
+        """
+        if self._combat_start_time is None:
+            return
+
+        duration = time.time() - self._combat_start_time
+
+        # Update all currently equipped gear
+        for slot, gear_hash in self.currently_equipped.items():
+            if gear_hash not in self.gear_experiences:
+                continue
+
+            exp = self.gear_experiences[gear_hash]
+
+            # Update combat statistics
+            if won:
+                exp.combats_won += 1
+            else:
+                exp.combats_lost += 1
+
+            exp.combats_count += 1
+            exp.total_damage_dealt += self._combat_damage_dealt
+            exp.total_damage_taken += self._combat_damage_taken
+
+            # Update derived metrics
+            exp.win_rate = exp.combats_won / max(1, exp.combats_count)
+
+            if duration > 0:
+                exp.dps = self._combat_damage_dealt / duration
+
+                # Update average combat duration
+                exp.average_combat_duration = (
+                    (exp.average_combat_duration * (exp.combats_count - 1) + duration) /
+                    exp.combats_count
+                )
+
+            # Survivability based on damage taken and win rate
+            if self._combat_damage_taken > 0:
+                # Lower damage taken + higher win rate = higher survivability
+                survivability_sample = (1.0 if won else 0.3) * (1000.0 / max(100, self._combat_damage_taken))
+                survivability_sample = min(1.0, survivability_sample)
+
+                # Running average
+                exp.survivability = (
+                    (exp.survivability * (exp.combats_count - 1) + survivability_sample) /
+                    exp.combats_count
+                )
+
+            exp.last_used = time.time()
+
+        # Reset combat tracking
+        self._combat_start_time = None
+        self._combat_damage_dealt = 0.0
+        self._combat_damage_taken = 0.0
+
+    def evaluate_gear_quality(self, gear_hash: str) -> float:
+        """
+        Evaluate gear quality based on combat experience.
+        Returns 0-1 quality score.
+        """
+        if gear_hash not in self.gear_experiences:
+            return 0.5  # Unknown = neutral
+
+        exp = self.gear_experiences[gear_hash]
+
+        # Not enough data yet
+        if exp.combats_count < 3:
+            return 0.5
+
+        # Weight different factors
+        quality = (
+            exp.win_rate * 0.5 +
+            min(1.0, exp.dps / 100.0) * 0.3 +
+            exp.survivability * 0.2
+        )
+
+        return max(0.0, min(1.0, quality))
+
+    def compare_gear(self, current_gear_hash: str, new_gear_hash: str) -> Tuple[bool, float, str]:
+        """
+        Compare two pieces of gear based on experience.
+
+        Returns (is_upgrade, confidence, reason)
+        """
+        current_quality = self.evaluate_gear_quality(current_gear_hash)
+        new_quality = self.evaluate_gear_quality(new_gear_hash)
+
+        # If new gear is unknown, estimate based on learned stat weights
+        # (This would require stat parsing, simplified here)
+
+        difference = new_quality - current_quality
+
+        # Confidence based on amount of experience
+        current_exp = self.gear_experiences.get(current_gear_hash)
+        new_exp = self.gear_experiences.get(new_gear_hash)
+
+        confidence = 0.5
+        if current_exp and current_exp.combats_count >= 5:
+            confidence += 0.2
+        if new_exp and new_exp.combats_count >= 5:
+            confidence += 0.3
+
+        # Decision
+        is_upgrade = difference > 0.05  # Need 5% improvement to be worth it
+
+        # Reasoning
+        if new_exp is None:
+            reason = "Never used this gear before - uncertain if upgrade"
+        elif difference > 0.15:
+            reason = f"Clear upgrade: {new_quality:.2f} vs {current_quality:.2f}"
+        elif difference > 0.05:
+            reason = f"Modest upgrade: {new_quality:.2f} vs {current_quality:.2f}"
+        elif abs(difference) < 0.05:
+            reason = "Approximately equal gear quality"
+        else:
+            reason = f"Current gear performs better: {current_quality:.2f} vs {new_quality:.2f}"
+
+        return is_upgrade, confidence, reason
+
+    def is_upgrade(self, new_gear_name: str, new_gear_stats: Dict[str, float], slot: str) -> Tuple[bool, str]:
+        """
+        Determine if new gear is an upgrade for a slot.
+        """
+        new_gear_hash = self._hash_gear(new_gear_name, new_gear_stats)
+
+        # Check if we have gear in this slot
+        current_gear_hash = self.currently_equipped.get(slot)
+
+        if current_gear_hash is None:
+            return True, "No gear in slot - always an upgrade"
+
+        is_upgrade, confidence, reason = self.compare_gear(current_gear_hash, new_gear_hash)
+
+        # Track decision for learning
+        self.total_gear_comparisons += 1
+
+        return is_upgrade, reason
+
+    def learn_from_gear_change(self, old_gear_hash: str, new_gear_hash: str,
+                               performance_improved: bool):
+        """
+        Learn from gear change outcomes.
+        If we predicted upgrade but performance got worse, we were wrong.
+        """
+        # This would update stat weights based on prediction accuracy
+        # Simplified here - full implementation would adjust stat_weights and confidence
+
+        if performance_improved:
+            self.correct_upgrade_decisions += 1
+        else:
+            self.wrong_upgrade_decisions += 1
+            logger.debug("Gear upgrade prediction was wrong - learning from mistake")
+
+    def get_learning_accuracy(self) -> float:
+        """Get accuracy of upgrade predictions."""
+        total = self.total_gear_comparisons
+        if total == 0:
+            return 0.5
+        return self.correct_upgrade_decisions / total
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'gear_experiences': {
+                k: {
+                    'gear_hash': v.gear_hash,
+                    'gear_name': v.gear_name,
+                    'slot': v.slot,
+                    'combats_won': v.combats_won,
+                    'combats_lost': v.combats_lost,
+                    'combats_count': v.combats_count,
+                    'win_rate': v.win_rate,
+                    'dps': v.dps,
+                    'survivability': v.survivability,
+                    'time_equipped': v.time_equipped,
+                } for k, v in self.gear_experiences.items()
+            },
+            'currently_equipped': self.currently_equipped,
+            'stat_weights': self.stat_weights,
+            'stat_weight_confidence': self.stat_weight_confidence,
+            'total_comparisons': self.total_gear_comparisons,
+            'correct_decisions': self.correct_upgrade_decisions,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'gear_experiences' in state:
+            self.gear_experiences = {}
+            for k, v in state['gear_experiences'].items():
+                exp = GearExperience(
+                    gear_hash=v['gear_hash'],
+                    gear_name=v['gear_name'],
+                    slot=v['slot'],
+                    combats_won=v.get('combats_won', 0),
+                    combats_lost=v.get('combats_lost', 0),
+                    combats_count=v.get('combats_count', 0),
+                    win_rate=v.get('win_rate', 0.5),
+                    dps=v.get('dps', 0.0),
+                    survivability=v.get('survivability', 0.5),
+                )
+                self.gear_experiences[k] = exp
+
+        self.currently_equipped = state.get('currently_equipped', {})
+        self.stat_weights = state.get('stat_weights', self.stat_weights)
+        self.stat_weight_confidence = state.get('stat_weight_confidence', self.stat_weight_confidence)
+        self.total_gear_comparisons = state.get('total_comparisons', 0)
+        self.correct_upgrade_decisions = state.get('correct_decisions', 0)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROFESSION COMMITMENT TRACKING SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Professions are not just skill points - they become part of identity.
+# Choosing Engineering means you ARE an engineer. This persistence matters.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class ProfessionIdentity:
+    """Identity and progress for a single profession."""
+    profession_name: str
+    current_skill: int = 0
+    max_skill: int = 300
+
+    # Commitment and dedication
+    commitment_level: float = 0.0  # 0-1, how committed to this profession
+    pride_level: float = 0.0  # 0-1, how proud of progress
+
+    # Activity tracking
+    times_practiced: int = 0
+    successful_crafts: int = 0
+    failed_crafts: int = 0
+    materials_gathered: int = 0
+
+    # Learning
+    recipes_known: List[str] = field(default_factory=list)
+    recipes_wanted: List[str] = field(default_factory=list)
+
+    # Dedication behaviors
+    will_farm_materials: bool = True
+    will_seek_recipes: bool = True
+    will_prioritize_over_combat: bool = False
+
+    chosen_at_level: int = 0
+    time_chosen: float = 0.0
+
+
+class ProfessionCommitmentTracker:
+    """
+    Track professions as part of agent identity, not just mechanics.
+
+    Choosing a profession is a COMMITMENT. The agent should:
+    - Feel pride in profession progress
+    - Actively seek materials and recipes
+    - Consider profession in decision-making
+    - Develop profession-based identity
+    """
+
+    def __init__(self):
+        self.professions: Dict[str, ProfessionIdentity] = {}
+        self.max_professions = 2  # Classic WoW limit
+
+        # Overall profession dedication
+        self.crafting_pride = 0.0  # Overall pride in crafting
+        self.gatherer_identity = False  # Does agent identify as gatherer?
+        self.crafter_identity = False  # Does agent identify as crafter?
+
+        # Behavioral tendencies
+        self.will_detour_for_nodes = False  # Detour during travel for gathering
+        self.material_hoarding_tendency = 0.0  # Keep mats vs sell them
+
+        # Economic awareness
+        self.understands_profession_value = False  # Learned that professions make gold
+
+        logger.info("ProfessionCommitmentTracker initialized")
+
+    def choose_profession(self, profession_name: str, level: int):
+        """
+        Choose a profession. This is a SIGNIFICANT decision.
+        """
+        if len(self.professions) >= self.max_professions:
+            logger.warning(f"Already have {self.max_professions} professions, can't learn {profession_name}")
+            return False
+
+        if profession_name in self.professions:
+            logger.warning(f"Already know {profession_name}")
+            return False
+
+        # Create profession identity
+        self.professions[profession_name] = ProfessionIdentity(
+            profession_name=profession_name,
+            commitment_level=0.5,  # Start with moderate commitment
+            chosen_at_level=level,
+            time_chosen=time.time(),
+        )
+
+        # Categorize as gathering or crafting
+        gathering_profs = ['herbalism', 'mining', 'skinning']
+        crafting_profs = ['alchemy', 'blacksmithing', 'engineering', 'leatherworking',
+                         'tailoring', 'enchanting']
+
+        if profession_name.lower() in gathering_profs:
+            self.gatherer_identity = True
+            self.will_detour_for_nodes = True
+            self.material_hoarding_tendency = 0.7  # Gatherers tend to hoard
+
+        if profession_name.lower() in crafting_profs:
+            self.crafter_identity = True
+            self.material_hoarding_tendency = 0.8  # Crafters hoard even more
+
+        logger.info(f"═══════════════════════════════════════════════════════════════")
+        logger.info(f"PROFESSION CHOSEN: {profession_name}")
+        logger.info(f"This is now part of the agent's identity.")
+        logger.info(f"═══════════════════════════════════════════════════════════════")
+
+        return True
+
+    def record_skill_up(self, profession_name: str, new_skill_level: int):
+        """Record profession skill increase."""
+        if profession_name not in self.professions:
+            return
+
+        prof = self.professions[profession_name]
+        old_skill = prof.current_skill
+        prof.current_skill = new_skill_level
+
+        # Skill-ups increase pride and commitment
+        skill_gain = new_skill_level - old_skill
+        if skill_gain > 0:
+            prof.pride_level = min(1.0, prof.pride_level + skill_gain * 0.01)
+            prof.commitment_level = min(1.0, prof.commitment_level + skill_gain * 0.005)
+
+            logger.info(f"{profession_name} skill: {old_skill} → {new_skill_level} "
+                       f"(Pride: {prof.pride_level:.2f}, Commitment: {prof.commitment_level:.2f})")
+
+            # Milestone celebrations
+            if new_skill_level >= 75 and old_skill < 75:
+                logger.info(f"Apprentice {profession_name} - first milestone!")
+            elif new_skill_level >= 150 and old_skill < 150:
+                logger.info(f"Journeyman {profession_name} - halfway there!")
+            elif new_skill_level >= 225 and old_skill < 225:
+                logger.info(f"Expert {profession_name} - nearing mastery!")
+            elif new_skill_level >= 300:
+                logger.info(f"═══════════════════════════════════════════════════════════════")
+                logger.info(f"MASTER {profession_name.upper()}! Maximum skill achieved!")
+                logger.info(f"═══════════════════════════════════════════════════════════════")
+                prof.pride_level = 1.0
+
+    def record_practice(self, profession_name: str, success: bool):
+        """Record practicing profession (gathering or crafting)."""
+        if profession_name not in self.professions:
+            return
+
+        prof = self.professions[profession_name]
+        prof.times_practiced += 1
+
+        if success:
+            prof.successful_crafts += 1
+        else:
+            prof.failed_crafts += 1
+
+        # Practice increases commitment
+        prof.commitment_level = min(1.0, prof.commitment_level + 0.001)
+
+    def record_material_gathered(self, profession_name: str, material_name: str, quantity: int):
+        """Record gathering materials."""
+        if profession_name not in self.professions:
+            return
+
+        prof = self.professions[profession_name]
+        prof.materials_gathered += quantity
+
+        # Gathering increases gatherer identity
+        self.gatherer_identity = True
+
+    def learn_recipe(self, profession_name: str, recipe_name: str):
+        """Learn a new recipe."""
+        if profession_name not in self.professions:
+            return
+
+        prof = self.professions[profession_name]
+        if recipe_name not in prof.recipes_known:
+            prof.recipes_known.append(recipe_name)
+
+            # Learning recipes increases pride
+            prof.pride_level = min(1.0, prof.pride_level + 0.05)
+
+            logger.info(f"Learned recipe: {recipe_name} ({len(prof.recipes_known)} total recipes)")
+
+    def add_recipe_wishlist(self, profession_name: str, recipe_name: str):
+        """Add recipe to wishlist (creates seeking behavior)."""
+        if profession_name not in self.professions:
+            return
+
+        prof = self.professions[profession_name]
+        if recipe_name not in prof.recipes_wanted and recipe_name not in prof.recipes_known:
+            prof.recipes_wanted.append(recipe_name)
+            prof.will_seek_recipes = True
+
+            logger.debug(f"Added {recipe_name} to wishlist for {profession_name}")
+
+    def should_gather_node(self, node_profession: str) -> bool:
+        """Determine if agent should gather a node."""
+        if node_profession not in self.professions:
+            return False
+
+        prof = self.professions[node_profession]
+
+        # High commitment = always gather
+        if prof.commitment_level > 0.7:
+            return True
+
+        # Will farm materials if dedicated
+        if prof.will_farm_materials:
+            return True
+
+        # Gatherer identity means always gather
+        if self.gatherer_identity:
+            return True
+
+        return False
+
+    def should_craft_item(self, profession_name: str, item_name: str,
+                          material_cost: float, expected_skill_up: bool) -> bool:
+        """Determine if agent should craft an item."""
+        if profession_name not in self.professions:
+            return False
+
+        prof = self.professions[profession_name]
+
+        # Always craft if skill-up expected
+        if expected_skill_up:
+            return True
+
+        # High pride = craft even without skill-up (enjoying the profession)
+        if prof.pride_level > 0.7:
+            return random.random() < 0.3  # 30% chance to craft for fun
+
+        return False
+
+    def should_prioritize_profession_over_combat(self, profession_name: str) -> bool:
+        """Determine if profession should take priority over combat."""
+        if profession_name not in self.professions:
+            return False
+
+        prof = self.professions[profession_name]
+
+        # Only if highly committed AND profession is flagged as priority
+        return prof.commitment_level > 0.8 and prof.will_prioritize_over_combat
+
+    def get_profession_motivation_boost(self) -> float:
+        """
+        Get motivation boost from professions.
+        Dedicated crafters/gatherers get purpose from their profession.
+        """
+        if not self.professions:
+            return 0.0
+
+        total_pride = sum(p.pride_level for p in self.professions.values())
+        total_commitment = sum(p.commitment_level for p in self.professions.values())
+
+        return (total_pride + total_commitment) / (len(self.professions) * 2)
+
+    def get_profession_identity_summary(self) -> str:
+        """Get narrative summary of profession identity."""
+        if not self.professions:
+            return "No professions chosen yet"
+
+        prof_list = []
+        for name, prof in self.professions.items():
+            skill_tier = "Apprentice"
+            if prof.current_skill >= 225:
+                skill_tier = "Expert"
+            elif prof.current_skill >= 150:
+                skill_tier = "Journeyman"
+
+            commitment_desc = "casual"
+            if prof.commitment_level > 0.7:
+                commitment_desc = "dedicated"
+            elif prof.commitment_level > 0.4:
+                commitment_desc = "committed"
+
+            prof_list.append(f"{skill_tier} {name} ({commitment_desc})")
+
+        return ", ".join(prof_list)
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'professions': {
+                name: {
+                    'profession_name': prof.profession_name,
+                    'current_skill': prof.current_skill,
+                    'commitment_level': prof.commitment_level,
+                    'pride_level': prof.pride_level,
+                    'times_practiced': prof.times_practiced,
+                    'successful_crafts': prof.successful_crafts,
+                    'materials_gathered': prof.materials_gathered,
+                    'recipes_known': prof.recipes_known,
+                    'recipes_wanted': prof.recipes_wanted,
+                    'chosen_at_level': prof.chosen_at_level,
+                    'time_chosen': prof.time_chosen,
+                } for name, prof in self.professions.items()
+            },
+            'gatherer_identity': self.gatherer_identity,
+            'crafter_identity': self.crafter_identity,
+            'will_detour_for_nodes': self.will_detour_for_nodes,
+            'material_hoarding_tendency': self.material_hoarding_tendency,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'professions' in state:
+            self.professions = {}
+            for name, prof_state in state['professions'].items():
+                prof = ProfessionIdentity(
+                    profession_name=prof_state['profession_name'],
+                    current_skill=prof_state.get('current_skill', 0),
+                    commitment_level=prof_state.get('commitment_level', 0.5),
+                    pride_level=prof_state.get('pride_level', 0.0),
+                    times_practiced=prof_state.get('times_practiced', 0),
+                    successful_crafts=prof_state.get('successful_crafts', 0),
+                    materials_gathered=prof_state.get('materials_gathered', 0),
+                    recipes_known=prof_state.get('recipes_known', []),
+                    recipes_wanted=prof_state.get('recipes_wanted', []),
+                    chosen_at_level=prof_state.get('chosen_at_level', 0),
+                    time_chosen=prof_state.get('time_chosen', 0.0),
+                )
+                self.professions[name] = prof
+
+        self.gatherer_identity = state.get('gatherer_identity', False)
+        self.crafter_identity = state.get('crafter_identity', False)
+        self.will_detour_for_nodes = state.get('will_detour_for_nodes', False)
+        self.material_hoarding_tendency = state.get('material_hoarding_tendency', 0.0)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ENDGAME PREPARATION PLANNING SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# At level 55+, behavior shifts toward raid preparation.
+# This is forward-looking purpose: "I need to prepare for MC."
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class AttunementQuest:
+    """A raid attunement quest chain."""
+    raid_name: str
+    quest_chain_name: str
+    estimated_difficulty: float  # 0-1
+    completed: bool = False
+    in_progress: bool = False
+
+
+@dataclass
+class PreBISItem:
+    """A pre-raid best-in-slot item."""
+    item_name: str
+    slot: str
+    source: str  # Where to get it
+    priority: float  # How important
+    obtained: bool = False
+
+
+class EndgamePreparationPlanner:
+    """
+    Manages transition to endgame mentality at high levels.
+
+    At level 55+, the agent should shift from "leveling" to "preparing":
+    - Raid attunements become important
+    - Pre-raid BiS farming
+    - Consumable stockpiling
+    - Guild seeking behavior
+    - Rotation practice
+    """
+
+    def __init__(self):
+        self.endgame_threshold_level = 55
+        self.in_endgame_prep_mode = False
+
+        # Attunement tracking
+        self.attunements: List[AttunementQuest] = []
+        self.attunement_priority = 0.0
+
+        # Pre-BiS tracking
+        self.prebis_targets: List[PreBISItem] = []
+        self.prebis_completion = 0.0
+
+        # Consumable stockpiling
+        self.consumable_targets: Dict[str, int] = {}  # item_name -> target_quantity
+        self.consumable_stocks: Dict[str, int] = {}  # item_name -> current_quantity
+
+        # Social preparation
+        self.seeking_guild = False
+        self.guild_found = False
+        self.raid_ready_declaration = False
+
+        # Behavioral shifts
+        self.prefer_dungeons_over_quests = False  # Dungeons give better loot
+        self.prioritize_reputation_grinds = False  # Some reps give raid items
+        self.practice_rotation_regularly = False
+
+        # Awareness
+        self.knows_about_raids = False  # Learned that raids exist
+        self.endgame_excitement = 0.0  # 0-1, excitement about raiding
+
+        self._initialize_default_attunements()
+        self._initialize_consumable_targets()
+
+    def _initialize_default_attunements(self):
+        """Initialize known raid attunements."""
+        # Simplified - real implementation would learn these
+        self.attunements = [
+            AttunementQuest(
+                raid_name='Molten Core',
+                quest_chain_name='Attunement to the Core',
+                estimated_difficulty=0.6,
+            ),
+            AttunementQuest(
+                raid_name='Onyxia',
+                quest_chain_name='Onyxia Attunement (Alliance/Horde)',
+                estimated_difficulty=0.8,
+            ),
+            AttunementQuest(
+                raid_name='Blackwing Lair',
+                quest_chain_name='Blackhand\'s Command',
+                estimated_difficulty=0.4,
+            ),
+        ]
+
+    def _initialize_consumable_targets(self):
+        """Initialize consumable stockpile targets for raiding."""
+        self.consumable_targets = {
+            'greater_fire_protection_potion': 20,
+            'greater_nature_protection_potion': 20,
+            'greater_healing_potion': 40,
+            'greater_mana_potion': 40,
+            'elixir_of_mongoose': 20,
+            'flask_of_titans': 5,  # Expensive
+        }
+
+    def check_endgame_transition(self, current_level: int):
+        """Check if agent should transition to endgame prep mode."""
+        if current_level >= self.endgame_threshold_level and not self.in_endgame_prep_mode:
+            self.in_endgame_prep_mode = True
+            self.knows_about_raids = True
+            self.endgame_excitement = 0.7
+
+            logger.info(f"╔══════════════════════════════════════════════════════════╗")
+            logger.info(f"║  ENDGAME PREPARATION MODE ACTIVATED                     ║")
+            logger.info(f"║  Level {current_level} - Time to prepare for raids      ║")
+            logger.info(f"╚══════════════════════════════════════════════════════════╝")
+
+            # Activate endgame behaviors
+            self.attunement_priority = 0.8
+            self.prefer_dungeons_over_quests = True
+            self.seeking_guild = not self.guild_found
+
+            logger.info("Endgame goals:")
+            logger.info("  - Complete raid attunements")
+            logger.info("  - Farm pre-raid BiS gear")
+            logger.info("  - Stockpile consumables")
+            logger.info("  - Find a raiding guild")
+
+    def record_attunement_progress(self, raid_name: str, completed: bool = False):
+        """Record progress on raid attunement."""
+        for attunement in self.attunements:
+            if attunement.raid_name == raid_name:
+                if completed:
+                    attunement.completed = True
+                    attunement.in_progress = False
+                    logger.info(f"═══════════════════════════════════════════════════════════════")
+                    logger.info(f"RAID ATTUNEMENT COMPLETE: {raid_name}")
+                    logger.info(f"Ready to enter {raid_name}!")
+                    logger.info(f"═══════════════════════════════════════════════════════════════")
+
+                    self.endgame_excitement = min(1.0, self.endgame_excitement + 0.2)
+                else:
+                    attunement.in_progress = True
+
+    def add_prebis_target(self, item_name: str, slot: str, source: str, priority: float = 0.5):
+        """Add a pre-raid BiS item to farming list."""
+        if not any(item.item_name == item_name for item in self.prebis_targets):
+            self.prebis_targets.append(PreBISItem(
+                item_name=item_name,
+                slot=slot,
+                source=source,
+                priority=priority,
+            ))
+
+            logger.debug(f"Added pre-BiS target: {item_name} from {source}")
+
+    def record_prebis_obtained(self, item_name: str):
+        """Record obtaining a pre-BiS item."""
+        for item in self.prebis_targets:
+            if item.item_name == item_name:
+                item.obtained = True
+
+                # Recalculate completion
+                obtained_count = sum(1 for i in self.prebis_targets if i.obtained)
+                self.prebis_completion = obtained_count / max(1, len(self.prebis_targets))
+
+                logger.info(f"Pre-BiS obtained: {item_name} ({self.prebis_completion:.0%} complete)")
+
+                if self.prebis_completion >= 0.8:
+                    logger.info("Pre-raid BiS almost complete - raid ready!")
+                    self.raid_ready_declaration = True
+
+    def record_consumable_stock(self, item_name: str, quantity: int):
+        """Record current consumable stock."""
+        self.consumable_stocks[item_name] = quantity
+
+    def get_consumable_shopping_list(self) -> List[Tuple[str, int]]:
+        """Get list of consumables needed for raid preparation."""
+        shopping_list = []
+
+        for item_name, target_qty in self.consumable_targets.items():
+            current_qty = self.consumable_stocks.get(item_name, 0)
+            if current_qty < target_qty:
+                shopping_list.append((item_name, target_qty - current_qty))
+
+        return shopping_list
+
+    def should_farm_consumables(self) -> bool:
+        """Determine if agent should prioritize consumable farming."""
+        if not self.in_endgame_prep_mode:
+            return False
+
+        # Check if significantly short on consumables
+        shopping_list = self.get_consumable_shopping_list()
+        total_needed = sum(qty for _, qty in shopping_list)
+
+        return total_needed > 20  # Need more than 20 items total
+
+    def should_seek_guild(self) -> bool:
+        """Determine if agent should actively seek a raiding guild."""
+        return self.seeking_guild and not self.guild_found and self.in_endgame_prep_mode
+
+    def record_guild_join(self, guild_name: str):
+        """Record joining a guild."""
+        self.guild_found = True
+        self.seeking_guild = False
+
+        logger.info(f"Joined guild: {guild_name} - raiding future secured!")
+
+    def get_endgame_readiness(self) -> float:
+        """
+        Calculate overall endgame readiness (0-1).
+        """
+        readiness_factors = []
+
+        # Attunements
+        attunements_done = sum(1 for a in self.attunements if a.completed)
+        attunement_score = attunements_done / max(1, len(self.attunements))
+        readiness_factors.append(attunement_score * 0.3)
+
+        # Pre-BiS gear
+        readiness_factors.append(self.prebis_completion * 0.4)
+
+        # Consumables
+        shopping_list = self.get_consumable_shopping_list()
+        total_needed = sum(qty for _, qty in shopping_list)
+        total_target = sum(self.consumable_targets.values())
+        consumable_score = 1.0 - (total_needed / max(1, total_target))
+        readiness_factors.append(consumable_score * 0.2)
+
+        # Guild
+        guild_score = 1.0 if self.guild_found else 0.0
+        readiness_factors.append(guild_score * 0.1)
+
+        return sum(readiness_factors)
+
+    def get_endgame_narrative(self) -> str:
+        """Get narrative summary of endgame preparation."""
+        if not self.in_endgame_prep_mode:
+            return "Not yet focused on endgame"
+
+        readiness = self.get_endgame_readiness()
+
+        if readiness < 0.3:
+            return "Just beginning endgame preparation"
+        elif readiness < 0.6:
+            return "Actively preparing for raids - halfway ready"
+        elif readiness < 0.9:
+            return "Nearly raid-ready - final preparations"
+        else:
+            return "RAID READY - prepared for endgame content!"
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'in_endgame_prep_mode': self.in_endgame_prep_mode,
+            'attunements': [{
+                'raid_name': a.raid_name,
+                'quest_chain_name': a.quest_chain_name,
+                'completed': a.completed,
+                'in_progress': a.in_progress,
+            } for a in self.attunements],
+            'prebis_targets': [{
+                'item_name': p.item_name,
+                'slot': p.slot,
+                'source': p.source,
+                'priority': p.priority,
+                'obtained': p.obtained,
+            } for p in self.prebis_targets],
+            'consumable_stocks': self.consumable_stocks,
+            'guild_found': self.guild_found,
+            'endgame_excitement': self.endgame_excitement,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        self.in_endgame_prep_mode = state.get('in_endgame_prep_mode', False)
+
+        if 'attunements' in state:
+            self.attunements = []
+            for a_state in state['attunements']:
+                self.attunements.append(AttunementQuest(
+                    raid_name=a_state['raid_name'],
+                    quest_chain_name=a_state['quest_chain_name'],
+                    completed=a_state.get('completed', False),
+                    in_progress=a_state.get('in_progress', False),
+                ))
+
+        if 'prebis_targets' in state:
+            self.prebis_targets = []
+            for p_state in state['prebis_targets']:
+                self.prebis_targets.append(PreBISItem(
+                    item_name=p_state['item_name'],
+                    slot=p_state['slot'],
+                    source=p_state['source'],
+                    priority=p_state.get('priority', 0.5),
+                    obtained=p_state.get('obtained', False),
+                ))
+
+        self.consumable_stocks = state.get('consumable_stocks', {})
+        self.guild_found = state.get('guild_found', False)
+        self.endgame_excitement = state.get('endgame_excitement', 0.0)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# POWER SPIKE DETECTION SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Recognize and emotionally respond to significant power increases.
+# New weapon, new spell, new talent = excitement and confidence boost.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class PowerSpike:
+    """A detected power spike event."""
+    spike_type: str  # 'gear', 'spell', 'talent', 'level'
+    magnitude: float  # 0-1, how significant
+    source_name: str  # What caused it
+    timestamp: float
+
+    # Emotional impact
+    excitement: float  # How exciting this is
+    confidence_boost: float  # Confidence increase
+    risk_tolerance_increase: float  # Willingness to take on harder content
+
+    # Behavioral changes
+    should_test_power: bool = False  # Should agent test new power immediately
+    should_show_off: bool = False  # Should agent show off (emotes, etc.)
+
+
+class PowerSpikeDetectionSystem:
+    """
+    Detect and respond to significant power increases.
+
+    When the agent gets stronger, it should FEEL it:
+    - Confidence boost
+    - Increased risk tolerance
+    - Desire to test new power
+    - Social showing off behavior
+
+    This makes progression EXCITING, not just mechanical.
+    """
+
+    def __init__(self):
+        self.power_history: List[PowerSpike] = []
+        self.baseline_power = 1.0  # Relative power level
+        self.current_power_estimate = 1.0
+
+        # Recent spikes (for compounding excitement)
+        self.recent_spikes: deque = deque(maxlen=10)
+
+        # Emotional state from power
+        self.power_confidence = 0.5  # 0-1
+        self.power_excitement = 0.0  # 0-1, decays over time
+
+        # Behavioral flags
+        self.wants_to_test_power = False
+        self.should_attempt_harder_content = False
+
+        # Spike thresholds
+        self.minor_spike_threshold = 0.05  # 5% power increase
+        self.major_spike_threshold = 0.20  # 20% power increase
+        self.massive_spike_threshold = 0.50  # 50% power increase
+
+    def detect_gear_upgrade(self, old_dps: float, new_dps: float, item_name: str) -> Optional[PowerSpike]:
+        """Detect power spike from gear upgrade."""
+        if old_dps <= 0:
+            return None
+
+        power_increase = (new_dps - old_dps) / old_dps
+
+        if power_increase < self.minor_spike_threshold:
+            return None  # Not significant enough
+
+        # Calculate magnitude
+        if power_increase >= self.massive_spike_threshold:
+            magnitude = 1.0
+            excitement = 1.0
+            should_show_off = True
+        elif power_increase >= self.major_spike_threshold:
+            magnitude = 0.7
+            excitement = 0.7
+            should_show_off = True
+        else:
+            magnitude = 0.3
+            excitement = 0.3
+            should_show_off = False
+
+        spike = PowerSpike(
+            spike_type='gear',
+            magnitude=magnitude,
+            source_name=item_name,
+            timestamp=time.time(),
+            excitement=excitement,
+            confidence_boost=magnitude * 0.3,
+            risk_tolerance_increase=magnitude * 0.2,
+            should_test_power=True,
+            should_show_off=should_show_off,
+        )
+
+        return spike
+
+    def detect_spell_unlock(self, spell_name: str, spell_power_estimate: float = 0.5) -> PowerSpike:
+        """Detect power spike from learning a new spell."""
+        # New spells are always exciting
+        magnitude = spell_power_estimate
+
+        # Key spells are VERY exciting
+        impactful_spell_keywords = [
+            'mortal strike', 'whirlwind', 'bloodthirst',  # Warrior
+            'pyroblast', 'fireball', 'polymorph',  # Mage
+            'shadowbolt', 'searing pain', 'fear',  # Warlock
+            'aimed shot', 'multi-shot', 'feign death',  # Hunter
+        ]
+
+        is_impactful = any(keyword in spell_name.lower() for keyword in impactful_spell_keywords)
+
+        if is_impactful:
+            magnitude = 0.9
+            excitement = 0.9
+            should_show_off = True
+        else:
+            magnitude = 0.4
+            excitement = 0.4
+            should_show_off = False
+
+        spike = PowerSpike(
+            spike_type='spell',
+            magnitude=magnitude,
+            source_name=spell_name,
+            timestamp=time.time(),
+            excitement=excitement,
+            confidence_boost=magnitude * 0.2,
+            risk_tolerance_increase=magnitude * 0.15,
+            should_test_power=True,
+            should_show_off=should_show_off,
+        )
+
+        return spike
+
+    def detect_talent_point(self, talent_name: str, points_in_talent: int, is_capstone: bool = False) -> PowerSpike:
+        """Detect power spike from talent point allocation."""
+        # Capstone talents are MAJOR spikes
+        if is_capstone:
+            magnitude = 0.95
+            excitement = 0.95
+            confidence_boost = 0.4
+            should_show_off = True
+        elif points_in_talent == 1:
+            # First point in new talent
+            magnitude = 0.5
+            excitement = 0.5
+            confidence_boost = 0.15
+            should_show_off = False
+        else:
+            # Additional points
+            magnitude = 0.2
+            excitement = 0.2
+            confidence_boost = 0.05
+            should_show_off = False
+
+        spike = PowerSpike(
+            spike_type='talent',
+            magnitude=magnitude,
+            source_name=talent_name,
+            timestamp=time.time(),
+            excitement=excitement,
+            confidence_boost=confidence_boost,
+            risk_tolerance_increase=magnitude * 0.15,
+            should_test_power=True,
+            should_show_off=should_show_off,
+        )
+
+        return spike
+
+    def detect_level_up(self, new_level: int) -> PowerSpike:
+        """Detect power spike from leveling up."""
+        # Level-ups are always exciting
+        # But bigger jumps at milestone levels
+
+        is_milestone = (new_level % 10 == 0) or new_level == 60
+        is_talent_level = (new_level % 2 == 0)  # Even levels give talent points in classic
+
+        if new_level == 60:
+            magnitude = 1.0
+            excitement = 1.0
+            should_show_off = True
+        elif is_milestone:
+            magnitude = 0.7
+            excitement = 0.7
+            should_show_off = True
+        elif is_talent_level:
+            magnitude = 0.5
+            excitement = 0.5
+            should_show_off = False
+        else:
+            magnitude = 0.3
+            excitement = 0.3
+            should_show_off = False
+
+        spike = PowerSpike(
+            spike_type='level',
+            magnitude=magnitude,
+            source_name=f"Level {new_level}",
+            timestamp=time.time(),
+            excitement=excitement,
+            confidence_boost=magnitude * 0.1,
+            risk_tolerance_increase=magnitude * 0.1,
+            should_test_power=True,
+            should_show_off=should_show_off,
+        )
+
+        return spike
+
+    def record_spike(self, spike: PowerSpike):
+        """Record a power spike and update agent state."""
+        self.power_history.append(spike)
+        self.recent_spikes.append(spike)
+
+        # Update power estimate
+        self.current_power_estimate *= (1.0 + spike.magnitude * 0.1)
+
+        # Update emotional state
+        self.power_confidence = min(1.0, self.power_confidence + spike.confidence_boost)
+        self.power_excitement = min(1.0, self.power_excitement + spike.excitement)
+
+        # Set behavioral flags
+        if spike.should_test_power:
+            self.wants_to_test_power = True
+
+        if spike.magnitude >= self.major_spike_threshold:
+            self.should_attempt_harder_content = True
+
+        logger.info(f"╔══════════════════════════════════════════════════════════╗")
+        logger.info(f"║  POWER SPIKE DETECTED!                                   ║")
+        logger.info(f"║  Type: {spike.spike_type.upper()}                        ║")
+        logger.info(f"║  Source: {spike.source_name[:40]:<40} ║")
+        logger.info(f"║  Magnitude: {spike.magnitude:.2f}                        ║")
+        logger.info(f"║  Excitement: {spike.excitement:.2f}                      ║")
+        logger.info(f"║  Confidence boost: +{spike.confidence_boost:.2f}         ║")
+        if spike.should_show_off:
+            logger.info(f"║  >>> AGENT WANTS TO SHOW OFF <<<                       ║")
+        logger.info(f"╚══════════════════════════════════════════════════════════╝")
+
+    def decay_excitement(self, delta_time: float):
+        """Decay excitement over time (it's temporal)."""
+        decay_rate = 0.01  # Per second
+        self.power_excitement = max(0.0, self.power_excitement - decay_rate * delta_time)
+
+        # Flags decay
+        if self.power_excitement < 0.1:
+            self.wants_to_test_power = False
+            self.should_attempt_harder_content = False
+
+    def get_current_power_multiplier(self) -> float:
+        """Get current power level as multiplier (1.0 = baseline)."""
+        return self.current_power_estimate
+
+    def get_confidence_from_power(self) -> float:
+        """Get confidence boost from recent power spikes."""
+        return self.power_confidence
+
+    def get_risk_tolerance_from_power(self) -> float:
+        """Get risk tolerance boost from recent power spikes."""
+        # Recent spikes make agent more willing to take risks
+        if not self.recent_spikes:
+            return 0.0
+
+        recent_boost = sum(s.risk_tolerance_increase for s in self.recent_spikes) / len(self.recent_spikes)
+        return recent_boost * (1.0 + self.power_excitement)
+
+    def should_show_off_power(self) -> bool:
+        """Determine if agent should show off recent power gains."""
+        # Check recent spikes for show-off flags
+        now = time.time()
+        recent_window = 300  # 5 minutes
+
+        recent_show_offs = [
+            s for s in self.recent_spikes
+            if s.should_show_off and (now - s.timestamp) < recent_window
+        ]
+
+        return len(recent_show_offs) > 0
+
+    def get_show_off_emote(self) -> str:
+        """Get an appropriate show-off emote."""
+        emotes = ['/flex', '/roar', '/train']
+        return random.choice(emotes)
+
+    def get_power_narrative(self) -> str:
+        """Get narrative summary of power progression."""
+        if not self.power_history:
+            return "Power progression just beginning"
+
+        recent_count = len([s for s in self.power_history if time.time() - s.timestamp < 3600])
+
+        if self.current_power_estimate > 2.0:
+            return f"Significantly stronger than baseline ({recent_count} recent power spikes)"
+        elif self.current_power_estimate > 1.5:
+            return f"Noticeably stronger ({recent_count} recent power spikes)"
+        elif self.current_power_estimate > 1.2:
+            return f"Gradually growing stronger ({recent_count} recent power spikes)"
+        else:
+            return "Early in power progression"
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'current_power_estimate': self.current_power_estimate,
+            'power_confidence': self.power_confidence,
+            'power_excitement': self.power_excitement,
+            'spike_history_count': len(self.power_history),
+            'recent_spikes': [{
+                'spike_type': s.spike_type,
+                'magnitude': s.magnitude,
+                'source_name': s.source_name,
+                'timestamp': s.timestamp,
+            } for s in list(self.recent_spikes)],
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        self.current_power_estimate = state.get('current_power_estimate', 1.0)
+        self.power_confidence = state.get('power_confidence', 0.5)
+        self.power_excitement = state.get('power_excitement', 0.0)
+
+        if 'recent_spikes' in state:
+            self.recent_spikes = deque(maxlen=10)
+            for s_state in state['recent_spikes']:
+                # Simplified reconstruction
+                self.recent_spikes.append(PowerSpike(
+                    spike_type=s_state['spike_type'],
+                    magnitude=s_state['magnitude'],
+                    source_name=s_state['source_name'],
+                    timestamp=s_state['timestamp'],
+                    excitement=0.0,
+                    confidence_boost=0.0,
+                    risk_tolerance_increase=0.0,
+                ))
 
 
 # =============================================================================
