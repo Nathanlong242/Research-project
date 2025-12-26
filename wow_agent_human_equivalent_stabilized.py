@@ -2127,6 +2127,36 @@ class HumanEquivalentCognition:
             if current_level > self.progression.current_level:
                 self.progression.record_level_up(current_level)
 
+                # Record level up in autobiographical memory
+                # Check if this was a milestone
+                milestone_achieved = None
+                for milestone in self.progression.milestone_history:
+                    if milestone.level == current_level and milestone.achievement_time > time.time() - 2.0:
+                        milestone_achieved = milestone
+                        break
+
+                if milestone_achieved:
+                    # This was a significant milestone
+                    self.autobiographical_memory.record_life_event(
+                        event_type='milestone',
+                        description=f"Reached level {current_level}: {milestone_achieved.narrative_significance}",
+                        emotional_valence=milestone_achieved.emotional_valence,
+                        significance=0.8,  # Milestones are significant
+                        level_at_time=current_level,
+                        location=perception.get('zone', 'unknown'),
+                        defines_identity=(current_level in [20, 40, 60])  # Major milestones define identity
+                    )
+                else:
+                    # Regular level up
+                    self.autobiographical_memory.record_life_event(
+                        event_type='achievement',
+                        description=f"Reached level {current_level}",
+                        emotional_valence=0.3,
+                        significance=0.3,
+                        level_at_time=current_level,
+                        location=perception.get('zone', 'unknown')
+                    )
+
                 # Level up triggers power spike!
                 spike = self.power_spikes.detect_level_up(current_level)
                 self.power_spikes.record_spike(spike)
@@ -2206,6 +2236,18 @@ class HumanEquivalentCognition:
                 if spike:
                     self.power_spikes.record_spike(spike)
 
+                    # Record significant gear upgrades in autobiographical memory
+                    if spike.magnitude > 0.15:  # Only record meaningful upgrades (>15% increase)
+                        self.autobiographical_memory.record_life_event(
+                            event_type='achievement',
+                            description=f"Major upgrade: {gear_info['name']} (+{spike.magnitude*100:.0f}% power)",
+                            emotional_valence=min(1.0, spike.magnitude * 3.0),  # Bigger upgrades = more emotional
+                            significance=min(0.9, spike.magnitude * 2.0),
+                            level_at_time=self.progression.current_level,
+                            location=perception.get('zone', 'unknown'),
+                            defines_identity=(spike.magnitude > 0.5)  # Huge upgrades define identity
+                        )
+
         # === PROFESSION COMMITMENT ===
         # Track profession choices
         if 'profession_learned' in perception:
@@ -2256,6 +2298,18 @@ class HumanEquivalentCognition:
         if 'guild_joined' in perception:
             self.endgame_prep.record_guild_join(perception['guild_joined'])
 
+            # Record in autobiographical memory - guild join is identity-defining
+            self.autobiographical_memory.record_life_event(
+                event_type='social',
+                description=f"Joined guild: {perception['guild_joined']}",
+                emotional_valence=0.7,
+                significance=0.9,  # Very significant life event
+                level_at_time=self.progression.current_level,
+                location=perception.get('zone', 'unknown'),
+                people_involved=[perception['guild_joined']],
+                defines_identity=True  # Guild membership defines who you are
+            )
+
         # === POWER SPIKE DETECTION ===
         # Decay excitement over time
         self.power_spikes.decay_excitement(1.0)
@@ -2283,6 +2337,84 @@ class HumanEquivalentCognition:
         power_confidence = self.power_spikes.get_confidence_from_power()
         if hasattr(self.drives.drives.get(DriveType.MASTERY), 'base_weight'):
             self.drives.drives[DriveType.MASTERY].base_weight = 0.8 + power_confidence * 0.4
+
+        # === TIER 2 LIFE SYSTEMS (SOCIAL, DEATH, EXPLORATION, ETC) ===
+        # Track deaths - traumatic life events
+        if 'player_died' in perception and perception['player_died']:
+            killer = perception.get('killed_by', 'unknown')
+            zone = perception.get('zone', 'unknown')
+
+            # Record in autobiographical memory
+            self.autobiographical_memory.record_life_event(
+                event_type='trauma',
+                description=f"Killed by {killer} in {zone}",
+                emotional_valence=-0.7,  # Negative emotion
+                significance=0.6,  # Deaths are memorable
+                level_at_time=self.progression.current_level,
+                location=zone,
+                people_involved=[killer] if killer != 'unknown' else []
+            )
+
+        # Track new friendships
+        if 'player_grouped' in perception:
+            player_name = perception['player_grouped']
+
+            # Record positive social interaction
+            self.autobiographical_memory.record_life_event(
+                event_type='social',
+                description=f"Grouped with {player_name}",
+                emotional_valence=0.4,
+                significance=0.3,
+                level_at_time=self.progression.current_level,
+                location=perception.get('zone', 'unknown'),
+                people_involved=[player_name]
+            )
+
+        # Track major discoveries
+        if 'new_zone_discovered' in perception:
+            zone_name = perception['new_zone_discovered']
+
+            # Record discovery
+            self.autobiographical_memory.record_life_event(
+                event_type='discovery',
+                description=f"Discovered new zone: {zone_name}",
+                emotional_valence=0.5,
+                significance=0.5,
+                level_at_time=self.progression.current_level,
+                location=zone_name
+            )
+
+        # Track quest completions (memorable ones)
+        if 'quest_completed' in perception:
+            quest_info = perception['quest_completed']
+            if quest_info.get('is_significant', False):  # Only record significant quests
+
+                # Record quest completion
+                self.autobiographical_memory.record_life_event(
+                    event_type='achievement',
+                    description=f"Completed quest: {quest_info.get('name', 'unknown quest')}",
+                    emotional_valence=0.4,
+                    significance=0.4,
+                    level_at_time=self.progression.current_level,
+                    location=perception.get('zone', 'unknown')
+                )
+
+        # Decay memories periodically (every ~100 ticks)
+        if self._tick_count % 100 == 0:
+            self.autobiographical_memory.decay_memories(delta_time / 100.0)
+
+        # Check for chapter transitions
+        if 'level' in perception:
+            self.autobiographical_memory.check_chapter_transition(
+                perception['level'],
+                perception.get('zone', 'unknown')
+            )
+
+        # Occasional nostalgic reflection
+        if random.random() < 0.001:  # Very rare, spontaneous nostalgia
+            nostalgia = self.autobiographical_memory.detect_nostalgia()
+            if nostalgia:
+                logger.info(f"[Nostalgia] {nostalgia}")
 
         # === DRIVE MODULATION FROM LIFE SYSTEMS ===
         # Progression momentum affects progress drive
