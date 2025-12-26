@@ -8977,13 +8977,10 @@ class CognitiveCore:
             min_exploration_rate=0.05
         )
 
-        # BUG FIX: Removed unused HumanEquivalentCognition instantiation
-        # - Was using ~5-10 MB memory with no execution path
-        # - Contains 13 life systems (progression, wealth, gear, social, death, etc.)
-        # - To integrate: would need to bridge perception formats (Dict vs CogPerceptionState)
-        #   and decision outputs (Dict vs TacticalDirective)
-        # TODO: Decide integration strategy - merge into CognitiveCore or create adapter
-        # self.human_cognition = HumanEquivalentCognition()
+        # === LIFE SYSTEMS INTEGRATION ===
+        # Re-enabled: These 13 systems make the agent "live" rather than just "learn"
+        # Integration: Called from process_tick() to update life state on every decision
+        self.human_cognition = HumanEquivalentCognition()
 
         self.personality = PersonalityProfile(
             risk_tolerance=0.4,
@@ -9083,6 +9080,12 @@ class CognitiveCore:
             self.rl_learner.set_state(state['rl_learner'])
             logger.info(f"  Restored Q-learning: {len(self.rl_learner.q_values)} Q-values")
 
+        # === LIFE SYSTEMS ===
+        if 'human_cognition' in state:
+            self.human_cognition.set_state(state['human_cognition'])
+            logger.info(f"  Restored life systems: level {self.human_cognition.progression.current_level}, "
+                       f"{len(self.human_cognition.autobiographical_memory.life_events)} life events")
+
     def _enter_amnesiac_mode(self):
         logger.warning("Cognitive system entering amnesiac recovery mode")
         self.meta_cognition.enter_recovery_mode("memory_corruption", time.time())
@@ -9100,7 +9103,12 @@ class CognitiveCore:
             self.narrative.record_tick()
             
             self.working_memory.update(perception.delta_time)
-            
+
+            # === LIFE SYSTEMS UPDATE ===
+            # Convert CogPerceptionState to Dict format for HumanEquivalentCognition
+            life_perception = self._convert_perception_for_life_systems(perception)
+            self.human_cognition._update_life_systems(life_perception)
+
             attention_focus = self.attention.compute_salience(perception, self.personality)
             
             self.working_memory.add("perception_summary", {
@@ -9140,7 +9148,11 @@ class CognitiveCore:
                 self.beliefs, self.social_memory, self.goals, self.personality,
                 self.learning, self.meta_cognition, self.intent_inference
             )
-            
+
+            # === LIFE SYSTEMS INFLUENCE ===
+            # Modulate directive based on lived experience (wealth anxiety, death trauma, progression drive, etc.)
+            directive = self._apply_life_systems_modulation(directive, perception)
+
             decision_hash = hashlib.md5(
                 f"{directive.primary_action.name}:{directive.target_id}".encode()
             ).hexdigest()[:8]
@@ -9200,6 +9212,132 @@ class CognitiveCore:
             utility_snapshot=original.utility_snapshot
         )
     
+    def _apply_life_systems_modulation(self, directive: TacticalDirective,
+                                         perception: CogPerceptionState) -> TacticalDirective:
+        """
+        Modulate directive based on life systems state.
+        This is where the agent's lived experience affects decision-making.
+        """
+        life = self.human_cognition
+
+        # Wealth anxiety → increased caution when broke
+        if life.wealth.financial_anxiety > 0.7:
+            directive.risk_estimate = min(1.0, directive.risk_estimate * 1.3)
+            directive.action_confidence *= 0.9
+            if "wealth_anxiety" not in directive.reasoning_log:
+                directive.reasoning_log.append("wealth_anxiety: avoiding risky actions")
+
+        # Death trauma → avoid dangerous locations
+        trauma_level = life.death_psychology.get_trauma_level()
+        if trauma_level > 0.5:
+            pos = (perception.player_position_x, perception.player_position_y)
+            if life.death_psychology.should_avoid_location(pos):
+                directive.positioning_intent = PositioningIntent.RETREAT
+                directive.movement_urgency = MovementUrgency.MEDIUM
+                directive.reasoning_log.append(f"death_trauma: avoiding dangerous area (trauma={trauma_level:.2f})")
+
+        # Progression momentum → increased urgency toward goals
+        prog_emotions = life.progression.get_progression_emotional_state()
+        if prog_emotions['momentum'] > 0.7:
+            directive.time_horizon_seconds *= 0.8  # More focused on immediate goals
+            directive.reasoning_log.append(f"progression_momentum: high drive to level up")
+
+        # Milestone anticipation → excitement affects risk tolerance
+        if prog_emotions['milestone_anticipation'] > 0.6:
+            directive.action_confidence *= 1.1  # More confident when close to milestone
+            directive.reasoning_log.append("milestone_anticipation: excited for upcoming achievement")
+
+        # Power spike excitement → temporary confidence boost
+        power_conf = life.power_spikes.get_confidence_from_power()
+        if power_conf > 0.7:
+            directive.action_confidence = min(1.0, directive.action_confidence * 1.15)
+            directive.reasoning_log.append(f"power_confidence: feeling strong (power={power_conf:.2f})")
+
+        # Gear intuition → trust in equipment
+        gear_conf = life.gear_intuition.get_gear_confidence()
+        if gear_conf < 0.3:  # Weak gear
+            directive.risk_estimate = min(1.0, directive.risk_estimate * 1.2)
+            directive.reasoning_log.append(f"gear_insecurity: equipment feels weak")
+
+        # Endgame awareness → long-term planning
+        if life.endgame_prep.in_endgame_prep_mode:
+            directive.time_horizon_seconds *= 1.5  # Think further ahead
+            directive.reasoning_log.append("endgame_mode: focused on raid preparation")
+
+        # Social trust → affects cooperation willingness
+        if perception.nearby_players:
+            for player in perception.nearby_players:
+                relationship = life.social_relationships.get_relationship(player.player_id)
+                if relationship and relationship.trust_level < 0.3:
+                    directive.social_action = SocialAction.NONE  # Don't cooperate with untrusted
+                    directive.reasoning_log.append(f"social_distrust: avoiding {player.player_id}")
+
+        # Routine attachment → prefer familiar actions
+        session_goal = life.routine_formation.get_current_session_goal()
+        if session_goal and session_goal in directive.reasoning_log:
+            directive.action_confidence *= 1.05  # Confident in routine
+            directive.reasoning_log.append("routine_comfort: familiar action pattern")
+
+        # Combat style identity → affects aggression
+        combat_style = life.combat_mastery.combat_style
+        if combat_style == "aggressive":
+            directive.action_confidence *= 1.1
+        elif combat_style == "defensive":
+            directive.risk_estimate = min(1.0, directive.risk_estimate * 1.1)
+
+        # Nostalgia → occasional pull toward early zones (emotional, not optimal)
+        if random.random() < 0.001 and life.autobiographical_memory.detect_nostalgia():
+            directive.reasoning_log.append("nostalgia: remembering early adventures")
+
+        return directive
+
+    def _convert_perception_for_life_systems(self, perception: CogPerceptionState) -> Dict[str, Any]:
+        """Convert CogPerceptionState to Dict format for HumanEquivalentCognition."""
+        perception_dict = {
+            # Player state
+            'level': perception.player_level,
+            'hp': perception.player_hp_percent,
+            'resource': perception.resource_current,
+            'resource_max': perception.resource_max,
+            'position': (perception.player_position_x, perception.player_position_y),
+            'zone': perception.zone_name if hasattr(perception, 'zone_name') else 'unknown',
+
+            # Combat state
+            'in_combat': perception.time_in_combat > 0,
+            'combat_won': False,  # Will be set by combat outcome recording
+
+            # Economic state
+            'gold': perception.inventory_gold if hasattr(perception, 'inventory_gold') else 0,
+            'gold_looted': 0,  # Set when loot events occur
+            'gold_spent': 0,   # Set when purchase events occur
+
+            # Gear (simplified - would need actual gear tracking)
+            'gear_equipped': None,  # Set when gear changes occur
+
+            # Death tracking
+            'player_died': perception.player_hp_percent <= 0,
+            'killed_by': perception.nearby_enemies[0].id if perception.nearby_enemies else 'unknown',
+
+            # Social
+            'player_grouped': None,  # Set when group events occur
+            'guild_joined': None,    # Set when guild events occur
+
+            # Discovery
+            'new_zone_discovered': None,  # Set when zone changes occur
+
+            # Quest
+            'quest_completed': None,  # Set when quest events occur
+
+            # Profession
+            'profession_learned': None,
+            'profession_skill_up': None,
+
+            # Timestamps
+            'timestamp': perception.timestamp,
+        }
+
+        return perception_dict
+
     def record_outcome(self, outcome_type: str, outcome_valence: float):
         with self._lock:
             timestamp = time.time()
@@ -9281,6 +9419,10 @@ class CognitiveCore:
                 'world_model': self.world_model.get_state(),
                 'drive_system': self.drive_system.get_state(),
                 'rl_learner': self.rl_learner.get_state(),
+
+                # === LIFE SYSTEMS ===
+                # 13 systems that make the agent experience WoW as a persistent life
+                'human_cognition': self.human_cognition.get_state(),
             }
 
             return self.persistence.save(state)
