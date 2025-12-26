@@ -2088,6 +2088,12 @@ class HumanEquivalentCognition:
         logger.info("  - Quest narrative engagement (story investment)")
         logger.info("  - Routine formation (session goals, habits)")
 
+        # Tier 3: Unifying System - Autobiographical Memory
+        self.autobiographical_memory = AutobiographicalMemory()
+
+        logger.info("Unifying System (Tier 3) initialized:")
+        logger.info("  - Autobiographical memory (narrative identity, life story)")
+
         # Integration state
         self._last_state_features: Optional[Dict[str, Any]] = None
         self._last_action: Optional[str] = None
@@ -2597,7 +2603,7 @@ class HumanEquivalentCognition:
     def _save_state(self):
         """Save cognitive state to disk."""
         state = {
-            'version': '4.0.0',  # Version with Tier 1 + Tier 2 LIFE systems
+            'version': '5.0.0',  # Version with Tier 1 + Tier 2 + Tier 3 (Autobiographical Memory)
             'beliefs': self.beliefs.get_state(),
             'procedural_memory': self.procedural_memory.get_state(),
             'world_model': self.world_model.get_state(),
@@ -2622,6 +2628,9 @@ class HumanEquivalentCognition:
             'combat_mastery': self.combat_mastery.get_state(),
             'quest_narrative': self.quest_narrative.get_state(),
             'routine_formation': self.routine_formation.get_state(),
+
+            # === UNIFYING SYSTEM (TIER 3) ===
+            'autobiographical_memory': self.autobiographical_memory.get_state(),
         }
 
         try:
@@ -2713,6 +2722,12 @@ class HumanEquivalentCognition:
             if 'routine_formation' in state:
                 self.routine_formation.set_state(state['routine_formation'])
                 logger.info(f"  Restored routines: Session #{self.routine_formation.session_count}")
+
+            # === UNIFYING SYSTEM (TIER 3) ===
+            if 'autobiographical_memory' in state:
+                self.autobiographical_memory.set_state(state['autobiographical_memory'])
+                logger.info(f"  Restored life story: {len(self.autobiographical_memory.life_events)} events, "
+                           f"{len(self.autobiographical_memory.life_chapters)} chapters")
 
             logger.info(f"Restored cognitive state: {self._tick_count} previous ticks, "
                        f"{len(self.beliefs.beliefs)} beliefs, "
@@ -6119,6 +6134,515 @@ class RoutineFormationSystem:
         self.typical_session_duration = state.get('typical_session_duration', 7200.0)
         self.habitual_actions = state.get('habitual_actions', {})
         self.preferred_play_time = state.get('preferred_play_time')
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AUTOBIOGRAPHICAL MEMORY & NARRATIVE IDENTITY SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# The unifying system: organize all life experiences into a coherent narrative.
+# Memory decay, temporal organization, identity reflection, life story construction.
+# This transforms disconnected systems into a LIVED LIFE with past, present, future.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class LifeEvent:
+    """A significant life event in the agent's journey."""
+    timestamp: float
+    event_type: str  # 'milestone', 'trauma', 'achievement', 'social', 'discovery', 'failure'
+    description: str
+    emotional_valence: float  # -1 to +1
+    significance: float  # 0-1, how important this was
+
+    # Context
+    level_at_time: int = 1
+    location: Optional[str] = None
+    people_involved: List[str] = field(default_factory=list)
+
+    # Memory properties
+    vividness: float = 1.0  # Decays over time
+    times_recalled: int = 0  # Remembering reinforces memory
+    last_recalled: float = 0.0
+
+    # Narrative integration
+    part_of_chapter: Optional[str] = None  # Which life chapter this belongs to
+    defines_identity: bool = False  # Does this event define who we are?
+
+
+@dataclass
+class LifeChapter:
+    """A distinct phase of the agent's WoW life."""
+    chapter_name: str
+    start_time: float
+    end_time: Optional[float] = None
+    start_level: int = 1
+    end_level: Optional[int] = None
+
+    # Chapter characteristics
+    dominant_emotion: str = "curious"  # Overall feel of this chapter
+    key_relationships: List[str] = field(default_factory=list)
+    major_achievements: List[str] = field(default_factory=list)
+    defining_moments: List[str] = field(default_factory=list)
+
+    # Reflection
+    lessons_learned: List[str] = field(default_factory=list)
+    how_i_changed: str = ""
+
+
+class AutobiographicalMemory:
+    """
+    Organize all life experiences into temporal, emotional, narrative structure.
+
+    This system answers:
+    - "Who am I?" (identity)
+    - "What's my story?" (narrative)
+    - "How have I changed?" (growth)
+    - "What do I remember about...?" (episodic recall)
+    - "What defined me?" (significant events)
+
+    This is the UNIFYING system that makes all other systems feel like a life.
+    """
+
+    def __init__(self):
+        # Temporal memory organization
+        self.life_events: List[LifeEvent] = []
+        self.event_index: Dict[str, List[LifeEvent]] = {
+            'milestone': [],
+            'trauma': [],
+            'achievement': [],
+            'social': [],
+            'discovery': [],
+            'failure': [],
+        }
+
+        # Life chapters
+        self.chapters: List[LifeChapter] = []
+        self.current_chapter: Optional[LifeChapter] = None
+
+        # Identity narrative
+        self.identity_statements: List[str] = []  # "I am...", "I've...", "I..."
+        self.core_values: Dict[str, float] = {}  # Emerged values (courage, caution, etc.)
+
+        # Self-concept
+        self.character_birth_time = time.time()
+        self.total_play_time = 0.0
+        self.self_description = "A new adventurer beginning their journey"
+
+        # Memory triggers (associative recall)
+        self.location_memories: Dict[str, List[LifeEvent]] = {}  # Place → memories
+        self.person_memories: Dict[str, List[LifeEvent]] = {}   # Person → memories
+
+        # Emotional timeline
+        self.emotional_trajectory: deque = deque(maxlen=1000)  # (time, emotion, intensity)
+
+        # Nostalgia and reflection
+        self.nostalgia_triggers: List[str] = []  # Things that make us nostalgic
+        self.proudest_moments: List[LifeEvent] = []
+        self.deepest_regrets: List[LifeEvent] = []
+        self.defining_friendships: List[str] = []
+
+        # Identity evolution tracking
+        self.identity_checkpoints: List[Dict[str, Any]] = []  # Snapshots over time
+
+        # Initialize first chapter
+        self._start_new_chapter("The Beginning", "Everything is new and unknown")
+
+        logger.info("AutobiographicalMemory initialized - life story begins")
+
+    def _start_new_chapter(self, chapter_name: str, emotion: str = "curious"):
+        """Begin a new chapter in the life story."""
+        # End previous chapter
+        if self.current_chapter:
+            self.current_chapter.end_time = time.time()
+
+        # Start new chapter
+        new_chapter = LifeChapter(
+            chapter_name=chapter_name,
+            start_time=time.time(),
+            dominant_emotion=emotion,
+        )
+
+        self.chapters.append(new_chapter)
+        self.current_chapter = new_chapter
+
+        logger.info(f"╔══════════════════════════════════════════════════════════╗")
+        logger.info(f"║  NEW LIFE CHAPTER: {chapter_name[:38]:<38} ║")
+        logger.info(f"╚══════════════════════════════════════════════════════════╝")
+
+    def record_life_event(self, event_type: str, description: str,
+                         emotional_valence: float, significance: float,
+                         level: int = 1, location: str = None,
+                         people: List[str] = None) -> LifeEvent:
+        """
+        Record a significant life event.
+
+        This is the PRIMARY interface for other systems to contribute to life story.
+        """
+        event = LifeEvent(
+            timestamp=time.time(),
+            event_type=event_type,
+            description=description,
+            emotional_valence=emotional_valence,
+            significance=significance,
+            level_at_time=level,
+            location=location,
+            people_involved=people or [],
+            part_of_chapter=self.current_chapter.chapter_name if self.current_chapter else None,
+        )
+
+        # Mark highly significant events as identity-defining
+        if significance > 0.8:
+            event.defines_identity = True
+            self._update_identity_from_event(event)
+
+        # Store event
+        self.life_events.append(event)
+        if event_type in self.event_index:
+            self.event_index[event_type].append(event)
+
+        # Associate with location
+        if location:
+            if location not in self.location_memories:
+                self.location_memories[location] = []
+            self.location_memories[location].append(event)
+
+        # Associate with people
+        for person in (people or []):
+            if person not in self.person_memories:
+                self.person_memories[person] = []
+            self.person_memories[person].append(event)
+
+        # Track emotional state
+        self.emotional_trajectory.append((time.time(), event_type, emotional_valence))
+
+        # Update chapter
+        if self.current_chapter:
+            if significance > 0.7:
+                self.current_chapter.defining_moments.append(description)
+
+        # Update proudest moments / regrets
+        if emotional_valence > 0.7 and significance > 0.7:
+            self.proudest_moments.append(event)
+            self.proudest_moments = sorted(self.proudest_moments,
+                                          key=lambda e: e.significance * e.emotional_valence,
+                                          reverse=True)[:10]  # Keep top 10
+
+        if emotional_valence < -0.6 and significance > 0.6:
+            self.deepest_regrets.append(event)
+            self.deepest_regrets = sorted(self.deepest_regrets,
+                                         key=lambda e: abs(e.emotional_valence) * e.significance,
+                                         reverse=True)[:10]
+
+        logger.debug(f"Life event recorded: {description} (significance: {significance:.2f})")
+
+        return event
+
+    def _update_identity_from_event(self, event: LifeEvent):
+        """Update identity statements based on significant event."""
+        # Extract identity implications
+        if event.event_type == 'achievement':
+            self.identity_statements.append(f"I achieved {event.description}")
+        elif event.event_type == 'trauma':
+            self.identity_statements.append(f"I survived {event.description}")
+        elif event.event_type == 'milestone':
+            self.identity_statements.append(f"I reached {event.description}")
+
+        # Update core values
+        if event.emotional_valence > 0.5:
+            # Positive events suggest values
+            if 'friend' in event.description.lower():
+                self.core_values['loyalty'] = self.core_values.get('loyalty', 0) + 0.1
+            if 'help' in event.description.lower():
+                self.core_values['altruism'] = self.core_values.get('altruism', 0) + 0.1
+
+        # Limit identity statements
+        self.identity_statements = self.identity_statements[-50:]  # Keep last 50
+
+    def recall_memories_about(self, trigger: str, limit: int = 5) -> List[LifeEvent]:
+        """
+        Recall memories triggered by location, person, or concept.
+        """
+        memories = []
+
+        # Location-based recall
+        if trigger in self.location_memories:
+            memories.extend(self.location_memories[trigger])
+
+        # Person-based recall
+        if trigger in self.person_memories:
+            memories.extend(self.person_memories[trigger])
+
+        # Concept-based recall (search descriptions)
+        for event in self.life_events:
+            if trigger.lower() in event.description.lower():
+                memories.append(event)
+
+        # Sort by recency + significance
+        now = time.time()
+        memories.sort(key=lambda e: (now - e.timestamp) / 86400 + e.significance * 10, reverse=True)
+
+        # Increment recall counters
+        for mem in memories[:limit]:
+            mem.times_recalled += 1
+            mem.last_recalled = time.time()
+            # Recalling reinforces vividness
+            mem.vividness = min(1.0, mem.vividness + 0.05)
+
+        return memories[:limit]
+
+    def decay_memories(self, delta_time: float):
+        """
+        Decay memory vividness over time.
+        Recent and frequently-recalled memories decay slower.
+        """
+        decay_rate = 0.00001  # Very slow decay per second
+
+        for event in self.life_events:
+            # Time since event
+            age = time.time() - event.timestamp
+
+            # Reinforcement from recall
+            recall_boost = min(0.5, event.times_recalled * 0.05)
+
+            # Significance resists decay
+            significance_resistance = event.significance
+
+            # Calculate decay
+            effective_decay = decay_rate * delta_time * (1.0 - significance_resistance - recall_boost)
+            event.vividness = max(0.0, event.vividness - effective_decay)
+
+    def get_temporal_categorization(self, event: LifeEvent) -> str:
+        """Categorize event by time: recent, days ago, weeks ago, long ago."""
+        age = (time.time() - event.timestamp) / 3600.0  # Age in hours
+
+        if age < 1:
+            return "just now"
+        elif age < 24:
+            return "today"
+        elif age < 72:
+            return "a few days ago"
+        elif age < 168:  # 1 week
+            return "last week"
+        elif age < 720:  # 1 month
+            return "weeks ago"
+        else:
+            return "long ago"
+
+    def construct_life_narrative(self) -> str:
+        """
+        Construct a coherent narrative of the agent's life journey.
+        """
+        lines = []
+
+        # Opening
+        age = (time.time() - self.character_birth_time) / 86400.0  # Days
+        lines.append(f"My WoW Life Story ({age:.1f} days old)")
+        lines.append("=" * 60)
+        lines.append("")
+
+        # Identity
+        lines.append("WHO I AM:")
+        lines.append(f"  {self.self_description}")
+        if self.core_values:
+            top_values = sorted(self.core_values.items(), key=lambda x: x[1], reverse=True)[:3]
+            values_str = ", ".join([v[0] for v in top_values])
+            lines.append(f"  Core values: {values_str}")
+        lines.append("")
+
+        # Chapters
+        if self.chapters:
+            lines.append("MY JOURNEY:")
+            for chapter in self.chapters:
+                duration = ((chapter.end_time or time.time()) - chapter.start_time) / 86400.0
+                lines.append(f"  • {chapter.chapter_name} ({duration:.1f} days)")
+                if chapter.defining_moments:
+                    lines.append(f"    Key moments: {len(chapter.defining_moments)}")
+        lines.append("")
+
+        # Proudest moments
+        if self.proudest_moments:
+            lines.append("PROUDEST MOMENTS:")
+            for event in self.proudest_moments[:5]:
+                when = self.get_temporal_categorization(event)
+                lines.append(f"  • {event.description} ({when})")
+        lines.append("")
+
+        # Regrets
+        if self.deepest_regrets:
+            lines.append("LESSONS LEARNED (from mistakes):")
+            for event in self.deepest_regrets[:3]:
+                when = self.get_temporal_categorization(event)
+                lines.append(f"  • {event.description} ({when})")
+        lines.append("")
+
+        # Relationships
+        if self.defining_friendships:
+            lines.append("MEANINGFUL RELATIONSHIPS:")
+            for friend in self.defining_friendships[:5]:
+                lines.append(f"  • {friend}")
+
+        return "\n".join(lines)
+
+    def check_chapter_transition(self, level: int, major_event: str = None):
+        """Check if we should transition to a new life chapter."""
+        if not self.current_chapter:
+            return
+
+        # Level-based chapter transitions
+        if level >= 20 and self.current_chapter.start_level < 20:
+            self._start_new_chapter("Finding My Footing", "confident")
+        elif level >= 40 and self.current_chapter.start_level < 40:
+            self._start_new_chapter("The Road to Endgame", "determined")
+        elif level >= 55 and self.current_chapter.start_level < 55:
+            self._start_new_chapter("Approaching the Summit", "ambitious")
+        elif level >= 60 and self.current_chapter.start_level < 60:
+            self._start_new_chapter("Endgame Life", "accomplished")
+
+        # Event-based transitions
+        if major_event:
+            if "guild" in major_event.lower():
+                self._start_new_chapter("Guild Life", "belonging")
+
+    def snapshot_identity(self, level: int, session_count: int):
+        """Take a snapshot of current identity for evolution tracking."""
+        snapshot = {
+            'timestamp': time.time(),
+            'level': level,
+            'session_count': session_count,
+            'identity_statements': self.identity_statements.copy(),
+            'core_values': self.core_values.copy(),
+            'self_description': self.self_description,
+            'total_events': len(self.life_events),
+        }
+
+        self.identity_checkpoints.append(snapshot)
+
+        # Limit checkpoints
+        self.identity_checkpoints = self.identity_checkpoints[-20:]
+
+    def detect_nostalgia(self) -> Optional[str]:
+        """
+        Detect if agent should feel nostalgic.
+        Nostalgia = longing for early/simpler times.
+        """
+        # Need to be far enough along
+        if len(self.life_events) < 50:
+            return None
+
+        # Check for markers of nostalgia
+        early_events = [e for e in self.life_events if e.timestamp < self.character_birth_time + 604800]  # First week
+
+        if early_events and random.random() < 0.1:  # 10% chance when triggered
+            # Pick a random early positive event
+            positive_early = [e for e in early_events if e.emotional_valence > 0.3]
+            if positive_early:
+                event = random.choice(positive_early)
+                return f"I remember when {event.description}... those were simpler times."
+
+        return None
+
+    def get_significant_firsts(self) -> List[LifeEvent]:
+        """Get all significant 'first time' events."""
+        firsts = []
+        seen_types = set()
+
+        for event in self.life_events:
+            event_category = event.description.split()[0].lower()  # First word
+            if event_category not in seen_types and event.significance > 0.5:
+                seen_types.add(event_category)
+                firsts.append(event)
+
+        return firsts[:10]
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'life_events': [{
+                'timestamp': e.timestamp,
+                'event_type': e.event_type,
+                'description': e.description,
+                'emotional_valence': e.emotional_valence,
+                'significance': e.significance,
+                'level_at_time': e.level_at_time,
+                'location': e.location,
+                'people_involved': e.people_involved,
+                'vividness': e.vividness,
+                'times_recalled': e.times_recalled,
+                'part_of_chapter': e.part_of_chapter,
+                'defines_identity': e.defines_identity,
+            } for e in self.life_events[-500:]],  # Keep last 500 events
+
+            'chapters': [{
+                'chapter_name': c.chapter_name,
+                'start_time': c.start_time,
+                'end_time': c.end_time,
+                'start_level': c.start_level,
+                'end_level': c.end_level,
+                'dominant_emotion': c.dominant_emotion,
+                'defining_moments': c.defining_moments,
+                'lessons_learned': c.lessons_learned,
+            } for c in self.chapters],
+
+            'identity_statements': self.identity_statements,
+            'core_values': self.core_values,
+            'self_description': self.self_description,
+            'character_birth_time': self.character_birth_time,
+            'total_play_time': self.total_play_time,
+            'defining_friendships': self.defining_friendships,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'life_events' in state:
+            self.life_events = []
+            for e_state in state['life_events']:
+                event = LifeEvent(
+                    timestamp=e_state['timestamp'],
+                    event_type=e_state['event_type'],
+                    description=e_state['description'],
+                    emotional_valence=e_state.get('emotional_valence', 0.0),
+                    significance=e_state.get('significance', 0.5),
+                    level_at_time=e_state.get('level_at_time', 1),
+                    location=e_state.get('location'),
+                    people_involved=e_state.get('people_involved', []),
+                    vividness=e_state.get('vividness', 1.0),
+                    times_recalled=e_state.get('times_recalled', 0),
+                    part_of_chapter=e_state.get('part_of_chapter'),
+                    defines_identity=e_state.get('defines_identity', False),
+                )
+                self.life_events.append(event)
+
+                # Rebuild indices
+                if event.event_type in self.event_index:
+                    self.event_index[event.event_type].append(event)
+                if event.location:
+                    if event.location not in self.location_memories:
+                        self.location_memories[event.location] = []
+                    self.location_memories[event.location].append(event)
+
+        if 'chapters' in state:
+            self.chapters = []
+            for c_state in state['chapters']:
+                chapter = LifeChapter(
+                    chapter_name=c_state['chapter_name'],
+                    start_time=c_state['start_time'],
+                    end_time=c_state.get('end_time'),
+                    start_level=c_state.get('start_level', 1),
+                    end_level=c_state.get('end_level'),
+                    dominant_emotion=c_state.get('dominant_emotion', 'curious'),
+                    defining_moments=c_state.get('defining_moments', []),
+                    lessons_learned=c_state.get('lessons_learned', []),
+                )
+                self.chapters.append(chapter)
+
+            if self.chapters:
+                self.current_chapter = self.chapters[-1]
+
+        self.identity_statements = state.get('identity_statements', [])
+        self.core_values = state.get('core_values', {})
+        self.self_description = state.get('self_description', "An adventurer on their journey")
+        self.character_birth_time = state.get('character_birth_time', time.time())
+        self.total_play_time = state.get('total_play_time', 0.0)
+        self.defining_friendships = state.get('defining_friendships', [])
 
 
 # =============================================================================
