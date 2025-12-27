@@ -2114,6 +2114,16 @@ class HumanEquivalentCognition:
         logger.info("Unifying System (Tier 3) initialized:")
         logger.info("  - Autobiographical memory (narrative identity, life story)")
 
+        # Tier 7: Meta-Cognitive Self-Regulation
+        self.meta_cognitive = MetaCognitiveLayer(rumination_system=self.rumination)
+
+        logger.info("Meta-Cognitive Layer (Tier 7) initialized:")
+        logger.info("  - Mental state awareness and recognition")
+        logger.info("  - Thought suppression with ironic process theory")
+        logger.info("  - Cognitive reappraisal (with skill learning)")
+        logger.info("  - Meta-rumination (ruminating about ruminating)")
+        logger.info("  - Insight generation (breakthrough moments)")
+
         # Tier 4: Temporal Awareness - Human Relationship With Time
         self.temporal_awareness = TemporalLifeAwareness()
 
@@ -2759,7 +2769,11 @@ class HumanEquivalentCognition:
             if intrusive_thought:
                 # Intrusive thoughts add mental noise
                 self.rumination.mental_noise_level = intrusive_thought.emotional_intensity * 0.3
-        
+
+        # TIER 7: Meta-cognitive processing
+        if hasattr(self, 'meta_cognitive'):
+            self.meta_cognitive.tick(current_context=context_str)
+
         # Compute hesitation (uncertainty causes delay)
         hesitation = 0.0
         if confidence < self._confidence_threshold:
@@ -3022,7 +3036,7 @@ class HumanEquivalentCognition:
     def _save_state(self):
         """Save cognitive state to disk."""
         state = {
-            'version': '7.0.0',  # Version with Tier 1+2+3+4+5 (Preference & Value Crystallization)
+            'version': '8.0.0',  # Version with TIER 7 (Meta-Cognitive Self-Regulation)
             'beliefs': self.beliefs.get_state(),
             'procedural_memory': self.procedural_memory.get_state(),
             'world_model': self.world_model.get_state(),
@@ -3057,6 +3071,9 @@ class HumanEquivalentCognition:
             # === PERSONALITY SYSTEM (TIER 5) ===
             'preference_system': self.preference_system.get_state(),
             'rumination': self.rumination.get_state(),
+
+            # === META-COGNITIVE LAYER (TIER 7) ===
+            'meta_cognitive': self.meta_cognitive.get_state(),
         }
 
         try:
@@ -3165,7 +3182,13 @@ class HumanEquivalentCognition:
             if 'rumination' in state:
                 self.rumination.set_state(state['rumination'])
                 logger.info(f"  Restored rumination: {len(self.rumination.active_ruminations)} active thoughts")
-        
+
+            # === META-COGNITIVE LAYER (TIER 7) ===
+            if 'meta_cognitive' in state:
+                self.meta_cognitive.set_state(state['meta_cognitive'])
+                logger.info(f"  Restored meta-cognition: {self.meta_cognitive.current_mental_state.name}, "
+                           f"reappraisal skill: {self.meta_cognitive.reappraisal_skill:.2f}")
+
             if 'preference_system' in state:
                 self.preference_system.restore_state(state['preference_system'])
                 logger.info(f"  Restored personality: {self.preference_system.crystallized_preference_count} preferences, "
@@ -7391,6 +7414,568 @@ class InternalRuminationSystem:
         logger.info(f"Rumination system restored: {len(self.active_ruminations)} active thoughts, "
                    f"{len(self.counterfactuals)} counterfactuals")
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TIER 7: META-COGNITIVE SELF-REGULATION
+# ═══════════════════════════════════════════════════════════════════════════════
+# The agent becomes aware of its own rumination and attempts to regulate it.
+# Includes: thought suppression (with ironic process), cognitive reappraisal,
+# meta-rumination, and insight generation.
+#
+# This is the final layer: not just having thoughts, but thinking about thoughts.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class MentalState(Enum):
+    """Recognized mental states the agent can become aware of."""
+    CLEAR_HEADED = auto()
+    RUMINATION_SPIRAL = auto()
+    ANXIETY_LOOP = auto()
+    OVERTHINKING = auto()
+    MENTAL_FOG = auto()
+    STUCK_IN_LOOP = auto()
+    CATASTROPHIZING = auto()
+    DWELLING = auto()
+
+
+@dataclass
+class ReappraisalAttempt:
+    """A single attempt to cognitively reframe a rumination."""
+    timestamp: float
+    target_rumination: str
+    original_content: str
+    reframed_content: str
+    strategy: str  # "rationalization", "normalization", "evidence", "perspective"
+    success: bool
+    emotional_intensity_before: float
+    emotional_intensity_after: float
+
+
+@dataclass
+class InsightEvent:
+    """A sudden insight that resolves a rumination."""
+    timestamp: float
+    target_rumination: str
+    insight_content: str
+    insight_type: str  # "realization", "acceptance", "perspective", "evidence"
+    resolution_strength: float  # 0-1, how much it resolves the rumination
+    triggered_during: str  # "idle", "combat", "rest", etc.
+
+
+@dataclass
+class SuppressionTarget:
+    """A thought the agent is trying to suppress."""
+    content: str
+    suppression_start: float
+    suppression_attempts: int
+    ironic_intrusion_count: int  # How many times it intruded BECAUSE of suppression
+    ironic_intensity_multiplier: float  # How much stronger intrusions are
+
+
+class MetaCognitiveLayer:
+    """
+    TIER 7: The agent becomes aware of its own mental processes and
+    attempts to regulate them.
+
+    Key behaviors:
+    - Detects when it's ruminating
+    - Tries to suppress thoughts (which makes them worse via ironic process)
+    - Attempts cognitive reappraisal to reframe ruminations
+    - Experiences meta-rumination ("Why can't I stop thinking about this?")
+    - Occasionally has insights that resolve ruminations
+    """
+
+    def __init__(self, rumination_system: InternalRuminationSystem):
+        self.rumination_system = rumination_system
+
+        # Mental state awareness
+        self.current_mental_state: MentalState = MentalState.CLEAR_HEADED
+        self.mental_state_history: deque = deque(maxlen=100)
+        self.state_recognition_threshold = 0.4  # Awareness kicks in at this mental load
+
+        # Thought suppression tracking
+        self.suppression_targets: Dict[str, SuppressionTarget] = {}
+        self.max_suppression_targets = 5
+        self.ironic_process_strength = 0.5  # How much suppression backfires
+
+        # Cognitive reappraisal
+        self.reappraisal_attempts: List[ReappraisalAttempt] = []
+        self.reappraisal_skill = 0.3  # Improves with practice (0-1)
+        self.reappraisal_strategies = [
+            "rationalization",  # "I did the best I could"
+            "normalization",    # "Everyone makes mistakes"
+            "evidence",         # "I've succeeded 10 other times"
+            "perspective",      # "It's not as bad as I thought"
+            "external_attribution"  # "The enemy was higher level"
+        ]
+
+        # Meta-rumination (ruminating about ruminating)
+        self.meta_rumination_count = 0
+        self.meta_rumination_active = False
+        self.recursion_depth = 0  # How many layers of meta-thinking
+        self.max_recursion_depth = 3  # Prevent infinite loops
+
+        # Insight generation
+        self.insights: List[InsightEvent] = []
+        self.insight_generation_enabled = True
+        self.base_insight_probability = 0.02  # 2% per check when conditions met
+        self.last_insight_time = 0.0
+
+        # Self-regulation tracking
+        self.regulation_attempts = 0
+        self.successful_regulations = 0
+        self.failed_regulations = 0
+
+        logger.info("Meta-Cognitive Layer (TIER 7) initialized")
+        logger.info("  - Mental state detection")
+        logger.info("  - Thought suppression with ironic process")
+        logger.info("  - Cognitive reappraisal")
+        logger.info("  - Meta-rumination detection")
+        logger.info("  - Insight generation")
+
+    def detect_mental_state(self) -> MentalState:
+        """
+        Detect current mental state based on rumination patterns.
+        Agent becomes AWARE of its mental condition.
+        """
+        mental_load = self.rumination_system.get_mental_load()
+        active_count = len(self.rumination_system.active_ruminations)
+
+        # Not aware of mild rumination
+        if mental_load < self.state_recognition_threshold:
+            return MentalState.CLEAR_HEADED
+
+        # Check for specific patterns
+        if active_count >= 8:
+            # Too many thoughts
+            return MentalState.OVERTHINKING
+
+        if mental_load > 0.7:
+            # Overwhelming mental load
+            return MentalState.MENTAL_FOG
+
+        # Check if stuck on same thought
+        if self.rumination_system.active_ruminations:
+            recent_content = [r.content for r in self.rumination_system.active_ruminations[:5]]
+            if len(set(recent_content)) <= 2:  # Same thoughts repeating
+                return MentalState.STUCK_IN_LOOP
+
+        # Check for catastrophizing
+        catastrophic_count = sum(1 for r in self.rumination_system.active_ruminations
+                                if r.rumination_type == RuminationType.ANTICIPATORY_WORRY)
+        if catastrophic_count >= 3:
+            return MentalState.CATASTROPHIZING
+
+        # Check for regret spiral
+        regret_count = sum(1 for r in self.rumination_system.active_ruminations
+                          if r.rumination_type == RuminationType.REGRET_SPIRAL)
+        if regret_count >= 3:
+            return MentalState.RUMINATION_SPIRAL
+
+        # Check for anxiety
+        worry_count = sum(1 for r in self.rumination_system.active_ruminations
+                         if r.rumination_type in [RuminationType.ANTICIPATORY_WORRY,
+                                                  RuminationType.SELF_DOUBT])
+        if worry_count >= 3:
+            return MentalState.ANXIETY_LOOP
+
+        # Default: dwelling
+        if active_count >= 3:
+            return MentalState.DWELLING
+
+        return MentalState.CLEAR_HEADED
+
+    def update_mental_state(self):
+        """Update mental state and track changes."""
+        new_state = self.detect_mental_state()
+
+        if new_state != self.current_mental_state:
+            old_state = self.current_mental_state
+            self.current_mental_state = new_state
+            self.mental_state_history.append((time.time(), new_state))
+
+            # Log state changes
+            if new_state != MentalState.CLEAR_HEADED:
+                logger.info(f"[Meta-Cognitive] Mental state: {old_state.name} → {new_state.name}")
+
+                # Trigger meta-rumination if stuck in bad state
+                if new_state in [MentalState.RUMINATION_SPIRAL, MentalState.STUCK_IN_LOOP,
+                                MentalState.OVERTHINKING]:
+                    self.trigger_meta_rumination(new_state)
+
+    def trigger_meta_rumination(self, mental_state: MentalState):
+        """
+        Trigger meta-rumination: ruminating ABOUT ruminating.
+        "Why can't I stop thinking about this?"
+        """
+        if self.recursion_depth >= self.max_recursion_depth:
+            logger.debug("[Meta-Cognitive] Max recursion depth reached - mental fog")
+            return
+
+        self.recursion_depth += 1
+        self.meta_rumination_count += 1
+        self.meta_rumination_active = True
+
+        meta_thoughts = {
+            MentalState.RUMINATION_SPIRAL: "Why do I keep dwelling on this?",
+            MentalState.STUCK_IN_LOOP: "I'm stuck thinking about the same thing over and over",
+            MentalState.OVERTHINKING: "I'm overthinking everything",
+            MentalState.ANXIETY_LOOP: "Why am I so anxious about this?",
+            MentalState.CATASTROPHIZING: "I'm catastrophizing again",
+        }
+
+        thought = meta_thoughts.get(mental_state, "I need to stop dwelling on this")
+
+        logger.info(f"[Meta-Rumination] {thought}")
+
+        # This ADDS mental load (thinking about thinking is costly)
+        self.rumination_system.mental_noise_level = min(1.0,
+            self.rumination_system.mental_noise_level + 0.15)
+
+    def attempt_thought_suppression(self, rumination: RuminativeThought) -> bool:
+        """
+        Attempt to suppress a rumination.
+
+        IRONIC PROCESS: Trying NOT to think about something requires
+        monitoring for that thought, which makes it more accessible.
+
+        Returns True if suppression added (even though it will backfire).
+        """
+        if len(self.suppression_targets) >= self.max_suppression_targets:
+            return False
+
+        content_key = rumination.content[:50]  # Use first 50 chars as key
+
+        if content_key in self.suppression_targets:
+            # Already suppressing this
+            self.suppression_targets[content_key].suppression_attempts += 1
+        else:
+            # New suppression target
+            self.suppression_targets[content_key] = SuppressionTarget(
+                content=rumination.content,
+                suppression_start=time.time(),
+                suppression_attempts=1,
+                ironic_intrusion_count=0,
+                ironic_intensity_multiplier=1.0
+            )
+
+        logger.info(f"[Suppression] Trying not to think about: {rumination.content[:60]}...")
+
+        # Suppression INCREASES intrusion probability (ironic process)
+        rumination.intrusion_frequency = min(1.0, rumination.intrusion_frequency * 1.5)
+        rumination.emotional_intensity = min(1.0, rumination.emotional_intensity * 1.2)
+
+        self.regulation_attempts += 1
+        self.failed_regulations += 1  # Suppression typically fails
+
+        return True
+
+    def check_for_ironic_intrusions(self) -> Optional[str]:
+        """
+        Check if suppressed thoughts are intruding MORE because of suppression.
+        This is the ironic process: suppression backfires.
+        """
+        for content_key, target in self.suppression_targets.items():
+            # Probability increases with suppression attempts
+            ironic_prob = min(0.4, target.suppression_attempts * 0.08)
+
+            if random.random() < ironic_prob:
+                target.ironic_intrusion_count += 1
+                target.ironic_intensity_multiplier *= 1.15
+
+                logger.warning(f"[Ironic Process] Suppressed thought intrudes STRONGER: {target.content[:60]}...")
+
+                return f"I can't stop thinking about {target.content}"
+
+        return None
+
+    def attempt_cognitive_reappraisal(self, rumination: RuminativeThought,
+                                     context: Dict = None) -> bool:
+        """
+        Attempt to reframe a rumination using cognitive reappraisal.
+
+        Success probability depends on:
+        - Emotional intensity (higher = harder to reframe)
+        - Reappraisal skill (improves with practice)
+        - Time since event (easier to reframe old events)
+        """
+        # Choose reappraisal strategy
+        strategy = random.choice(self.reappraisal_strategies)
+
+        # Generate reframed content
+        reframe = self._generate_reappraisal(rumination, strategy)
+
+        # Compute success probability
+        time_since = time.time() - rumination.trigger_time
+        time_factor = min(1.0, time_since / 3600)  # Easier after 1 hour
+
+        success_prob = (
+            (1.0 - rumination.emotional_intensity) * 0.4 +
+            self.reappraisal_skill * 0.3 +
+            time_factor * 0.3
+        )
+
+        success = random.random() < success_prob
+
+        intensity_before = rumination.emotional_intensity
+
+        if success:
+            # Successful reappraisal reduces intensity
+            rumination.emotional_intensity *= 0.6
+            rumination.intrusion_frequency *= 0.7
+
+            logger.info(f"[Reappraisal SUCCESS] {reframe}")
+            self.successful_regulations += 1
+
+            # Improve skill with practice
+            self.reappraisal_skill = min(0.9, self.reappraisal_skill + 0.02)
+        else:
+            # Failed reappraisal slightly worsens it
+            rumination.emotional_intensity *= 1.05
+
+            logger.info(f"[Reappraisal FAILED] Can't convince myself: {reframe}")
+            self.failed_regulations += 1
+
+            # Trigger meta-rumination
+            if random.random() < 0.5:
+                self.trigger_meta_rumination(MentalState.STUCK_IN_LOOP)
+
+        # Record attempt
+        self.reappraisal_attempts.append(ReappraisalAttempt(
+            timestamp=time.time(),
+            target_rumination=rumination.content,
+            original_content=rumination.content,
+            reframed_content=reframe,
+            strategy=strategy,
+            success=success,
+            emotional_intensity_before=intensity_before,
+            emotional_intensity_after=rumination.emotional_intensity
+        ))
+
+        self.regulation_attempts += 1
+
+        return success
+
+    def _generate_reappraisal(self, rumination: RuminativeThought, strategy: str) -> str:
+        """Generate reappraised content based on strategy."""
+        templates = {
+            "rationalization": [
+                "I made the best decision with the information I had",
+                "There's no way I could have known that would happen",
+                "I was doing what seemed right at the time"
+            ],
+            "normalization": [
+                "Everyone makes mistakes like this",
+                "This happens to everyone sometimes",
+                "Making mistakes is how we learn"
+            ],
+            "evidence": [
+                "I've succeeded in similar situations before",
+                "This was just one instance, not a pattern",
+                "My overall track record is good"
+            ],
+            "perspective": [
+                "This isn't as bad as it feels right now",
+                "In the bigger picture, this doesn't matter much",
+                "I'm making more of this than it deserves"
+            ],
+            "external_attribution": [
+                "The circumstances were against me",
+                "Factors outside my control caused this",
+                "The situation was more difficult than expected"
+            ]
+        }
+
+        return random.choice(templates.get(strategy, templates["rationalization"]))
+
+    def check_for_insight(self, current_context: str = "idle") -> Optional[InsightEvent]:
+        """
+        Check if an insight occurs that resolves a rumination.
+
+        Insights are probabilistic breakthroughs that suddenly resolve
+        ruminative loops.
+        """
+        if not self.insight_generation_enabled:
+            return None
+
+        if not self.rumination_system.active_ruminations:
+            return None
+
+        # Don't generate insights too frequently
+        if time.time() - self.last_insight_time < 600:  # At least 10 minutes apart
+            return None
+
+        # Insights more likely during low mental load (mental space to think clearly)
+        mental_load = self.rumination_system.get_mental_load()
+
+        # Insights more likely for older ruminations
+        oldest_ruminations = sorted(self.rumination_system.active_ruminations,
+                                    key=lambda r: r.trigger_time)[:3]
+
+        for rumination in oldest_ruminations:
+            time_elapsed = time.time() - rumination.trigger_time
+
+            # Probability increases with time and decreases with mental load
+            insight_prob = min(0.15, (
+                (time_elapsed / 7200) * 0.05 +  # 2 hours = 5% chance
+                self.reappraisal_skill * 0.07 +  # Skill helps
+                (1.0 - mental_load) * 0.03  # Need mental clarity
+            ))
+
+            if random.random() < insight_prob:
+                insight = self._generate_insight(rumination, current_context)
+
+                # Insight resolves rumination
+                rumination.resolved = True
+                rumination.resolution_action = "insight"
+
+                # Significant mental load reduction
+                self.rumination_system.mental_noise_level = max(0.0,
+                    self.rumination_system.mental_noise_level - 0.3)
+
+                self.insights.append(insight)
+                self.last_insight_time = time.time()
+                self.successful_regulations += 1
+
+                logger.info(f"[INSIGHT] {insight.insight_content}")
+                logger.info(f"[Resolution] Rumination resolved through insight")
+
+                return insight
+
+        return None
+
+    def _generate_insight(self, rumination: RuminativeThought, context: str) -> InsightEvent:
+        """Generate an insight event."""
+        insight_types = {
+            RuminationType.REGRET_SPIRAL: [
+                ("Wait, I actually DID make the right call given the circumstances", "realization"),
+                ("I can't change the past, but I can learn from it", "acceptance"),
+                ("That situation was impossible to handle perfectly", "perspective")
+            ],
+            RuminationType.COUNTERFACTUAL: [
+                ("There's no way to know if the alternative would have worked", "realization"),
+                ("I need to accept the outcome and move forward", "acceptance"),
+                ("Imagining alternatives isn't helping me", "perspective")
+            ],
+            RuminationType.SELF_DOUBT: [
+                ("I've succeeded at harder things than this", "evidence"),
+                ("Self-doubt is natural, but it doesn't define my capability", "acceptance"),
+                ("I need to trust my experience", "realization")
+            ],
+            RuminationType.ANTICIPATORY_WORRY: [
+                ("Most of what I worry about never happens", "evidence"),
+                ("I'll handle it when it comes", "acceptance"),
+                ("Worrying doesn't prevent bad outcomes", "realization")
+            ],
+        }
+
+        options = insight_types.get(rumination.rumination_type,
+                                   [("I need to let this go", "acceptance")])
+        content, insight_type = random.choice(options)
+
+        return InsightEvent(
+            timestamp=time.time(),
+            target_rumination=rumination.content,
+            insight_content=content,
+            insight_type=insight_type,
+            resolution_strength=0.8,
+            triggered_during=context
+        )
+
+    def tick(self, current_context: str = "unknown"):
+        """Update meta-cognitive processing."""
+        # Update mental state awareness
+        self.update_mental_state()
+
+        # Check for ironic intrusions from suppression
+        ironic_thought = self.check_for_ironic_intrusions()
+        if ironic_thought and random.random() < 0.3:
+            # Meta-frustration about failed suppression
+            logger.warning(f"[Meta-Frustration] Why can't I control my own thoughts?")
+
+        # Decay recursion depth
+        if self.meta_rumination_active:
+            if random.random() < 0.1:  # 10% chance to reset per tick
+                self.recursion_depth = max(0, self.recursion_depth - 1)
+                if self.recursion_depth == 0:
+                    self.meta_rumination_active = False
+
+        # Attempt regulation if mental state is bad
+        if self.current_mental_state in [MentalState.RUMINATION_SPIRAL,
+                                         MentalState.STUCK_IN_LOOP,
+                                         MentalState.OVERTHINKING]:
+            if random.random() < 0.05 and self.rumination_system.active_ruminations:  # 5% per tick
+                # Choose regulation strategy
+                strategy = random.choice(["suppression", "reappraisal", "none"])
+
+                if strategy == "suppression" and random.random() < 0.3:
+                    rumination = random.choice(self.rumination_system.active_ruminations)
+                    self.attempt_thought_suppression(rumination)
+
+                elif strategy == "reappraisal" and random.random() < 0.5:
+                    rumination = random.choice(self.rumination_system.active_ruminations)
+                    self.attempt_cognitive_reappraisal(rumination)
+
+        # Check for insights
+        if random.random() < 0.02:  # 2% per tick when conditions right
+            self.check_for_insight(current_context)
+
+    def get_mental_state_label(self) -> str:
+        """Get human-readable label for current mental state."""
+        labels = {
+            MentalState.CLEAR_HEADED: "clear-headed",
+            MentalState.RUMINATION_SPIRAL: "I'm spiraling",
+            MentalState.ANXIETY_LOOP: "I'm anxious about everything",
+            MentalState.OVERTHINKING: "I'm overthinking this",
+            MentalState.MENTAL_FOG: "I can't think clearly",
+            MentalState.STUCK_IN_LOOP: "I'm stuck in a thought loop",
+            MentalState.CATASTROPHIZING: "I'm catastrophizing",
+            MentalState.DWELLING: "I'm dwelling on things",
+        }
+        return labels.get(self.current_mental_state, "unknown state")
+
+    def get_regulation_success_rate(self) -> float:
+        """Get success rate of self-regulation attempts."""
+        if self.regulation_attempts == 0:
+            return 0.0
+        return self.successful_regulations / self.regulation_attempts
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'current_mental_state': self.current_mental_state.name,
+            'reappraisal_skill': self.reappraisal_skill,
+            'regulation_attempts': self.regulation_attempts,
+            'successful_regulations': self.successful_regulations,
+            'failed_regulations': self.failed_regulations,
+            'meta_rumination_count': self.meta_rumination_count,
+            'insight_count': len(self.insights),
+            'suppression_targets': [
+                {
+                    'content': st.content,
+                    'attempts': st.suppression_attempts,
+                    'ironic_count': st.ironic_intrusion_count
+                }
+                for st in self.suppression_targets.values()
+            ]
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'current_mental_state' in state:
+            try:
+                self.current_mental_state = MentalState[state['current_mental_state']]
+            except KeyError:
+                self.current_mental_state = MentalState.CLEAR_HEADED
+
+        self.reappraisal_skill = state.get('reappraisal_skill', 0.3)
+        self.regulation_attempts = state.get('regulation_attempts', 0)
+        self.successful_regulations = state.get('successful_regulations', 0)
+        self.failed_regulations = state.get('failed_regulations', 0)
+        self.meta_rumination_count = state.get('meta_rumination_count', 0)
+
+        logger.info(f"Meta-Cognitive Layer restored: reappraisal_skill={self.reappraisal_skill:.2f}, "
+                   f"success_rate={self.get_regulation_success_rate():.2%}")
 
 
 class AutobiographicalMemory:
