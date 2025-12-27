@@ -327,7 +327,7 @@ class IdentityContinuityValidator:
                 if isinstance(skill_data, dict):
                     practice_counts.append(skill_data.get('practice_count', 0))
             if practice_counts:
-                fingerprint['avg_skill_practice'] = sum(practice_counts) / len(practice_counts)
+                fingerprint['avg_skill_practice'] = sum(practice_counts) / max(1, len(practice_counts))
         
         if q_values and 'exploration_rate' in q_values:
             fingerprint['exploration_rate'] = q_values['exploration_rate']
@@ -602,8 +602,8 @@ class BehavioralMomentum:
         if len(self.risk_history) >= 20:
             recent_risks = list(self.risk_history)[-20:]
             early_risks = list(self.risk_history)[:min(20, len(self.risk_history))]
-            recent_avg = sum(r['risk_level'] for r in recent_risks) / len(recent_risks)
-            early_avg = sum(r['risk_level'] for r in early_risks) / len(early_risks)
+            recent_avg = sum(r['risk_level'] for r in recent_risks) / max(1, len(recent_risks))
+            early_avg = sum(r['risk_level'] for r in early_risks) / max(1, len(early_risks))
             self.risk_tolerance_trend = recent_avg - early_avg
         
         self.performance_history.append({'success': success, 'timestamp': timestamp})
@@ -611,8 +611,8 @@ class BehavioralMomentum:
         if len(self.performance_history) >= 100:
             first_half = list(self.performance_history)[:50]
             second_half = list(self.performance_history)[-50:]
-            first_success = sum(1 for p in first_half if p['success']) / len(first_half)
-            second_success = sum(1 for p in second_half if p['success']) / len(second_half)
+            first_success = sum(1 for p in first_half if p['success']) / max(1, len(first_half))
+            second_success = sum(1 for p in second_half if p['success']) / max(1, len(second_half))
             self.improvement_rate = second_success - first_success
             self.cumulative_success_rate = second_success
         
@@ -1837,7 +1837,7 @@ class ReinforcementLearner:
             else:
                 discretized[key] = value
         
-        return hashlib.md5(json.dumps(discretized, sort_keys=True).encode()).hexdigest()[:16]
+        return hashlib.md5(json.dumps(discretized, sort_keys=True, default=str).encode()).hexdigest()[:16]
     
     def _get_q_key(self, state_hash: str, action: str) -> str:
         """Get key for Q-value lookup."""
@@ -2136,7 +2136,7 @@ class HumanEquivalentCognition:
         self._session_start_time = time.time()
 
         # Anticipatory rumination for difficult decisions
-        if action_confidence < 0.4:
+        if action_confidence < 0.4 and hasattr(self, 'rumination'):
             # Low confidence triggers anticipatory worry
             if random.random() < 0.3:
                 self.rumination.trigger_rumination_from_event(
@@ -2739,10 +2739,11 @@ class HumanEquivalentCognition:
             confidence = min(1.0, confidence + 0.1)
         
         # Check for intrusive ruminations
-        intrusive_thought = self.rumination.check_for_intrusive_thoughts(context_str)
-        if intrusive_thought:
-            # Intrusive thoughts add mental noise
-            self.rumination.mental_noise_level = intrusive_thought.emotional_intensity * 0.3
+        if hasattr(self, 'rumination'):
+            intrusive_thought = self.rumination.check_for_intrusive_thoughts(context_str)
+            if intrusive_thought:
+                # Intrusive thoughts add mental noise
+                self.rumination.mental_noise_level = intrusive_thought.emotional_intensity * 0.3
         
         # Compute hesitation (uncertainty causes delay)
         hesitation = 0.0
@@ -3887,7 +3888,7 @@ class GearIntuitionSystem:
 
     def _hash_gear(self, gear_name: str, stats: Dict[str, float]) -> str:
         """Create unique hash for a gear piece."""
-        stat_str = json.dumps(stats, sort_keys=True)
+        stat_str = json.dumps(stats, sort_keys=True, default=str)
         combined = f"{gear_name}:{stat_str}"
         return hashlib.md5(combined.encode()).hexdigest()[:16]
 
@@ -9155,10 +9156,10 @@ class PersistenceManager:
                 }
                 
                 # Use sort_keys=True for deterministic serialization across Python versions
-                json_str = json.dumps(save_data, indent=None, separators=(',', ':'), sort_keys=True)
+                json_str = json.dumps(save_data, indent=None, separators=(',', ':'), sort_keys=True, default=str)
                 # Use full SHA-256 for better integrity protection (64 hex chars)
                 save_data['checksum'] = hashlib.sha256(json_str.encode()).hexdigest()
-                json_str = json.dumps(save_data, indent=None, separators=(',', ':'), sort_keys=True)
+                json_str = json.dumps(save_data, indent=None, separators=(',', ':'), sort_keys=True, default=str)
                 
                 # Write to temp file with fsync for durability
                 temp_path = self.save_path.with_suffix('.tmp.json.gz')
@@ -9205,7 +9206,7 @@ class PersistenceManager:
                 stored_checksum = data.get('checksum', '')
                 data['checksum'] = ''
                 # Use sort_keys=True to match save serialization
-                json_str = json.dumps(data, indent=None, separators=(',', ':'), sort_keys=True)
+                json_str = json.dumps(data, indent=None, separators=(',', ':'), sort_keys=True, default=str)
                 computed_checksum_full = hashlib.sha256(json_str.encode()).hexdigest()
                 
                 # Support both old (16-char truncated) and new (64-char full) checksums
@@ -11207,7 +11208,7 @@ class OperationalController:
             }
 
             with open(self.status_file_path, 'w') as f:
-                json.dump(status, f, indent=2)
+                json.dump(status, f, indent=2, default=str)
 
         except Exception as e:
             logger.error(f"Failed to update status file: {e}")
@@ -11248,7 +11249,7 @@ class OperationalController:
             }
 
             with open(self.operational_state_path, 'w') as f:
-                json.dump(state, f, indent=2)
+                json.dump(state, f, indent=2, default=str)
 
             logger.debug("Operational state saved")
 
@@ -19527,6 +19528,7 @@ class WoWAutonomousPlayer:
         if self._hotkey_listener:
             try:
                 self._hotkey_listener.stop()
+                self._hotkey_listener.join(timeout=2.0)  # Wait for thread to finish
             except Exception:
                 pass
         
@@ -19883,7 +19885,7 @@ class TargetAnalyzer:
         try:
             filepath = EXPANSION_DATA_DIR / "dangerous_enemies.json"
             with open(filepath, 'w') as f:
-                json.dump({"names": list(self._dangerous_names)}, f)
+                json.dump({"names": list(self._dangerous_names)}, f, default=str)
         except Exception as e:
             logger.warning(f"Could not save dangerous enemies: {e}")
     
@@ -20514,7 +20516,7 @@ class NavigationPlanner:
                 "explored": list(self._explored_areas)
             }
             with open(filepath, 'w') as f:
-                json.dump(data, f)
+                json.dump(data, f, default=str)
         except Exception as e:
             logger.warning(f"Could not save navigation data: {e}")
     
@@ -20842,7 +20844,7 @@ class InventoryManager:
                 "junk_items": list(self._junk_items)
             }
             with open(filepath, 'w') as f:
-                json.dump(data, f)
+                json.dump(data, f, default=str)
         except Exception as e:
             logger.warning(f"Could not save item lists: {e}")
     
@@ -21058,7 +21060,7 @@ class QuestManager:
                 ]
             }
             with open(filepath, 'w') as f:
-                json.dump(data, f, indent=2)
+                json.dump(data, f, indent=2, default=str)
         except Exception as e:
             logger.warning(f"Could not save quest data: {e}")
     
@@ -23439,7 +23441,7 @@ class ReputationTracker:
         """Save reputation data."""
         try:
             with open(self._data_file, 'w') as f:
-                json.dump(self._factions, f, indent=2)
+                json.dump(self._factions, f, indent=2, default=str)
         except Exception as e:
             logger.warning(f"Could not save reputation: {e}")
     
@@ -23645,7 +23647,7 @@ class MacroSystem:
             } for name, m in self._macros.items()}
             
             with open(macro_file, 'w') as f:
-                json.dump(data, f, indent=2)
+                json.dump(data, f, indent=2, default=str)
         except Exception as e:
             logger.warning(f"Could not save macros: {e}")
     
@@ -23745,7 +23747,7 @@ class KeybindManager:
         """Save keybind configuration."""
         try:
             with open(self._data_file, 'w') as f:
-                json.dump(self._keybinds, f, indent=2)
+                json.dump(self._keybinds, f, indent=2, default=str)
         except Exception as e:
             logger.warning(f"Could not save keybinds: {e}")
     
@@ -27067,10 +27069,18 @@ class ExtendedCapabilitiesIntegrator:
             self.ui_controller.set_state(states['ui_controller'])
         if 'interrupt_system' in states:
             self.interrupt_system.set_state(states['interrupt_system'])
+        if 'death_recovery' in states:
+            self.death_recovery.set_state(states['death_recovery'])
         if 'exploration' in states:
             self.exploration.set_state(states['exploration'])
+        if 'human_input' in states:
+            self.human_input.set_state(states['human_input'])
         if 'social_signaling' in states:
             self.social_signaling.set_state(states['social_signaling'])
+        if 'inventory_triage' in states:
+            self.inventory_triage.set_state(states['inventory_triage'])
+        if 'fatigue' in states:
+            self.fatigue.set_state(states['fatigue'])
 
 
 # =============================================================================
