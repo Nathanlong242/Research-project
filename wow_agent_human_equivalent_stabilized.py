@@ -183,9 +183,11 @@ try:
     from pynput import keyboard, mouse
     from pynput.keyboard import Controller as KeyboardController, Key, KeyCode
     from pynput.mouse import Controller as MouseController, Button
+    import psutil  # For resource monitoring
+    import signal  # For graceful shutdown
 except ImportError as e:
     print(f"ERROR: Missing required library: {e}")
-    print("Install with: pip install mss opencv-python numpy pynput")
+    print("Install with: pip install mss opencv-python numpy pynput psutil")
     sys.exit(1)
 
 OCR_AVAILABLE = False
@@ -2106,6 +2108,16 @@ class HumanEquivalentCognition:
         logger.info("Personality System (Tier 5) initialized:")
         logger.info("  - Preference & value crystallization (idiosyncratic tastes, authentic choices)")
 
+        # Operational Life Support - Continuous Runtime Management
+        self.operational = OperationalController(wow_window_title="World of Warcraft")
+
+        logger.info("Operational Life Support initialized:")
+        logger.info("  - Lifecycle management (start/pause/stop/resume)")
+        logger.info("  - Resource monitoring and self-throttling")
+        logger.info("  - WoW window containment and safety")
+        logger.info("  - Fatigue-driven voluntary rest")
+        logger.info("  - Supervision interface (agent_status.json)")
+
         # Integration state
         self._last_state_features: Optional[Dict[str, Any]] = None
         self._last_action: Optional[str] = None
@@ -2121,6 +2133,10 @@ class HumanEquivalentCognition:
 
         # Validate identity continuity
         self._validate_identity_continuity()
+
+    def start(self) -> bool:
+        """Start the agent lifecycle. Returns True if successful, False if in rest."""
+        return self.operational.start()
 
     def _update_life_systems(self, perception: Dict[str, Any]):
         """
@@ -2614,13 +2630,28 @@ class HumanEquivalentCognition:
     def tick(self, perception: Dict[str, Any]) -> Dict[str, Any]:
         """
         Main cognitive tick. Process perception and decide action.
-        
+
         Returns decision with:
         - action: The chosen action
         - confidence: How confident in the decision
         - hesitation: Delay before acting (uncertainty)
         - reasoning: Why this action was chosen
+
+        Returns None if agent should stop (operational shutdown/pause/rest).
         """
+        # ═══════════════════════════════════════════════════════════════════
+        # OPERATIONAL LIFECYCLE CHECK
+        # ═══════════════════════════════════════════════════════════════════
+        # Check if agent should continue running (fatigue, window safety, etc.)
+        current_fatigue = self.temporal_awareness.current_fatigue
+        should_continue = self.operational.tick(fatigue=current_fatigue)
+
+        if not should_continue:
+            # Agent requested shutdown/pause/rest
+            logger.info("Operational check failed - stopping cognitive processing")
+            self._save_state()  # Emergency checkpoint
+            return None  # Signal to stop
+
         self._tick_count += 1
 
         # Update drives
@@ -3066,7 +3097,7 @@ class HumanEquivalentCognition:
     def shutdown(self):
         """Save state on shutdown with identity continuity tracking."""
         self._save_state()
-        
+
         # End session for identity continuity tracking
         validator = get_identity_validator()
         validator.end_session(
@@ -3077,7 +3108,7 @@ class HumanEquivalentCognition:
             drives=self.drives.get_state().get('drives', {}),
             ticks_this_session=self._tick_count,
         )
-        
+
         # Log momentum report
         report = self.momentum.get_momentum_report()
         logger.info(f"Behavioral momentum report:")
@@ -3085,6 +3116,9 @@ class HumanEquivalentCognition:
         logger.info(f"  - Is improving: {report['is_improving']}")
         logger.info(f"  - Improvement rate: {report['improvement_rate']:.3f}")
         logger.info(f"  - Success rate: {report['cumulative_success_rate']:.3f}")
+
+        # Log operational summary
+        logger.info(self.operational.get_operational_summary())
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -9925,6 +9959,585 @@ class DecisionSynthesisSystem:
             self._last_action = state['last_action']
         if 'action_cooldowns' in state:
             self._action_cooldowns = state['action_cooldowns']
+
+
+# =============================================================================
+# OPERATIONAL LIFE SUPPORT SYSTEMS
+# =============================================================================
+# These systems enable the agent to run safely, continuously, and autonomously
+# for months/years with minimal human supervision. They implement:
+# - Lifecycle management (start/pause/stop/resume)
+# - Resource monitoring and self-throttling
+# - WoW window containment and safety
+# - Fatigue-driven voluntary rest
+# - Operational state persistence
+# - Human supervision interface
+# =============================================================================
+
+class LifecycleState(Enum):
+    """Agent operational lifecycle states."""
+    STARTING = auto()    # Initializing systems
+    RUNNING = auto()     # Active gameplay
+    PAUSING = auto()     # Checkpointing for pause
+    PAUSED = auto()      # Suspended, awaiting resume
+    RESUMING = auto()    # Restoring from pause
+    STOPPING = auto()    # Graceful shutdown in progress
+    STOPPED = auto()     # Cleanly stopped
+    RESTING = auto()     # Voluntary rest period (fatigue-driven)
+    ERROR = auto()       # Error state requiring human intervention
+
+@dataclass
+class ResourceMetrics:
+    """Real-time resource usage metrics."""
+    timestamp: float
+    cpu_percent: float
+    memory_mb: float
+    memory_percent: float
+    tick_rate: float  # Actions per second
+
+@dataclass
+class RestPeriod:
+    """Record of a rest period."""
+    start_time: float
+    end_time: Optional[float]
+    duration_seconds: float
+    reason: str  # 'fatigue', 'manual', 'error', 'window_lost'
+    fatigue_at_start: float
+    planned_duration: float
+
+@dataclass
+class OperationalHistory:
+    """Historical operational metrics."""
+    total_uptime_seconds: float = 0.0
+    total_downtime_seconds: float = 0.0
+    total_rest_seconds: float = 0.0
+    session_count: int = 0
+    shutdown_reasons: List[Tuple[float, str]] = field(default_factory=list)
+    rest_periods: List[RestPeriod] = field(default_factory=list)
+    resource_warnings: List[Tuple[float, str]] = field(default_factory=list)
+    window_loss_events: List[float] = field(default_factory=list)
+
+
+class OperationalController:
+    """
+    Life support system for continuous autonomous operation.
+
+    Manages:
+    - Lifecycle state machine
+    - Resource monitoring and throttling
+    - WoW window safety verification
+    - Fatigue-driven rest cycles
+    - Supervision interface
+    - Operational persistence
+    """
+
+    def __init__(self, wow_window_title: str = "World of Warcraft"):
+        self.wow_window_title = wow_window_title
+
+        # Lifecycle state
+        self.state = LifecycleState.STARTING
+        self.state_lock = threading.RLock()
+        self.shutdown_requested = False
+        self.pause_requested = False
+
+        # Resource monitoring
+        self.process = psutil.Process()
+        self.resource_metrics: Deque[ResourceMetrics] = deque(maxlen=360)  # 1 hour at 10s sampling
+        self.last_resource_check = time.time()
+        self.resource_check_interval = 10.0  # seconds
+        self.cpu_throttle_threshold = 80.0  # percent
+        self.memory_throttle_threshold = 500.0  # MB
+        self.throttle_active = False
+        self.throttle_sleep_time = 0.1  # seconds between actions when throttled
+
+        # Window safety
+        self.window_focused = False
+        self.last_window_check = time.time()
+        self.window_check_interval = 1.0  # seconds
+        self.window_lost_count = 0
+        self.window_lost_threshold = 5  # consecutive failures before pause
+
+        # Fatigue and rest
+        self.current_rest: Optional[RestPeriod] = None
+        self.min_rest_duration = 6 * 3600  # 6 hours minimum
+        self.max_rest_duration = 10 * 3600  # 10 hours maximum
+        self.fatigue_shutdown_threshold = 0.85  # voluntary shutdown at this fatigue level
+
+        # Operational history
+        self.history = OperationalHistory()
+        self.session_start_time = time.time()
+        self.last_tick_time = time.time()
+        self.tick_count = 0
+
+        # Persistence
+        self.operational_state_path = DATA_DIR / "operational_state.json"
+        self.status_file_path = DATA_DIR / "agent_status.json"
+        self.last_status_update = time.time()
+        self.status_update_interval = 10.0  # Update status file every 10s
+
+        # Load persisted state
+        self._load_operational_state()
+
+        logger.info("OperationalController initialized")
+        logger.info(f"  Session #{self.history.session_count}")
+        logger.info(f"  Total uptime: {self.history.total_uptime_seconds/3600:.1f}h")
+        logger.info(f"  Total rest: {self.history.total_rest_seconds/3600:.1f}h")
+
+    def start(self):
+        """Start the agent lifecycle."""
+        with self.state_lock:
+            if self.state != LifecycleState.STARTING:
+                logger.warning(f"Cannot start from state {self.state}")
+                return False
+
+            # Check if we're coming out of rest
+            if self.current_rest and not self.current_rest.end_time:
+                # Still in rest period
+                rest_duration = time.time() - self.current_rest.start_time
+                if rest_duration < self.min_rest_duration:
+                    logger.info(f"Still resting (need {(self.min_rest_duration - rest_duration)/3600:.1f}h more)")
+                    logger.info("Agent will remain in RESTING state")
+                    self.state = LifecycleState.RESTING
+                    return False
+                else:
+                    # Rest complete, end rest period
+                    self._end_rest()
+
+            self.session_start_time = time.time()
+            self.history.session_count += 1
+            self.tick_count = 0
+            self.state = LifecycleState.RUNNING
+
+            logger.info(f"=== SESSION #{self.history.session_count} STARTED ===")
+            return True
+
+    def tick(self, fatigue: float) -> bool:
+        """
+        Main operational tick. Call this every agent decision cycle.
+
+        Returns True if agent should continue, False if it should stop/pause.
+        """
+        self.tick_count += 1
+        current_time = time.time()
+
+        # Check for shutdown/pause requests
+        if self.shutdown_requested:
+            self._initiate_shutdown("manual_request")
+            return False
+
+        if self.pause_requested:
+            self._initiate_pause()
+            return False
+
+        # Resource monitoring
+        if current_time - self.last_resource_check >= self.resource_check_interval:
+            self._check_resources()
+            self.last_resource_check = current_time
+
+        # Window safety check
+        if current_time - self.last_window_check >= self.window_check_interval:
+            if not self._verify_window_focus():
+                self.window_lost_count += 1
+                if self.window_lost_count >= self.window_lost_threshold:
+                    logger.warning("WoW window lost - pausing for safety")
+                    self.history.window_loss_events.append(current_time)
+                    self._initiate_pause()
+                    return False
+            else:
+                self.window_lost_count = 0
+            self.last_window_check = current_time
+
+        # Fatigue-driven shutdown check
+        if fatigue >= self.fatigue_shutdown_threshold:
+            logger.info(f"Fatigue threshold reached ({fatigue:.2f} >= {self.fatigue_shutdown_threshold})")
+            self._initiate_rest(fatigue, "fatigue_threshold")
+            return False
+
+        # Status file update
+        if current_time - self.last_status_update >= self.status_update_interval:
+            self._update_status_file(fatigue)
+            self.last_status_update = current_time
+
+        # Throttle if needed
+        if self.throttle_active:
+            time.sleep(self.throttle_sleep_time)
+
+        self.last_tick_time = current_time
+        return True
+
+    def _check_resources(self):
+        """Monitor CPU and memory usage, apply throttling if needed."""
+        try:
+            cpu_percent = self.process.cpu_percent(interval=0.1)
+            mem_info = self.process.memory_info()
+            memory_mb = mem_info.rss / (1024 * 1024)
+            memory_percent = self.process.memory_percent()
+
+            # Calculate tick rate
+            time_delta = time.time() - self.session_start_time
+            tick_rate = self.tick_count / max(time_delta, 1.0)
+
+            metrics = ResourceMetrics(
+                timestamp=time.time(),
+                cpu_percent=cpu_percent,
+                memory_mb=memory_mb,
+                memory_percent=memory_percent,
+                tick_rate=tick_rate
+            )
+            self.resource_metrics.append(metrics)
+
+            # Check for sustained high CPU
+            if len(self.resource_metrics) >= 6:  # 1 minute of data
+                recent_cpu = [m.cpu_percent for m in list(self.resource_metrics)[-6:]]
+                avg_cpu = sum(recent_cpu) / len(recent_cpu)
+
+                if avg_cpu > self.cpu_throttle_threshold and not self.throttle_active:
+                    logger.warning(f"High CPU detected ({avg_cpu:.1f}%) - enabling throttle")
+                    self.throttle_active = True
+                    self.history.resource_warnings.append((time.time(), f"cpu_throttle_{avg_cpu:.1f}"))
+                elif avg_cpu < self.cpu_throttle_threshold * 0.7 and self.throttle_active:
+                    logger.info(f"CPU normalized ({avg_cpu:.1f}%) - disabling throttle")
+                    self.throttle_active = False
+
+            # Check for memory growth
+            if memory_mb > self.memory_throttle_threshold:
+                logger.warning(f"High memory usage ({memory_mb:.1f}MB)")
+                self.history.resource_warnings.append((time.time(), f"memory_{memory_mb:.1f}MB"))
+
+            # Log periodic status
+            if self.tick_count % 600 == 0:  # Every ~10 minutes
+                logger.info(f"Resources: CPU={cpu_percent:.1f}% MEM={memory_mb:.1f}MB Rate={tick_rate:.2f}tps")
+
+        except Exception as e:
+            logger.error(f"Resource monitoring error: {e}")
+
+    def _verify_window_focus(self) -> bool:
+        """
+        Verify WoW window is focused.
+        Platform-specific implementation.
+        """
+        try:
+            # Try Windows implementation
+            if sys.platform == 'win32':
+                try:
+                    import win32gui
+                    hwnd = win32gui.GetForegroundWindow()
+                    window_title = win32gui.GetWindowText(hwnd)
+                    self.window_focused = self.wow_window_title.lower() in window_title.lower()
+                    return self.window_focused
+                except ImportError:
+                    logger.warning("win32gui not available - window safety checks disabled")
+                    self.window_focused = True  # Assume safe if can't check
+                    return True
+
+            # Try Linux implementation
+            elif sys.platform.startswith('linux'):
+                try:
+                    import subprocess
+                    result = subprocess.run(
+                        ['xdotool', 'getactivewindow', 'getwindowname'],
+                        capture_output=True,
+                        text=True,
+                        timeout=1.0
+                    )
+                    window_title = result.stdout.strip()
+                    self.window_focused = self.wow_window_title.lower() in window_title.lower()
+                    return self.window_focused
+                except (FileNotFoundError, subprocess.TimeoutExpired):
+                    logger.warning("xdotool not available - window safety checks disabled")
+                    self.window_focused = True
+                    return True
+
+            # Unsupported platform
+            else:
+                logger.warning(f"Window verification not supported on {sys.platform}")
+                self.window_focused = True
+                return True
+
+        except Exception as e:
+            logger.error(f"Window verification error: {e}")
+            return False
+
+    def _initiate_pause(self):
+        """Initiate graceful pause."""
+        with self.state_lock:
+            if self.state != LifecycleState.RUNNING:
+                return
+
+            logger.info("Pausing agent...")
+            self.state = LifecycleState.PAUSING
+
+            # Checkpoint will be done by main agent
+            uptime = time.time() - self.session_start_time
+            self.history.total_uptime_seconds += uptime
+
+            self.state = LifecycleState.PAUSED
+            self._save_operational_state()
+
+            logger.info(f"Agent paused (uptime: {uptime/60:.1f}min)")
+
+    def resume(self) -> bool:
+        """Resume from pause."""
+        with self.state_lock:
+            if self.state != LifecycleState.PAUSED:
+                logger.warning(f"Cannot resume from state {self.state}")
+                return False
+
+            logger.info("Resuming agent...")
+            self.state = LifecycleState.RESUMING
+
+            # Reset window check state
+            self.window_lost_count = 0
+            self.window_focused = False
+
+            # Verify window before resuming
+            if not self._verify_window_focus():
+                logger.warning("WoW window not focused - cannot resume safely")
+                self.state = LifecycleState.PAUSED
+                return False
+
+            self.session_start_time = time.time()
+            self.state = LifecycleState.RUNNING
+
+            logger.info("Agent resumed")
+            return True
+
+    def _initiate_shutdown(self, reason: str):
+        """Initiate graceful shutdown."""
+        with self.state_lock:
+            if self.state == LifecycleState.STOPPING or self.state == LifecycleState.STOPPED:
+                return
+
+            logger.info(f"Shutting down: {reason}")
+            self.state = LifecycleState.STOPPING
+
+            # Record uptime
+            if self.state == LifecycleState.RUNNING:
+                uptime = time.time() - self.session_start_time
+                self.history.total_uptime_seconds += uptime
+
+            # Record shutdown reason
+            self.history.shutdown_reasons.append((time.time(), reason))
+
+            # Keep only last 100 shutdown reasons
+            if len(self.history.shutdown_reasons) > 100:
+                self.history.shutdown_reasons = self.history.shutdown_reasons[-100:]
+
+            self.state = LifecycleState.STOPPED
+            self._save_operational_state()
+
+            logger.info(f"Agent stopped (reason: {reason})")
+
+    def _initiate_rest(self, fatigue: float, reason: str):
+        """Initiate voluntary rest period."""
+        with self.state_lock:
+            logger.info(f"Initiating rest: {reason} (fatigue={fatigue:.2f})")
+
+            # Calculate rest duration based on fatigue
+            # High fatigue = longer rest
+            rest_duration = self.min_rest_duration + (fatigue - 0.5) * 2 * 3600
+            rest_duration = max(self.min_rest_duration, min(rest_duration, self.max_rest_duration))
+
+            self.current_rest = RestPeriod(
+                start_time=time.time(),
+                end_time=None,
+                duration_seconds=0.0,
+                reason=reason,
+                fatigue_at_start=fatigue,
+                planned_duration=rest_duration
+            )
+
+            # Record uptime
+            if self.state == LifecycleState.RUNNING:
+                uptime = time.time() - self.session_start_time
+                self.history.total_uptime_seconds += uptime
+
+            self.state = LifecycleState.RESTING
+            self._save_operational_state()
+
+            logger.info(f"Entering rest state (planned duration: {rest_duration/3600:.1f}h)")
+            logger.info("Agent will remain stopped until rest period completes")
+            logger.info("Restart the agent after the rest period to continue")
+
+    def _end_rest(self):
+        """End current rest period."""
+        if not self.current_rest:
+            return
+
+        self.current_rest.end_time = time.time()
+        self.current_rest.duration_seconds = self.current_rest.end_time - self.current_rest.start_time
+
+        self.history.rest_periods.append(self.current_rest)
+        self.history.total_rest_seconds += self.current_rest.duration_seconds
+
+        # Keep only last 100 rest periods
+        if len(self.history.rest_periods) > 100:
+            self.history.rest_periods = self.history.rest_periods[-100:]
+
+        logger.info(f"Rest period complete ({self.current_rest.duration_seconds/3600:.1f}h)")
+        self.current_rest = None
+
+    def _update_status_file(self, fatigue: float):
+        """Update human-readable status file."""
+        try:
+            uptime = time.time() - self.session_start_time if self.state == LifecycleState.RUNNING else 0
+
+            # Get latest resource metrics
+            latest_metrics = self.resource_metrics[-1] if self.resource_metrics else None
+
+            status = {
+                'state': self.state.name,
+                'session_number': self.history.session_count,
+                'uptime_seconds': uptime,
+                'uptime_formatted': f"{uptime/3600:.1f}h",
+                'tick_count': self.tick_count,
+                'fatigue': fatigue,
+                'window_focused': self.window_focused,
+                'throttle_active': self.throttle_active,
+                'resources': {
+                    'cpu_percent': latest_metrics.cpu_percent if latest_metrics else 0.0,
+                    'memory_mb': latest_metrics.memory_mb if latest_metrics else 0.0,
+                    'tick_rate': latest_metrics.tick_rate if latest_metrics else 0.0
+                } if latest_metrics else None,
+                'history': {
+                    'total_uptime_hours': self.history.total_uptime_seconds / 3600,
+                    'total_rest_hours': self.history.total_rest_seconds / 3600,
+                    'total_sessions': self.history.session_count,
+                    'window_loss_events': len(self.history.window_loss_events),
+                    'resource_warnings': len(self.history.resource_warnings)
+                },
+                'current_rest': {
+                    'active': self.current_rest is not None,
+                    'reason': self.current_rest.reason if self.current_rest else None,
+                    'duration_hours': (time.time() - self.current_rest.start_time) / 3600 if self.current_rest else 0,
+                    'planned_duration_hours': self.current_rest.planned_duration / 3600 if self.current_rest else 0
+                } if self.current_rest else None,
+                'last_update': time.time(),
+                'last_update_formatted': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+
+            with open(self.status_file_path, 'w') as f:
+                json.dump(status, f, indent=2)
+
+        except Exception as e:
+            logger.error(f"Failed to update status file: {e}")
+
+    def _save_operational_state(self):
+        """Save operational state to disk."""
+        try:
+            state = {
+                'history': {
+                    'total_uptime_seconds': self.history.total_uptime_seconds,
+                    'total_downtime_seconds': self.history.total_downtime_seconds,
+                    'total_rest_seconds': self.history.total_rest_seconds,
+                    'session_count': self.history.session_count,
+                    'shutdown_reasons': self.history.shutdown_reasons[-100:],
+                    'rest_periods': [
+                        {
+                            'start_time': rp.start_time,
+                            'end_time': rp.end_time,
+                            'duration_seconds': rp.duration_seconds,
+                            'reason': rp.reason,
+                            'fatigue_at_start': rp.fatigue_at_start,
+                            'planned_duration': rp.planned_duration
+                        }
+                        for rp in self.history.rest_periods[-100:]
+                    ],
+                    'resource_warnings': self.history.resource_warnings[-100:],
+                    'window_loss_events': self.history.window_loss_events[-100:]
+                },
+                'current_rest': {
+                    'start_time': self.current_rest.start_time,
+                    'end_time': self.current_rest.end_time,
+                    'duration_seconds': self.current_rest.duration_seconds,
+                    'reason': self.current_rest.reason,
+                    'fatigue_at_start': self.current_rest.fatigue_at_start,
+                    'planned_duration': self.current_rest.planned_duration
+                } if self.current_rest else None,
+                'saved_at': time.time()
+            }
+
+            with open(self.operational_state_path, 'w') as f:
+                json.dump(state, f, indent=2)
+
+            logger.debug("Operational state saved")
+
+        except Exception as e:
+            logger.error(f"Failed to save operational state: {e}")
+
+    def _load_operational_state(self):
+        """Load operational state from disk."""
+        try:
+            if not self.operational_state_path.exists():
+                logger.info("No previous operational state found")
+                return
+
+            with open(self.operational_state_path, 'r') as f:
+                state = json.load(f)
+
+            # Restore history
+            hist_data = state.get('history', {})
+            self.history.total_uptime_seconds = hist_data.get('total_uptime_seconds', 0.0)
+            self.history.total_downtime_seconds = hist_data.get('total_downtime_seconds', 0.0)
+            self.history.total_rest_seconds = hist_data.get('total_rest_seconds', 0.0)
+            self.history.session_count = hist_data.get('session_count', 0)
+            self.history.shutdown_reasons = [tuple(r) for r in hist_data.get('shutdown_reasons', [])]
+            self.history.resource_warnings = [tuple(r) for r in hist_data.get('resource_warnings', [])]
+            self.history.window_loss_events = hist_data.get('window_loss_events', [])
+
+            # Restore rest periods
+            for rp_data in hist_data.get('rest_periods', []):
+                self.history.rest_periods.append(RestPeriod(
+                    start_time=rp_data['start_time'],
+                    end_time=rp_data['end_time'],
+                    duration_seconds=rp_data['duration_seconds'],
+                    reason=rp_data['reason'],
+                    fatigue_at_start=rp_data['fatigue_at_start'],
+                    planned_duration=rp_data['planned_duration']
+                ))
+
+            # Restore current rest if exists
+            rest_data = state.get('current_rest')
+            if rest_data:
+                self.current_rest = RestPeriod(
+                    start_time=rest_data['start_time'],
+                    end_time=rest_data['end_time'],
+                    duration_seconds=rest_data['duration_seconds'],
+                    reason=rest_data['reason'],
+                    fatigue_at_start=rest_data['fatigue_at_start'],
+                    planned_duration=rest_data['planned_duration']
+                )
+                logger.info(f"Resuming from rest period: {self.current_rest.reason}")
+
+            logger.info("Operational state restored")
+
+        except Exception as e:
+            logger.error(f"Failed to load operational state: {e}")
+
+    def request_shutdown(self):
+        """Request graceful shutdown."""
+        self.shutdown_requested = True
+
+    def request_pause(self):
+        """Request graceful pause."""
+        self.pause_requested = True
+
+    def get_operational_summary(self) -> str:
+        """Get human-readable operational summary."""
+        total_time = self.history.total_uptime_seconds + self.history.total_rest_seconds
+        uptime_pct = (self.history.total_uptime_seconds / total_time * 100) if total_time > 0 else 0
+
+        return f"""
+Operational Summary:
+  State: {self.state.name}
+  Session: #{self.history.session_count}
+  Total Uptime: {self.history.total_uptime_seconds/3600:.1f}h ({uptime_pct:.1f}%)
+  Total Rest: {self.history.total_rest_seconds/3600:.1f}h
+  Window Loss Events: {len(self.history.window_loss_events)}
+  Resource Warnings: {len(self.history.resource_warnings)}
+  Current Fatigue: {self.current_rest.fatigue_at_start:.2f if self.current_rest else 0.0}
+"""
+
 
 # =============================================================================
 # COGNITIVE CORE - MAIN INTEGRATION CLASS
@@ -25745,19 +26358,50 @@ def create_extended_agent():
 # Module-level test
 if __name__ == "__main__":
     import argparse
-    
+
+    # Global operational controller for signal handlers
+    operational_controller = None
+
+    def signal_handler_shutdown(signum, frame):
+        """Handle SIGINT (Ctrl+C) and SIGTERM for graceful shutdown."""
+        if operational_controller:
+            logger.info(f"Received signal {signum} - requesting graceful shutdown")
+            operational_controller.request_shutdown()
+        else:
+            logger.info("Signal received but no operational controller available")
+            sys.exit(0)
+
+    def signal_handler_pause(signum, frame):
+        """Handle SIGUSR1 for pause (Unix-like systems only)."""
+        if operational_controller:
+            logger.info("Received pause signal - requesting pause")
+            operational_controller.request_pause()
+
+    # Register signal handlers
+    signal.signal(signal.SIGINT, signal_handler_shutdown)
+    signal.signal(signal.SIGTERM, signal_handler_shutdown)
+
+    # Pause signal (Unix-like only)
+    if hasattr(signal, 'SIGUSR1'):
+        signal.signal(signal.SIGUSR1, signal_handler_pause)
+
     parser = argparse.ArgumentParser(description="WoW 1.12 Autonomous Research Agent")
     parser.add_argument("--test", action="store_true", help="Run in test mode (print systems only)")
     parser.add_argument("--extended", action="store_true", help="Enable extended capabilities")
     parser.add_argument("--cognitive", action="store_true", help="Enable cognitive system integration")
     args = parser.parse_args()
-    
+
     print("=" * 70)
     print("WOW 1.12 AUTONOMOUS PLAYER - RESEARCH AGENT")
     print("=" * 70)
     print()
     print("RESEARCH NOTICE: This agent is for OFFLINE, SINGLE-PLAYER research ONLY.")
     print("It operates via screen capture and OS-level input simulation.")
+    print()
+    print("LIFECYCLE CONTROLS:")
+    print("  Ctrl+C      - Graceful shutdown")
+    print("  kill -TERM  - Graceful shutdown")
+    print("  kill -USR1  - Pause (Unix-like systems)")
     print()
     
     if args.test:
@@ -25820,14 +26464,32 @@ if __name__ == "__main__":
             else:
                 print("Creating base agent...")
                 agent = WoWAutonomousPlayer()
-            
+
+            # Make operational controller globally available for signal handlers
+            if hasattr(agent, 'cognitive_core') and hasattr(agent.cognitive_core, 'operational'):
+                operational_controller = agent.cognitive_core.operational
+            elif hasattr(agent, 'operational'):
+                operational_controller = agent.operational
+            else:
+                logger.warning("No operational controller found in agent - signal handlers disabled")
+
             print("Agent initialized. Starting autonomous play...")
             print()
             print("=" * 70)
+
+            # Start the agent lifecycle
+            if hasattr(agent, 'cognitive_core'):
+                if not agent.cognitive_core.start():
+                    print("\nAgent is in REST state and cannot start yet.")
+                    print("Check agent_status.json for rest period details.")
+                    sys.exit(0)
+
             agent.run()
-            
+
         except KeyboardInterrupt:
-            print("\nInterrupted by user")
+            print("\nGraceful shutdown requested...")
+            if operational_controller:
+                operational_controller.request_shutdown()
         except Exception as e:
             logger.critical(f"Fatal error: {e}", exc_info=True)
             print(f"\nFATAL ERROR: {e}")
