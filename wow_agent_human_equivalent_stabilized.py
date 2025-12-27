@@ -794,6 +794,15 @@ class ProbabilisticBelief:
         confidence = 1.0 - (1.0 / (1.0 + total_evidence * 0.1))
         
         # Wrong predictions reduce confidence
+        # Failed predictions can trigger regret rumination
+        if random.random() < 0.2:
+            if hasattr(self, 'rumination'):
+                self.rumination.trigger_rumination_from_event(
+                    'past_regret',
+                    "making wrong predictions",
+                    0.4,
+                    context={}
+                )
         if self.evidence_count > 0:
             accuracy = 1.0 - (self.wrong_predictions / self.evidence_count)
             confidence *= accuracy
@@ -2091,6 +2100,7 @@ class HumanEquivalentCognition:
         logger.info("  - Routine formation (session goals, habits)")
 
         # Tier 3: Unifying System - Autobiographical Memory
+        self.rumination = InternalRuminationSystem()
         self.autobiographical_memory = AutobiographicalMemory()
 
         logger.info("Unifying System (Tier 3) initialized:")
@@ -2101,6 +2111,7 @@ class HumanEquivalentCognition:
 
         logger.info("Temporal System (Tier 4) initialized:")
         logger.info("  - Temporal life awareness (fatigue, burnout, rest-seeking)")
+        logger.info("  - Internal rumination system (counterfactuals, intrusive thoughts)")
 
         # Tier 5: Preference & Value Crystallization - Unique Personality
         self.preference_system = PreferenceValueSystem()
@@ -2124,6 +2135,17 @@ class HumanEquivalentCognition:
         self._tick_count = 0
         self._session_start_time = time.time()
 
+        # Anticipatory rumination for difficult decisions
+        if action_confidence < 0.4:
+            # Low confidence triggers anticipatory worry
+            if random.random() < 0.3:
+                self.rumination.trigger_rumination_from_event(
+                    'uncertain_future',
+                    f"attempting {selected_action}",
+                    (1.0 - action_confidence) * 0.6,
+                    context={'upcoming_action': str(selected_action)}
+                )
+        
         # Hesitation and uncertainty modeling
         self._confidence_threshold = 0.6  # Below this, hesitate
         self._hesitation_duration = 0.0
@@ -2716,6 +2738,12 @@ class HumanEquivalentCognition:
         if action_source == "habit":
             confidence = min(1.0, confidence + 0.1)
         
+        # Check for intrusive ruminations
+        intrusive_thought = self.rumination.check_for_intrusive_thoughts(context_str)
+        if intrusive_thought:
+            # Intrusive thoughts add mental noise
+            self.rumination.mental_noise_level = intrusive_thought.emotional_intensity * 0.3
+        
         # Compute hesitation (uncertainty causes delay)
         hesitation = 0.0
         if confidence < self._confidence_threshold:
@@ -2974,6 +3002,7 @@ class HumanEquivalentCognition:
 
             # === PERSONALITY SYSTEM (TIER 5) ===
             'preference_system': self.preference_system.get_state(),
+            'rumination': self.rumination.get_state(),
         }
 
         try:
@@ -3079,6 +3108,10 @@ class HumanEquivalentCognition:
                            f"Fatigue: {self.temporal_awareness.current_fatigue:.2f}")
 
             # === PERSONALITY SYSTEM (TIER 5) ===
+            if 'rumination' in state:
+                self.rumination.set_state(state['rumination'])
+                logger.info(f"  Restored rumination: {len(self.rumination.active_ruminations)} active thoughts")
+        
             if 'preference_system' in state:
                 self.preference_system.restore_state(state['preference_system'])
                 logger.info(f"  Restored personality: {self.preference_system.crystallized_preference_count} preferences, "
@@ -6544,6 +6577,763 @@ class LifeChapter:
     # Reflection
     lessons_learned: List[str] = field(default_factory=list)
     how_i_changed: str = ""
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INTERNAL RUMINATION & COUNTERFACTUAL THINKING SYSTEM - TIER 6
+# ═══════════════════════════════════════════════════════════════════════════════
+# Implements the persistent mental chatter that makes humans feel "alive in their head."
+# Humans don't just act - they replay failures, rehearse futures, second-guess choices,
+# and create elaborate mental scenarios that never materialize. This inner voice:
+#   - Replays past failures obsessively (rumination)
+#   - Creates "what if" alternative histories (counterfactuals)
+#   - Rehearses future scenarios that may never happen (anticipatory simulation)
+#   - Second-guesses decisions already made (regret spirals)
+#   - Intrudes during inappropriate moments (mental noise)
+#   - Consumes cognitive resources (mental fatigue)
+#   - Influences behavior in irrational ways (decision contamination)
+#
+# This system is NOT optimal. It wastes mental energy, creates anxiety, causes
+# analysis paralysis, and makes the agent "overthink." But it's deeply human.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class RuminationType(Enum):
+    """Types of rumination."""
+    REGRET_SPIRAL = auto()           # "I should have done X"
+    COUNTERFACTUAL = auto()          # "What if I had..."
+    ANTICIPATORY_WORRY = auto()      # "What if this goes wrong..."
+    ANTICIPATORY_FANTASY = auto()    # "Imagine if I succeed..."
+    SELF_DOUBT = auto()              # "Can I really do this?"
+    EMBARRASSMENT_REPLAY = auto()    # "Everyone saw me fail"
+    SECOND_GUESSING = auto()         # "Did I make the right choice?"
+    DEFENSIVE_RATIONALIZATION = auto()  # "It wasn't my fault because..."
+    REHEARSAL = auto()               # "I'll do it like this next time..."
+    INTRUSIVE_MEMORY = auto()        # Unwanted memory resurfaces
+
+
+@dataclass
+class RuminativeThought:
+    """A single rumination - a thought that loops in the mind."""
+    thought_id: str
+    rumination_type: RuminationType
+    content: str  # The actual thought
+    emotional_intensity: float  # 0-1, how much it bothers/excites
+    
+    # Trigger and context
+    triggered_by: str  # What event triggered this
+    trigger_time: float
+    related_memory_id: Optional[str] = None
+    
+    # Persistence
+    intrusion_frequency: float = 0.5  # How often it intrudes (0-1)
+    decay_rate: float = 0.1  # How fast it fades
+    times_ruminated: int = 0
+    last_ruminated: float = 0.0
+    
+    # Behavioral impact
+    action_inhibition: float = 0.0  # Does it prevent action?
+    decision_bias: Dict[str, float] = field(default_factory=dict)  # How it biases choices
+    
+    # Resolution
+    resolved: bool = False  # Has this been mentally "dealt with"?
+    resolution_action: Optional[str] = None
+
+
+@dataclass
+class CounterfactualScenario:
+    """An alternative history - what if things had gone differently?"""
+    scenario_id: str
+    actual_event: str  # What actually happened
+    imagined_alternative: str  # What could have happened
+    emotional_valence: float  # -1 (regret) to +1 (relief)
+    
+    # Counterfactual details
+    decision_point: str  # The choice that could have been different
+    alternative_action: str  # What could have been done instead
+    imagined_outcome: str  # How it might have turned out
+    
+    # Persistence
+    vividness: float = 1.0  # How clearly imagined
+    compulsion_strength: float = 0.5  # How hard to stop thinking about
+    creation_time: float = 0.0
+    
+    # Impact
+    regret_intensity: float = 0.0  # If negative
+    relief_intensity: float = 0.0  # If positive
+    learning_extracted: bool = False
+
+
+class InternalRuminationSystem:
+    """
+    Manages the agent's internal mental life - the thoughts that won't shut up.
+    
+    This system creates the experience of "living in your head" by:
+    - Replaying failures when you're trying to do something else
+    - Creating elaborate future scenarios (positive and negative)
+    - Second-guessing every decision
+    - Generating mental noise that interferes with optimal play
+    
+    Key principle: Humans are NOT efficient thinkers. We waste enormous mental
+    energy on unproductive rumination. This system models that waste.
+    """
+    
+    MAX_ACTIVE_RUMINATIONS = 20
+    MAX_COUNTERFACTUALS = 50
+    INTRUSION_CHECK_PROBABILITY = 0.1  # Check for intrusive thoughts 10% of ticks
+    
+    def __init__(self):
+        # Active ruminations - thoughts currently looping
+        self.active_ruminations: Dict[str, RuminativeThought] = {}
+        
+        # Counterfactual scenarios - alternative histories
+        self.counterfactuals: List[CounterfactualScenario] = []
+        
+        # Current mental state
+        self.current_rumination: Optional[RuminativeThought] = None
+        self.rumination_intensity: float = 0.0  # 0-1, how much mental energy consumed
+        self.mental_noise_level: float = 0.0  # 0-1, cognitive interference
+        
+        # Rumination triggers - what makes us think
+        self.rumination_triggers: Dict[str, float] = {
+            'recent_death': 0.9,
+            'embarrassing_failure': 0.8,
+            'close_call': 0.7,
+            'social_rejection': 0.8,
+            'missed_opportunity': 0.6,
+            'uncertain_future': 0.5,
+            'past_regret': 0.7,
+        }
+        
+        # Personality modifiers
+        self.rumination_tendency: float = 0.5  # Base tendency to ruminate
+        self.catastrophizing_bias: float = 0.5  # Tendency toward negative futures
+        self.optimism_bias: float = 0.5  # Tendency toward positive futures
+        
+        # Mental load tracking
+        self.total_rumination_time: float = 0.0
+        self.productive_ruminations: int = 0  # Led to learning
+        self.unproductive_ruminations: int = 0  # Just worry/regret
+        
+        # Persistence
+        self.rumination_history: Deque = deque(maxlen=500)
+        
+        logger.info("InternalRuminationSystem initialized - inner voice active")
+    
+    def trigger_rumination_from_event(self, event_type: str, description: str,
+                                     emotional_intensity: float,
+                                     context: Dict[str, Any] = None) -> Optional[RuminativeThought]:
+        """
+        Trigger a rumination based on a life event.
+        Not all events trigger rumination - depends on intensity and personality.
+        """
+        context = context or {}
+        
+        # Check if this event type triggers rumination
+        trigger_strength = self.rumination_triggers.get(event_type, 0.3)
+        trigger_strength *= emotional_intensity
+        trigger_strength *= (0.5 + self.rumination_tendency)
+        
+        # Random chance - not everything we experience becomes rumination
+        if random.random() > trigger_strength:
+            return None
+        
+        # Determine rumination type based on event
+        rumination_type = self._classify_rumination_type(event_type, emotional_intensity, context)
+        
+        # Generate thought content
+        thought_content = self._generate_thought_content(rumination_type, description, context)
+        
+        # Create rumination
+        thought_id = f"rum_{int(time.time() * 1000)}_{random.randint(1000, 9999)}"
+        rumination = RuminativeThought(
+            thought_id=thought_id,
+            rumination_type=rumination_type,
+            content=thought_content,
+            emotional_intensity=emotional_intensity,
+            triggered_by=event_type,
+            trigger_time=time.time(),
+            intrusion_frequency=trigger_strength,
+            decay_rate=0.1 / (emotional_intensity + 0.1),  # More intense = slower decay
+            last_ruminated=time.time()
+        )
+        
+        # Add behavioral impact
+        self._compute_behavioral_impact(rumination, context)
+        
+        # Store rumination
+        self.active_ruminations[thought_id] = rumination
+        self.rumination_history.append({
+            'time': time.time(),
+            'type': rumination_type.name,
+            'content': thought_content,
+            'intensity': emotional_intensity
+        })
+        
+        # Limit active ruminations
+        if len(self.active_ruminations) > self.MAX_ACTIVE_RUMINATIONS:
+            self._prune_ruminations()
+        
+        logger.info(f"[Rumination] {rumination_type.name}: {thought_content}")
+        
+        return rumination
+    
+    def generate_counterfactual(self, actual_event: str, decision_point: str,
+                               alternative_action: str, outcome_valence: float,
+                               context: Dict[str, Any] = None) -> CounterfactualScenario:
+        """
+        Generate a counterfactual scenario: "What if I had done X instead of Y?"
+        
+        These are the "what if" thoughts that haunt us after failures or
+        make us feel relieved after close calls.
+        """
+        context = context or {}
+        
+        # Generate imagined alternative outcome
+        if outcome_valence < 0:
+            # Regret: "If I had fled, I wouldn't have died"
+            imagined_outcome = f"If I had {alternative_action}, things would have gone better"
+            regret = abs(outcome_valence)
+            relief = 0.0
+        else:
+            # Relief: "If I hadn't fled, I would have died"
+            imagined_outcome = f"If I hadn't {decision_point}, things would have gone worse"
+            regret = 0.0
+            relief = outcome_valence
+        
+        scenario_id = f"cf_{int(time.time() * 1000)}_{random.randint(1000, 9999)}"
+        counterfactual = CounterfactualScenario(
+            scenario_id=scenario_id,
+            actual_event=actual_event,
+            imagined_alternative=f"Instead of {decision_point}, I could have {alternative_action}",
+            emotional_valence=outcome_valence,
+            decision_point=decision_point,
+            alternative_action=alternative_action,
+            imagined_outcome=imagined_outcome,
+            regret_intensity=regret,
+            relief_intensity=relief,
+            creation_time=time.time(),
+            vividness=abs(outcome_valence),
+            compulsion_strength=abs(outcome_valence) * self.rumination_tendency
+        )
+        
+        self.counterfactuals.append(counterfactual)
+        
+        # Limit counterfactuals
+        if len(self.counterfactuals) > self.MAX_COUNTERFACTUALS:
+            # Keep most vivid ones
+            self.counterfactuals.sort(key=lambda cf: cf.vividness, reverse=True)
+            self.counterfactuals = self.counterfactuals[:self.MAX_COUNTERFACTUALS]
+        
+        logger.info(f"[Counterfactual] {counterfactual.imagined_alternative}")
+        logger.info(f"  Imagined: {counterfactual.imagined_outcome}")
+        
+        # Also create a rumination about this counterfactual
+        if abs(outcome_valence) > 0.5:
+            thought_content = f"{counterfactual.imagined_alternative} - {counterfactual.imagined_outcome}"
+            rumination_type = RuminationType.REGRET_SPIRAL if regret > relief else RuminationType.COUNTERFACTUAL
+            
+            self.trigger_rumination_from_event(
+                'counterfactual_thinking',
+                thought_content,
+                abs(outcome_valence),
+                context={'counterfactual_id': scenario_id}
+            )
+        
+        return counterfactual
+    
+    def check_for_intrusive_thoughts(self, current_context: str) -> Optional[RuminativeThought]:
+        """
+        Check if a rumination intrudes into current consciousness.
+        
+        Intrusive thoughts surface at inappropriate times - you're trying to
+        fight and suddenly remember that embarrassing death from yesterday.
+        """
+        # Don't check every tick (too expensive and not realistic)
+        if random.random() > self.INTRUSION_CHECK_PROBABILITY:
+            return None
+        
+        if not self.active_ruminations:
+            return None
+        
+        # Intrusion probability based on emotional intensity and recency
+        intrusion_candidates = []
+        current_time = time.time()
+        
+        for rumination in self.active_ruminations.values():
+            if rumination.resolved:
+                continue
+            
+            # Recency effect - recent thoughts intrude more
+            hours_since = (current_time - rumination.last_ruminated) / 3600.0
+            recency_factor = math.exp(-hours_since * 0.5)
+            
+            # Intensity effect
+            intrusion_prob = (
+                rumination.intrusion_frequency *
+                rumination.emotional_intensity *
+                recency_factor *
+                (0.5 + self.rumination_tendency)
+            )
+            
+            if random.random() < intrusion_prob:
+                intrusion_candidates.append(rumination)
+        
+        if not intrusion_candidates:
+            return None
+        
+        # Pick most emotionally intense intrusion
+        intrusion = max(intrusion_candidates, key=lambda r: r.emotional_intensity)
+        intrusion.times_ruminated += 1
+        intrusion.last_ruminated = current_time
+        
+        self.current_rumination = intrusion
+        self.rumination_intensity = intrusion.emotional_intensity
+        
+        logger.debug(f"[Intrusive thought] {intrusion.content}")
+        
+        return intrusion
+    
+    def ruminate_during_idle(self, idle_duration: float) -> List[str]:
+        """
+        Generate ruminations during idle time (travel, waiting, resting).
+        
+        When humans have nothing to occupy their mind, ruminations surface.
+        """
+        thoughts = []
+        
+        # More idle time = more rumination
+        rumination_chance = min(0.9, idle_duration / 10.0)
+        
+        if random.random() > rumination_chance:
+            return thoughts
+        
+        # Pick recent ruminations
+        recent_ruminations = [
+            r for r in self.active_ruminations.values()
+            if not r.resolved and (time.time() - r.last_ruminated) < 3600
+        ]
+        
+        if not recent_ruminations:
+            return thoughts
+        
+        # Sample some to think about
+        num_thoughts = min(3, len(recent_ruminations))
+        selected = random.sample(recent_ruminations, num_thoughts)
+        
+        for rumination in selected:
+            rumination.times_ruminated += 1
+            rumination.last_ruminated = time.time()
+            thoughts.append(rumination.content)
+            
+            logger.debug(f"[Idle rumination] {rumination.content}")
+        
+        return thoughts
+    
+    def get_decision_contamination(self, decision_context: str,
+                                   available_actions: List[str]) -> Dict[str, float]:
+        """
+        Get how current ruminations bias decision-making.
+        
+        Past failures make us hesitant. Regrets make us overcompensate.
+        Returns action -> bias modifier (-1 to +1).
+        """
+        contamination = {}
+        
+        for rumination in self.active_ruminations.values():
+            if rumination.resolved:
+                continue
+            
+            # Check if rumination is relevant to current decision
+            relevance = self._compute_rumination_relevance(rumination, decision_context)
+            if relevance < 0.3:
+                continue
+            
+            # Apply biases
+            for action, bias in rumination.decision_bias.items():
+                if action in available_actions:
+                    # Weight by relevance and emotional intensity
+                    weighted_bias = bias * relevance * rumination.emotional_intensity
+                    contamination[action] = contamination.get(action, 0.0) + weighted_bias
+        
+        return contamination
+    
+    def get_mental_load(self) -> float:
+        """
+        Get current mental load from rumination (0-1).
+        
+        Heavy rumination consumes cognitive resources, reducing
+        attention, decision quality, and reaction time.
+        """
+        if not self.active_ruminations:
+            return 0.0
+        
+        # Count unresolved ruminations
+        active_count = sum(1 for r in self.active_ruminations.values() if not r.resolved)
+        
+        # Weight by emotional intensity
+        total_intensity = sum(
+            r.emotional_intensity for r in self.active_ruminations.values()
+            if not r.resolved
+        )
+        
+        # Mental load formula
+        load = min(1.0, (active_count * 0.1) + (total_intensity * 0.3))
+        
+        # Current rumination adds extra load
+        if self.current_rumination:
+            load += self.rumination_intensity * 0.2
+        
+        return min(1.0, load)
+    
+    def attempt_resolution(self, rumination_id: str, resolution_type: str) -> bool:
+        """
+        Attempt to resolve a rumination through action or acceptance.
+        
+        Ruminations can be resolved by:
+        - Taking corrective action ("I'll do better next time")
+        - Acceptance ("It happened, move on")
+        - Distraction (decays naturally)
+        - Success (proves the worry wrong)
+        """
+        if rumination_id not in self.active_ruminations:
+            return False
+        
+        rumination = self.active_ruminations[rumination_id]
+        
+        # Resolution success depends on type
+        success_chance = 0.5
+        
+        if resolution_type == 'corrective_action':
+            # Taking action helps resolve regret
+            if rumination.rumination_type in [RuminationType.REGRET_SPIRAL, RuminationType.SELF_DOUBT]:
+                success_chance = 0.7
+        elif resolution_type == 'success':
+            # Success resolves worries and self-doubt
+            if rumination.rumination_type in [RuminationType.ANTICIPATORY_WORRY, RuminationType.SELF_DOUBT]:
+                success_chance = 0.8
+        elif resolution_type == 'acceptance':
+            # Acceptance helps with unchangeable past
+            if rumination.rumination_type in [RuminationType.EMBARRASSMENT_REPLAY, RuminationType.DEFENSIVE_RATIONALIZATION]:
+                success_chance = 0.6
+        
+        # More times ruminated = harder to resolve (stuck in loop)
+        success_chance *= (1.0 / (1.0 + rumination.times_ruminated * 0.1))
+        
+        if random.random() < success_chance:
+            rumination.resolved = True
+            rumination.resolution_action = resolution_type
+            logger.info(f"[Rumination resolved] {rumination.content} (via {resolution_type})")
+            
+            # Track if this was productive
+            if resolution_type == 'corrective_action':
+                self.productive_ruminations += 1
+            else:
+                self.unproductive_ruminations += 1
+            
+            return True
+        
+        return False
+    
+    def decay_ruminations(self, time_delta: float):
+        """Apply time-based decay to ruminations."""
+        to_remove = []
+        
+        for rumination_id, rumination in self.active_ruminations.items():
+            if rumination.resolved:
+                continue
+            
+            # Decay emotional intensity
+            decay = rumination.decay_rate * (time_delta / 3600.0)
+            rumination.emotional_intensity = max(0.0, rumination.emotional_intensity - decay)
+            rumination.intrusion_frequency = max(0.0, rumination.intrusion_frequency - decay * 0.5)
+            
+            # Remove if decayed completely
+            if rumination.emotional_intensity < 0.1:
+                to_remove.append(rumination_id)
+        
+        for rumination_id in to_remove:
+            del self.active_ruminations[rumination_id]
+    
+    def _classify_rumination_type(self, event_type: str, emotional_intensity: float,
+                                  context: Dict[str, Any]) -> RuminationType:
+        """Classify what type of rumination this event triggers."""
+        if event_type == 'recent_death':
+            # Deaths often trigger regret or counterfactual thinking
+            if random.random() < 0.6:
+                return RuminationType.REGRET_SPIRAL
+            else:
+                return RuminationType.COUNTERFACTUAL
+        
+        elif event_type == 'embarrassing_failure':
+            return RuminationType.EMBARRASSMENT_REPLAY
+        
+        elif event_type == 'close_call':
+            # Close calls trigger both relief (counterfactual) and worry
+            if random.random() < 0.5:
+                return RuminationType.COUNTERFACTUAL
+            else:
+                return RuminationType.ANTICIPATORY_WORRY
+        
+        elif event_type == 'uncertain_future':
+            # Future uncertainty triggers worry or fantasy
+            if random.random() < self.catastrophizing_bias:
+                return RuminationType.ANTICIPATORY_WORRY
+            else:
+                return RuminationType.ANTICIPATORY_FANTASY
+        
+        elif event_type == 'social_rejection':
+            return RuminationType.EMBARRASSMENT_REPLAY
+        
+        elif event_type == 'missed_opportunity':
+            return RuminationType.REGRET_SPIRAL
+        
+        elif event_type == 'upcoming_challenge':
+            if random.random() < 0.5:
+                return RuminationType.ANTICIPATORY_WORRY
+            else:
+                return RuminationType.REHEARSAL
+        
+        else:
+            # Default to second-guessing
+            return RuminationType.SECOND_GUESSING
+    
+    def _generate_thought_content(self, rumination_type: RuminationType,
+                                  description: str, context: Dict[str, Any]) -> str:
+        """Generate the actual thought content."""
+        templates = {
+            RuminationType.REGRET_SPIRAL: [
+                f"I really shouldn't have {description}",
+                f"Why did I {description}? That was stupid",
+                f"If only I hadn't {description}",
+                f"I knew {description} was a bad idea",
+            ],
+            RuminationType.COUNTERFACTUAL: [
+                f"What if I had done differently during {description}?",
+                f"If I had been more careful, {description} wouldn't have happened",
+                f"Things could have gone so much better if I'd...",
+            ],
+            RuminationType.ANTICIPATORY_WORRY: [
+                f"What if {description} goes wrong?",
+                f"I'm probably going to fail at {description}",
+                f"Everyone will notice if I mess up {description}",
+                f"{description} is going to be a disaster",
+            ],
+            RuminationType.ANTICIPATORY_FANTASY: [
+                f"Imagine if {description} goes perfectly!",
+                f"When I succeed at {description}, it'll be amazing",
+                f"I can already see myself mastering {description}",
+            ],
+            RuminationType.SELF_DOUBT: [
+                f"Can I really handle {description}?",
+                f"I'm not good enough for {description}",
+                f"Maybe I should avoid {description} altogether",
+                f"Everyone else seems better at {description} than me",
+            ],
+            RuminationType.EMBARRASSMENT_REPLAY: [
+                f"I can't believe I {description} in front of everyone",
+                f"They all saw me fail at {description}",
+                f"I'll never live down {description}",
+                f"Every time I think about {description} I cringe",
+            ],
+            RuminationType.SECOND_GUESSING: [
+                f"Did I make the right call with {description}?",
+                f"Maybe I should have approached {description} differently",
+                f"I keep wondering if {description} was a mistake",
+            ],
+            RuminationType.DEFENSIVE_RATIONALIZATION: [
+                f"{description} wasn't really my fault",
+                f"Anyone would have failed at {description} in that situation",
+                f"I had no way of knowing {description} would happen",
+                f"It was just bad luck with {description}",
+            ],
+            RuminationType.REHEARSAL: [
+                f"Next time, I'll handle {description} like this...",
+                f"I need to remember to do {description} differently",
+                f"Let me think through how to approach {description}...",
+            ],
+            RuminationType.INTRUSIVE_MEMORY: [
+                f"I can't stop thinking about {description}",
+                f"{description} keeps replaying in my mind",
+                f"Why does {description} keep coming back?",
+            ],
+        }
+        
+        possible_thoughts = templates.get(rumination_type, [f"Thinking about {description}"])
+        return random.choice(possible_thoughts)
+    
+    def _compute_behavioral_impact(self, rumination: RuminativeThought, context: Dict[str, Any]):
+        """Compute how this rumination affects behavior."""
+        # Different rumination types create different behavioral biases
+        
+        if rumination.rumination_type == RuminationType.REGRET_SPIRAL:
+            # Regret makes us avoid similar situations
+            if 'failed_action' in context:
+                rumination.decision_bias[context['failed_action']] = -0.3 * rumination.emotional_intensity
+                rumination.action_inhibition = 0.2 * rumination.emotional_intensity
+        
+        elif rumination.rumination_type == RuminationType.SELF_DOUBT:
+            # Self-doubt inhibits action and increases hesitation
+            rumination.action_inhibition = 0.4 * rumination.emotional_intensity
+            
+            # Bias toward "safer" choices
+            if 'risky_action' in context:
+                rumination.decision_bias[context['risky_action']] = -0.4 * rumination.emotional_intensity
+        
+        elif rumination.rumination_type == RuminationType.ANTICIPATORY_WORRY:
+            # Worry makes us avoid the worried-about action
+            if 'upcoming_action' in context:
+                rumination.decision_bias[context['upcoming_action']] = -0.3 * rumination.emotional_intensity
+        
+        elif rumination.rumination_type == RuminationType.ANTICIPATORY_FANTASY:
+            # Fantasy makes us overconfident
+            if 'desired_action' in context:
+                rumination.decision_bias[context['desired_action']] = 0.2 * rumination.emotional_intensity
+        
+        elif rumination.rumination_type == RuminationType.EMBARRASSMENT_REPLAY:
+            # Embarrassment makes us avoid social situations
+            rumination.decision_bias['social_interaction'] = -0.4 * rumination.emotional_intensity
+            rumination.action_inhibition = 0.3 * rumination.emotional_intensity
+    
+    def _compute_rumination_relevance(self, rumination: RuminativeThought,
+                                     decision_context: str) -> float:
+        """Compute how relevant a rumination is to current decision."""
+        # Simple keyword matching (could be more sophisticated)
+        relevance = 0.0
+        
+        # Recent ruminations are more relevant
+        hours_since = (time.time() - rumination.last_ruminated) / 3600.0
+        recency_factor = math.exp(-hours_since * 0.5)
+        relevance += recency_factor * 0.3
+        
+        # Context matching
+        if rumination.triggered_by in decision_context:
+            relevance += 0.5
+        
+        # Type-based relevance
+        if 'combat' in decision_context and rumination.rumination_type == RuminationType.REGRET_SPIRAL:
+            relevance += 0.3
+        
+        return min(1.0, relevance)
+    
+    def _prune_ruminations(self):
+        """Remove weakest ruminations when at capacity."""
+        # Remove resolved ones first
+        for rumination_id, rumination in list(self.active_ruminations.items()):
+            if rumination.resolved:
+                del self.active_ruminations[rumination_id]
+        
+        # If still over capacity, remove weakest
+        if len(self.active_ruminations) > self.MAX_ACTIVE_RUMINATIONS:
+            ruminations = list(self.active_ruminations.items())
+            ruminations.sort(key=lambda x: x[1].emotional_intensity)
+            
+            to_remove = len(ruminations) - self.MAX_ACTIVE_RUMINATIONS
+            for rumination_id, _ in ruminations[:to_remove]:
+                del self.active_ruminations[rumination_id]
+    
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'active_ruminations': {
+                rid: {
+                    'thought_id': r.thought_id,
+                    'rumination_type': r.rumination_type.name,
+                    'content': r.content,
+                    'emotional_intensity': r.emotional_intensity,
+                    'triggered_by': r.triggered_by,
+                    'trigger_time': r.trigger_time,
+                    'intrusion_frequency': r.intrusion_frequency,
+                    'decay_rate': r.decay_rate,
+                    'times_ruminated': r.times_ruminated,
+                    'last_ruminated': r.last_ruminated,
+                    'action_inhibition': r.action_inhibition,
+                    'decision_bias': r.decision_bias,
+                    'resolved': r.resolved,
+                    'resolution_action': r.resolution_action,
+                } for rid, r in self.active_ruminations.items()
+            },
+            'counterfactuals': [
+                {
+                    'scenario_id': cf.scenario_id,
+                    'actual_event': cf.actual_event,
+                    'imagined_alternative': cf.imagined_alternative,
+                    'emotional_valence': cf.emotional_valence,
+                    'decision_point': cf.decision_point,
+                    'alternative_action': cf.alternative_action,
+                    'imagined_outcome': cf.imagined_outcome,
+                    'vividness': cf.vividness,
+                    'compulsion_strength': cf.compulsion_strength,
+                    'creation_time': cf.creation_time,
+                    'regret_intensity': cf.regret_intensity,
+                    'relief_intensity': cf.relief_intensity,
+                    'learning_extracted': cf.learning_extracted,
+                } for cf in self.counterfactuals
+            ],
+            'rumination_tendency': self.rumination_tendency,
+            'catastrophizing_bias': self.catastrophizing_bias,
+            'optimism_bias': self.optimism_bias,
+            'total_rumination_time': self.total_rumination_time,
+            'productive_ruminations': self.productive_ruminations,
+            'unproductive_ruminations': self.unproductive_ruminations,
+            'rumination_history': list(self.rumination_history),
+        }
+    
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'active_ruminations' in state:
+            self.active_ruminations = {}
+            for rid, r_data in state['active_ruminations'].items():
+                self.active_ruminations[rid] = RuminativeThought(
+                    thought_id=r_data['thought_id'],
+                    rumination_type=RuminationType[r_data['rumination_type']],
+                    content=r_data['content'],
+                    emotional_intensity=r_data['emotional_intensity'],
+                    triggered_by=r_data['triggered_by'],
+                    trigger_time=r_data['trigger_time'],
+                    intrusion_frequency=r_data.get('intrusion_frequency', 0.5),
+                    decay_rate=r_data.get('decay_rate', 0.1),
+                    times_ruminated=r_data.get('times_ruminated', 0),
+                    last_ruminated=r_data.get('last_ruminated', 0.0),
+                    action_inhibition=r_data.get('action_inhibition', 0.0),
+                    decision_bias=r_data.get('decision_bias', {}),
+                    resolved=r_data.get('resolved', False),
+                    resolution_action=r_data.get('resolution_action'),
+                )
+        
+        if 'counterfactuals' in state:
+            self.counterfactuals = []
+            for cf_data in state['counterfactuals']:
+                self.counterfactuals.append(CounterfactualScenario(
+                    scenario_id=cf_data['scenario_id'],
+                    actual_event=cf_data['actual_event'],
+                    imagined_alternative=cf_data['imagined_alternative'],
+                    emotional_valence=cf_data['emotional_valence'],
+                    decision_point=cf_data['decision_point'],
+                    alternative_action=cf_data['alternative_action'],
+                    imagined_outcome=cf_data['imagined_outcome'],
+                    vividness=cf_data.get('vividness', 1.0),
+                    compulsion_strength=cf_data.get('compulsion_strength', 0.5),
+                    creation_time=cf_data.get('creation_time', 0.0),
+                    regret_intensity=cf_data.get('regret_intensity', 0.0),
+                    relief_intensity=cf_data.get('relief_intensity', 0.0),
+                    learning_extracted=cf_data.get('learning_extracted', False),
+                ))
+        
+        self.rumination_tendency = state.get('rumination_tendency', 0.5)
+        self.catastrophizing_bias = state.get('catastrophizing_bias', 0.5)
+        self.optimism_bias = state.get('optimism_bias', 0.5)
+        self.total_rumination_time = state.get('total_rumination_time', 0.0)
+        self.productive_ruminations = state.get('productive_ruminations', 0)
+        self.unproductive_ruminations = state.get('unproductive_ruminations', 0)
+        
+        if 'rumination_history' in state:
+            self.rumination_history = deque(state['rumination_history'], maxlen=500)
+        
+        logger.info(f"Rumination system restored: {len(self.active_ruminations)} active thoughts, "
+                   f"{len(self.counterfactuals)} counterfactuals")
+
 
 
 class AutobiographicalMemory:
