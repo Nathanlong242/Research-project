@@ -197,6 +197,14 @@ try:
 except ImportError:
     pass  # OCR is optional
 
+# Research instrumentation
+try:
+    from behavioral_logger import BehavioralLogger
+    BEHAVIORAL_LOGGING_AVAILABLE = True
+except ImportError:
+    BEHAVIORAL_LOGGING_AVAILABLE = False
+    print("Warning: behavioral_logger.py not found - research logging disabled")
+
 # ═══════════════════════════════════════════════════════════════════════════
 # LOGGING CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2119,6 +2127,13 @@ class HumanEquivalentCognition:
         logger.info("Personality System (Tier 5) initialized:")
         logger.info("  - Preference & value crystallization (idiosyncratic tastes, authentic choices)")
 
+        # === RESEARCH INSTRUMENTATION ===
+        # Behavioral logging for empirical validation
+        self.behavioral_logger = None
+        self.last_decision_event = None
+        self.deaths_to_analyze = []
+        self.enable_research_logging = False  # Will be set via config
+
         # Operational Life Support - Continuous Runtime Management
         self.operational = OperationalController(wow_window_title="World of Warcraft")
 
@@ -2951,6 +2966,44 @@ class HumanEquivalentCognition:
             'risk_tolerance': self.drives.get_risk_tolerance(),
         }
     
+    # ═══════════════════════════════════════════════════════════════════
+    # RESEARCH INSTRUMENTATION METHODS
+    # ═══════════════════════════════════════════════════════════════════
+
+    def enable_behavioral_logging(self, session_id: str = None, output_dir: str = "research_data"):
+        """Enable behavioral logging for research purposes."""
+        if not BEHAVIORAL_LOGGING_AVAILABLE:
+            logger.warning("Behavioral logging requested but behavioral_logger.py not found")
+            return False
+
+        if session_id is None:
+            session_id = f"session_{int(time.time())}"
+
+        self.behavioral_logger = BehavioralLogger(session_id=session_id, output_dir=output_dir)
+        self.enable_research_logging = True
+
+        logger.info(f"Behavioral logging enabled: session_id={session_id}")
+        return True
+
+    def save_behavioral_data(self):
+        """Save behavioral research data (called at shutdown)."""
+        if not self.behavioral_logger or not self.enable_research_logging:
+            return
+
+        try:
+            # Analyze post-death behavior
+            for death_event in self.deaths_to_analyze:
+                self.behavioral_logger.analyze_post_death_behavior(death_event, window_size=20)
+
+            # Save all data
+            logger.info("Saving behavioral research data...")
+            self.behavioral_logger.save_session()
+            logger.info("Behavioral research data saved successfully")
+        except Exception as e:
+            logger.error(f"Error saving behavioral data: {e}", exc_info=True)
+
+    # ═══════════════════════════════════════════════════════════════════
+
     def _validate_identity_continuity(self):
         """Validate identity continuity at session start."""
         validator = get_identity_validator()
@@ -2961,7 +3014,7 @@ class HumanEquivalentCognition:
             personality=self.drives._personality,
             drives=self.drives.get_state().get('drives', {}),
         )
-        
+
         regression, warnings = validator.get_regression_status()
         if regression:
             logger.warning("Identity regression detected - agent will relearn from current state")
@@ -3131,6 +3184,9 @@ class HumanEquivalentCognition:
     def shutdown(self):
         """Save state on shutdown with identity continuity tracking."""
         self._save_state()
+
+        # Save behavioral research data if enabled
+        self.save_behavioral_data()
 
         # End session for identity continuity tracking
         validator = get_identity_validator()
