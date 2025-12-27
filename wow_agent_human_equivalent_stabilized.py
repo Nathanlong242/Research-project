@@ -183,9 +183,11 @@ try:
     from pynput import keyboard, mouse
     from pynput.keyboard import Controller as KeyboardController, Key, KeyCode
     from pynput.mouse import Controller as MouseController, Button
+    import psutil  # For resource monitoring
+    import signal  # For graceful shutdown
 except ImportError as e:
     print(f"ERROR: Missing required library: {e}")
-    print("Install with: pip install mss opencv-python numpy pynput")
+    print("Install with: pip install mss opencv-python numpy pynput psutil")
     sys.exit(1)
 
 OCR_AVAILABLE = False
@@ -2100,6 +2102,22 @@ class HumanEquivalentCognition:
         logger.info("Temporal System (Tier 4) initialized:")
         logger.info("  - Temporal life awareness (fatigue, burnout, rest-seeking)")
 
+        # Tier 5: Preference & Value Crystallization - Unique Personality
+        self.preference_system = PreferenceValueSystem()
+
+        logger.info("Personality System (Tier 5) initialized:")
+        logger.info("  - Preference & value crystallization (idiosyncratic tastes, authentic choices)")
+
+        # Operational Life Support - Continuous Runtime Management
+        self.operational = OperationalController(wow_window_title="World of Warcraft")
+
+        logger.info("Operational Life Support initialized:")
+        logger.info("  - Lifecycle management (start/pause/stop/resume)")
+        logger.info("  - Resource monitoring and self-throttling")
+        logger.info("  - WoW window containment and safety")
+        logger.info("  - Fatigue-driven voluntary rest")
+        logger.info("  - Supervision interface (agent_status.json)")
+
         # Integration state
         self._last_state_features: Optional[Dict[str, Any]] = None
         self._last_action: Optional[str] = None
@@ -2115,6 +2133,10 @@ class HumanEquivalentCognition:
 
         # Validate identity continuity
         self._validate_identity_continuity()
+
+    def start(self) -> bool:
+        """Start the agent lifecycle. Returns True if successful, False if in rest."""
+        return self.operational.start()
 
     def _update_life_systems(self, perception: Dict[str, Any]):
         """
@@ -2448,16 +2470,188 @@ class HumanEquivalentCognition:
                     self.drives.drives[DriveType.MASTERY].intensity + prof_boost * 0.1
                 )
 
+        # === PREFERENCE & VALUE CRYSTALLIZATION (TIER 5) ===
+        # Track emotional experiences to form idiosyncratic preferences
+        # This is where the agent becomes a unique individual
+
+        # Zone preferences - track emotional response to current location
+        if 'zone' in perception and perception['zone'] != 'unknown':
+            zone = perception['zone']
+            # Calculate emotional valence from multiple factors
+            zone_valence = 0.0
+            zone_intensity = 0.5
+
+            # Death in zone = negative emotion
+            if perception.get('player_died', False):
+                zone_valence -= 0.8
+                zone_intensity = 1.0
+                self.preference_system.record_experience(
+                    PreferenceDomain.ZONE, zone, zone_valence, zone_intensity,
+                    context={'event': 'death', 'level': self.progression.current_level}
+                )
+            # Level up in zone = positive emotion
+            elif 'level' in perception and perception['level'] > self.progression.current_level:
+                zone_valence = 0.6
+                zone_intensity = 0.8
+                self.preference_system.record_experience(
+                    PreferenceDomain.ZONE, zone, zone_valence, zone_intensity,
+                    context={'event': 'level_up', 'level': perception['level']}
+                )
+            # Comfortable zone = mild positive
+            elif self.progression.zone_comfort > 0.7:
+                zone_valence = 0.3
+                zone_intensity = 0.3
+                if random.random() < 0.01:  # Occasional check-in, not every tick
+                    self.preference_system.record_experience(
+                        PreferenceDomain.ZONE, zone, zone_valence, zone_intensity,
+                        context={'event': 'comfortable', 'comfort': self.progression.zone_comfort}
+                    )
+
+        # Activity preferences - track emotional response to what we're doing
+        if current_activity and current_activity != 'unknown':
+            activity_valence = 0.0
+            activity_intensity = 0.5
+
+            # Combat outcome drives combat preference
+            if 'combat_ended' in perception and perception['combat_ended']:
+                if perception.get('combat_won', False):
+                    activity_valence = 0.4
+                    # Decisive victory = more positive
+                    if perception.get('hp', 1.0) > 0.8:
+                        activity_valence = 0.7
+                else:
+                    activity_valence = -0.6  # Loss = negative
+                activity_intensity = 0.9
+                self.preference_system.record_experience(
+                    PreferenceDomain.ACTIVITY, 'combat', activity_valence, activity_intensity,
+                    context={'won': perception.get('combat_won', False), 'activity': current_activity}
+                )
+
+            # Grinding boredom (burnout = negative)
+            if self.temporal_awareness.should_seek_variety():
+                activity_valence = -0.4  # Getting bored
+                activity_intensity = self.temporal_awareness.current_burnout
+                self.preference_system.record_experience(
+                    PreferenceDomain.ACTIVITY, current_activity, activity_valence, activity_intensity,
+                    context={'event': 'burnout', 'duration': self.temporal_awareness.current_activity_duration}
+                )
+
+            # Quest completion = positive
+            if 'quest_completed' in perception:
+                activity_valence = 0.5
+                activity_intensity = 0.7
+                self.preference_system.record_experience(
+                    PreferenceDomain.ACTIVITY, 'questing', activity_valence, activity_intensity,
+                    context={'event': 'quest_complete', 'quest': perception['quest_completed']}
+                )
+
+        # Economic preferences - how we feel about gold activities
+        if 'gold_looted' in perception and perception['gold_looted'] > 0:
+            # Looting gold = positive (but how positive depends on amount and need)
+            gold_valence = min(0.8, perception['gold_looted'] / 100.0)  # Scale by amount
+            if self.wealth.financial_anxiety > 0.5:
+                gold_valence *= 1.5  # Need gold = more positive when we get it
+            self.preference_system.record_experience(
+                PreferenceDomain.ECONOMIC, 'gold_farming', gold_valence, 0.6,
+                context={'amount': perception['gold_looted'], 'anxiety': self.wealth.financial_anxiety}
+            )
+
+        if 'gold_spent' in perception and perception['gold_spent'] > 0:
+            # Spending = negative if we're poor, neutral if we're rich
+            spend_valence = -0.3
+            if self.wealth.current_gold > 1000:  # Rich
+                spend_valence = 0.1  # Actually enjoy spending when we can afford it
+            self.preference_system.record_experience(
+                PreferenceDomain.ECONOMIC, 'spending', spend_valence, 0.5,
+                context={'amount': perception['gold_spent'], 'remaining': self.wealth.current_gold}
+            )
+
+        # Social preferences - group vs solo
+        if 'player_grouped' in perception:
+            if perception['player_grouped']:
+                # In group - valence depends on outcomes
+                group_valence = 0.0
+                if 'combat_won' in perception and perception['combat_won']:
+                    group_valence = 0.6  # Group victory = positive social experience
+                elif 'quest_completed' in perception:
+                    group_valence = 0.5
+                else:
+                    group_valence = 0.2  # Default mild positive for grouping
+                self.preference_system.record_experience(
+                    PreferenceDomain.SOCIAL, 'group_play', group_valence, 0.7,
+                    context={'event': 'grouped', 'size': perception.get('group_size', 2)}
+                )
+            else:
+                # Solo play - track when explicitly playing solo
+                if random.random() < 0.01:  # Occasional check-in
+                    solo_valence = 0.0
+                    # Solo success = develops solo preference
+                    if 'combat_won' in perception and perception['combat_won']:
+                        solo_valence = 0.4
+                    self.preference_system.record_experience(
+                        PreferenceDomain.SOCIAL, 'solo_play', solo_valence, 0.5,
+                        context={'event': 'solo'}
+                    )
+
+        # Profession preferences - do we enjoy our professions?
+        if 'profession_skill_up' in perception:
+            # Skill up = positive
+            prof_valence = 0.5
+            # Extra positive if we're already invested (sunk cost makes us like it more)
+            if self.professions.get_profession_motivation_boost() > 0.5:
+                prof_valence = 0.7
+            self.preference_system.record_experience(
+                PreferenceDomain.ACTIVITY, perception['profession_skill_up']['profession'],
+                prof_valence, 0.7,
+                context={'event': 'skill_up', 'level': perception['profession_skill_up']['new_level']}
+            )
+
+        # Playstyle value revelation - track what agent values through their actions
+        # This is called from the action decision, but we can track from outcomes too
+        if 'quest_completed' in perception:
+            # Completing quests reveals EXPLORATION or PROGRESSION values
+            self.preference_system.record_value_revealing_choice(
+                {
+                    PersonalValue.EXPLORATION: 0.6,
+                    PersonalValue.STORYTELLING: 0.5
+                },
+                f"Completed quest in {perception.get('zone', 'unknown')}",
+                context={'quest': perception['quest_completed']}
+            )
+
+        if self.wealth.financial_anxiety > 0.7 and 'gold_looted' in perception:
+            # Grinding for gold when poor reveals WEALTH value
+            self.preference_system.record_value_revealing_choice(
+                {PersonalValue.WEALTH: 0.8},
+                "Focused on gold farming due to financial pressure",
+                context={'anxiety': self.wealth.financial_anxiety}
+            )
+
     def tick(self, perception: Dict[str, Any]) -> Dict[str, Any]:
         """
         Main cognitive tick. Process perception and decide action.
-        
+
         Returns decision with:
         - action: The chosen action
         - confidence: How confident in the decision
         - hesitation: Delay before acting (uncertainty)
         - reasoning: Why this action was chosen
+
+        Returns None if agent should stop (operational shutdown/pause/rest).
         """
+        # ═══════════════════════════════════════════════════════════════════
+        # OPERATIONAL LIFECYCLE CHECK
+        # ═══════════════════════════════════════════════════════════════════
+        # Check if agent should continue running (fatigue, window safety, etc.)
+        current_fatigue = self.temporal_awareness.current_fatigue
+        should_continue = self.operational.tick(fatigue=current_fatigue)
+
+        if not should_continue:
+            # Agent requested shutdown/pause/rest
+            logger.info("Operational check failed - stopping cognitive processing")
+            self._save_state()  # Emergency checkpoint
+            return None  # Signal to stop
+
         self._tick_count += 1
 
         # Update drives
@@ -2746,7 +2940,7 @@ class HumanEquivalentCognition:
     def _save_state(self):
         """Save cognitive state to disk."""
         state = {
-            'version': '6.0.0',  # Version with Tier 1+2+3+4 (Temporal Awareness)
+            'version': '7.0.0',  # Version with Tier 1+2+3+4+5 (Preference & Value Crystallization)
             'beliefs': self.beliefs.get_state(),
             'procedural_memory': self.procedural_memory.get_state(),
             'world_model': self.world_model.get_state(),
@@ -2777,6 +2971,9 @@ class HumanEquivalentCognition:
 
             # === TEMPORAL SYSTEM (TIER 4) ===
             'temporal_awareness': self.temporal_awareness.get_state(),
+
+            # === PERSONALITY SYSTEM (TIER 5) ===
+            'preference_system': self.preference_system.get_state(),
         }
 
         try:
@@ -2881,6 +3078,12 @@ class HumanEquivalentCognition:
                 logger.info(f"  Restored temporal state: {self.temporal_awareness.play_style}, "
                            f"Fatigue: {self.temporal_awareness.current_fatigue:.2f}")
 
+            # === PERSONALITY SYSTEM (TIER 5) ===
+            if 'preference_system' in state:
+                self.preference_system.restore_state(state['preference_system'])
+                logger.info(f"  Restored personality: {self.preference_system.crystallized_preference_count} preferences, "
+                           f"uniqueness: {self.preference_system.behavioral_uniqueness_score:.2f}")
+
             logger.info(f"Restored cognitive state: {self._tick_count} previous ticks, "
                        f"{len(self.beliefs.beliefs)} beliefs, "
                        f"{len(self.procedural_memory.skills)} skills, "
@@ -2894,7 +3097,7 @@ class HumanEquivalentCognition:
     def shutdown(self):
         """Save state on shutdown with identity continuity tracking."""
         self._save_state()
-        
+
         # End session for identity continuity tracking
         validator = get_identity_validator()
         validator.end_session(
@@ -2905,7 +3108,7 @@ class HumanEquivalentCognition:
             drives=self.drives.get_state().get('drives', {}),
             ticks_this_session=self._tick_count,
         )
-        
+
         # Log momentum report
         report = self.momentum.get_momentum_report()
         logger.info(f"Behavioral momentum report:")
@@ -2913,6 +3116,9 @@ class HumanEquivalentCognition:
         logger.info(f"  - Is improving: {report['is_improving']}")
         logger.info(f"  - Improvement rate: {report['improvement_rate']:.3f}")
         logger.info(f"  - Success rate: {report['cumulative_success_rate']:.3f}")
+
+        # Log operational summary
+        logger.info(self.operational.get_operational_summary())
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -7186,6 +7392,412 @@ class TemporalLifeAwareness:
 
 
 # =============================================================================
+# TIER 5: PREFERENCE & VALUE CRYSTALLIZATION
+# =============================================================================
+
+@dataclass
+class AffinityExperience:
+    """Single experience that contributes to preference formation."""
+    timestamp: float
+    emotional_valence: float  # -1.0 (hate) to +1.0 (love)
+    context: Dict[str, Any]  # What was happening when this feeling occurred
+    intensity: float  # 0.0 to 1.0, how strong the feeling was
+
+class PreferenceDomain(Enum):
+    """Categories of things an agent can develop preferences about."""
+    ACTIVITY = "activity"  # Combat, questing, grinding, exploration, professions
+    ZONE = "zone"  # Specific locations and environments
+    SOCIAL = "social"  # Group size, guild involvement, helping others
+    PLAYSTYLE = "playstyle"  # Efficiency vs fun, risk vs safety, solo vs group
+    CONTENT = "content"  # Dungeons, raids, PvP, world bosses
+    ECONOMIC = "economic"  # Grinding for gold, AH trading, spending patterns
+    AESTHETIC = "aesthetic"  # Favorite mounts, gear appearance, etc.
+
+@dataclass
+class Preference:
+    """A crystallized preference - stable taste formed from lived experience."""
+    domain: PreferenceDomain
+    target: str  # What specifically (e.g., "Barrens", "dungeon_tanking", "helping_lowbies")
+    affinity: float  # -1.0 (strongly dislike) to +1.0 (strongly prefer)
+    confidence: float  # 0.0 to 1.0, how crystallized this preference is
+    experience_count: int  # How many exposures contributed to this
+    first_experienced: float  # Timestamp of first exposure
+    last_experienced: float  # Timestamp of most recent exposure
+    emotional_history: List[AffinityExperience]  # The lived experiences that formed this
+
+    def is_crystallized(self) -> bool:
+        """A preference is crystallized when it's stable through repeated exposure."""
+        return self.confidence > 0.7 and self.experience_count >= 40
+
+    def get_strength(self) -> str:
+        """Human-readable strength descriptor."""
+        if not self.is_crystallized():
+            return "developing"
+        abs_affinity = abs(self.affinity)
+        if abs_affinity > 0.8:
+            return "passionate" if self.affinity > 0 else "strong_aversion"
+        elif abs_affinity > 0.5:
+            return "clear_preference" if self.affinity > 0 else "dislike"
+        else:
+            return "mild_preference" if self.affinity > 0 else "mild_aversion"
+
+class PersonalValue(Enum):
+    """What the agent values most - their core priorities."""
+    EFFICIENCY = "efficiency"  # Optimize XP/hour, gold/hour, progress rate
+    FUN = "fun"  # Enjoyment over optimization
+    SOCIAL = "social"  # Connection, helping others, community
+    EXPLORATION = "exploration"  # Discovery, seeing everything, completionism
+    MASTERY = "mastery"  # Getting good, perfect execution, skill improvement
+    POWER = "power"  # Being strongest, best gear, topping meters
+    WEALTH = "wealth"  # Accumulating gold and resources
+    AUTONOMY = "autonomy"  # Playing solo, independence, self-reliance
+    STORYTELLING = "storytelling"  # Experiencing narrative, RP, lore
+
+@dataclass
+class ValueWeight:
+    """How much the agent values something, learned from their choices."""
+    value: PersonalValue
+    weight: float  # 0.0 to 1.0, how much they prioritize this
+    confidence: float  # 0.0 to 1.0, how certain we are of this weight
+    supporting_decisions: int  # Number of decisions that revealed this value
+
+class PreferenceValueSystem:
+    """
+    Models the agent's unique personality through preferences and values.
+
+    Humans don't just learn what's optimal - they develop idiosyncratic tastes.
+    Two players with identical knowledge might choose differently because:
+    - Alice loves exploration but Bob finds it boring
+    - Carol values helping others over personal efficiency
+    - Dave hates PvP with a passion after bad experiences
+    - Eve prefers solo play even when groups are more optimal
+
+    This system tracks emotional outcomes across experiences and crystallizes
+    them into stable preferences. After 40+ dungeon runs, if the agent felt
+    negative emotions 80% of the time, they develop "I don't like dungeons"
+    preference that drives authentic (non-optimal) choices.
+
+    It also learns what the agent values most by observing their revealed
+    preferences - when they sacrifice efficiency for exploration, or help
+    others at personal cost, the system learns their value hierarchy.
+    """
+
+    def __init__(self):
+        # Preference tracking
+        self.preferences: Dict[Tuple[PreferenceDomain, str], Preference] = {}
+        self.recent_experiences: List[AffinityExperience] = []
+        self.max_experience_history = 200
+
+        # Value hierarchy
+        self.values: Dict[PersonalValue, ValueWeight] = {
+            value: ValueWeight(value=value, weight=0.5, confidence=0.0, supporting_decisions=0)
+            for value in PersonalValue
+        }
+
+        # Behavioral signature tracking
+        self.decision_patterns: Dict[str, int] = {}  # Pattern -> count
+        self.choice_history: List[Dict[str, Any]] = []
+        self.max_choice_history = 500
+
+        # Personality emergence metrics
+        self.total_preference_exposures = 0
+        self.crystallized_preference_count = 0
+        self.value_confidence_average = 0.0
+        self.behavioral_uniqueness_score = 0.0  # 0-1, how distinct from "optimal bot"
+
+    def record_experience(self, domain: PreferenceDomain, target: str,
+                         emotional_valence: float, intensity: float = 1.0,
+                         context: Dict[str, Any] = None):
+        """
+        Record an emotional response to an experience.
+        Repeated exposures crystallize into stable preferences.
+        """
+        now = time.time()
+
+        # Create experience record
+        exp = AffinityExperience(
+            timestamp=now,
+            emotional_valence=emotional_valence,
+            context=context or {},
+            intensity=intensity
+        )
+
+        self.recent_experiences.append(exp)
+        if len(self.recent_experiences) > self.max_experience_history:
+            self.recent_experiences.pop(0)
+
+        # Update or create preference
+        pref_key = (domain, target)
+        if pref_key not in self.preferences:
+            self.preferences[pref_key] = Preference(
+                domain=domain,
+                target=target,
+                affinity=0.0,
+                confidence=0.0,
+                experience_count=0,
+                first_experienced=now,
+                last_experienced=now,
+                emotional_history=[]
+            )
+
+        pref = self.preferences[pref_key]
+        pref.emotional_history.append(exp)
+        pref.experience_count += 1
+        pref.last_experienced = now
+
+        # Update affinity using weighted average (recent experiences matter more)
+        total_weight = 0.0
+        weighted_sum = 0.0
+        for i, e in enumerate(pref.emotional_history[-100:]):  # Last 100 experiences
+            # Recency weight: more recent = higher weight
+            recency_factor = (i + 1) / len(pref.emotional_history[-100:])
+            weight = e.intensity * recency_factor
+            weighted_sum += e.emotional_valence * weight
+            total_weight += weight
+
+        if total_weight > 0:
+            pref.affinity = np.clip(weighted_sum / total_weight, -1.0, 1.0)
+
+        # Update confidence based on consistency and exposure count
+        if pref.experience_count >= 3:
+            # Measure consistency of emotional responses
+            recent_valences = [e.emotional_valence for e in pref.emotional_history[-20:]]
+            consistency = 1.0 - np.std(recent_valences) / 1.0  # Normalize by max possible std
+
+            # Confidence increases with both consistency and exposure
+            exposure_factor = min(1.0, pref.experience_count / 40.0)  # Cap at 40 exposures
+            pref.confidence = consistency * exposure_factor
+
+        self.total_preference_exposures += 1
+        self._update_personality_metrics()
+
+    def get_preference(self, domain: PreferenceDomain, target: str) -> Optional[Preference]:
+        """Get preference for a specific domain/target."""
+        return self.preferences.get((domain, target))
+
+    def get_preference_strength(self, domain: PreferenceDomain, target: str) -> float:
+        """
+        Get preference strength (-1 to +1).
+        Returns 0 if no preference established.
+        """
+        pref = self.get_preference(domain, target)
+        if not pref:
+            return 0.0
+
+        # Only return strong signal if preference is somewhat confident
+        if pref.confidence < 0.3:
+            return 0.0
+
+        return pref.affinity * pref.confidence
+
+    def record_value_revealing_choice(self, values_expressed: Dict[PersonalValue, float],
+                                     choice_description: str, context: Dict[str, Any] = None):
+        """
+        Record a choice that reveals what the agent values.
+
+        Example: Agent chooses to help a lowbie instead of grinding (optimal).
+        This reveals SOCIAL > EFFICIENCY for this agent.
+        """
+        now = time.time()
+
+        # Record choice
+        self.choice_history.append({
+            'timestamp': now,
+            'description': choice_description,
+            'values_expressed': values_expressed.copy(),
+            'context': context or {}
+        })
+
+        if len(self.choice_history) > self.max_choice_history:
+            self.choice_history.pop(0)
+
+        # Update value weights
+        for value, strength in values_expressed.items():
+            if value in self.values:
+                val_weight = self.values[value]
+                val_weight.supporting_decisions += 1
+
+                # Update weight using incremental average
+                old_weight = val_weight.weight
+                alpha = 0.05  # Learning rate
+                val_weight.weight = old_weight + alpha * (strength - old_weight)
+                val_weight.weight = np.clip(val_weight.weight, 0.0, 1.0)
+
+                # Confidence increases with number of revealing decisions
+                val_weight.confidence = min(1.0, val_weight.supporting_decisions / 50.0)
+
+        # Normalize value weights so they sum to reasonable total
+        total_weight = sum(v.weight for v in self.values.values())
+        if total_weight > 0:
+            for val_weight in self.values.values():
+                val_weight.weight /= (total_weight / len(self.values))
+
+        self._update_personality_metrics()
+
+    def get_top_values(self, n: int = 3) -> List[Tuple[PersonalValue, float]]:
+        """Get the agent's top N values by weight."""
+        sorted_values = sorted(
+            [(v.value, v.weight) for v in self.values.values()],
+            key=lambda x: x[1],
+            reverse=True
+        )
+        return sorted_values[:n]
+
+    def should_prefer_over_optimal(self, preferred_option: str, optimal_option: str,
+                                   domain: PreferenceDomain) -> bool:
+        """
+        Check if agent should choose preferred option over optimal one.
+
+        This is where personality overrides optimization.
+        Returns True if preference is strong enough to justify non-optimal choice.
+        """
+        pref_strength = self.get_preference_strength(domain, preferred_option)
+        optimal_strength = self.get_preference_strength(domain, optimal_option)
+
+        # Positive preference for preferred AND it's crystallized
+        pref = self.get_preference(domain, preferred_option)
+        if pref and pref.is_crystallized() and pref_strength > 0.5:
+            # Strong preference can overcome optimization pressure
+            return True
+
+        # Strong aversion to optimal option
+        if optimal_strength < -0.5:
+            optimal = self.get_preference(domain, optimal_option)
+            if optimal and optimal.is_crystallized():
+                return True
+
+        return False
+
+    def get_behavioral_signature(self) -> Dict[str, Any]:
+        """
+        Get a summary of this agent's unique behavioral patterns.
+        This is their "personality fingerprint".
+        """
+        return {
+            'top_values': self.get_top_values(3),
+            'crystallized_preferences': {
+                f"{pref.domain.value}:{pref.target}": {
+                    'affinity': pref.affinity,
+                    'strength': pref.get_strength(),
+                    'experiences': pref.experience_count
+                }
+                for pref in self.preferences.values()
+                if pref.is_crystallized()
+            },
+            'uniqueness_score': self.behavioral_uniqueness_score,
+            'total_exposures': self.total_preference_exposures,
+            'value_confidence': self.value_confidence_average
+        }
+
+    def _update_personality_metrics(self):
+        """Update metrics that track personality emergence."""
+        # Count crystallized preferences
+        self.crystallized_preference_count = sum(
+            1 for pref in self.preferences.values() if pref.is_crystallized()
+        )
+
+        # Average value confidence
+        confidences = [v.confidence for v in self.values.values()]
+        self.value_confidence_average = np.mean(confidences) if confidences else 0.0
+
+        # Behavioral uniqueness: how much do preferences deviate from neutral?
+        if self.preferences:
+            affinity_deviations = [abs(p.affinity) for p in self.preferences.values()
+                                  if p.confidence > 0.5]
+            self.behavioral_uniqueness_score = np.mean(affinity_deviations) if affinity_deviations else 0.0
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'preferences': {
+                f"{domain.value}:{target}": {
+                    'affinity': pref.affinity,
+                    'confidence': pref.confidence,
+                    'experience_count': pref.experience_count,
+                    'first_experienced': pref.first_experienced,
+                    'last_experienced': pref.last_experienced,
+                    'emotional_history': [
+                        {
+                            'timestamp': exp.timestamp,
+                            'valence': exp.emotional_valence,
+                            'intensity': exp.intensity,
+                            'context': exp.context
+                        }
+                        for exp in pref.emotional_history[-50:]  # Keep last 50
+                    ]
+                }
+                for (domain, target), pref in self.preferences.items()
+            },
+            'values': {
+                value.value: {
+                    'weight': val_weight.weight,
+                    'confidence': val_weight.confidence,
+                    'supporting_decisions': val_weight.supporting_decisions
+                }
+                for value, val_weight in self.values.items()
+            },
+            'choice_history': self.choice_history[-100:],  # Keep last 100
+            'metrics': {
+                'total_exposures': self.total_preference_exposures,
+                'crystallized_count': self.crystallized_preference_count,
+                'value_confidence': self.value_confidence_average,
+                'uniqueness': self.behavioral_uniqueness_score
+            }
+        }
+
+    def restore_state(self, state: Dict[str, Any]):
+        """Restore from persisted state."""
+        # Restore preferences
+        self.preferences.clear()
+        for key, pref_data in state.get('preferences', {}).items():
+            domain_str, target = key.split(':', 1)
+            domain = PreferenceDomain(domain_str)
+
+            emotional_history = [
+                AffinityExperience(
+                    timestamp=exp['timestamp'],
+                    emotional_valence=exp['valence'],
+                    intensity=exp['intensity'],
+                    context=exp['context']
+                )
+                for exp in pref_data['emotional_history']
+            ]
+
+            self.preferences[(domain, target)] = Preference(
+                domain=domain,
+                target=target,
+                affinity=pref_data['affinity'],
+                confidence=pref_data['confidence'],
+                experience_count=pref_data['experience_count'],
+                first_experienced=pref_data['first_experienced'],
+                last_experienced=pref_data['last_experienced'],
+                emotional_history=emotional_history
+            )
+
+        # Restore values
+        for value_str, val_data in state.get('values', {}).items():
+            value = PersonalValue(value_str)
+            self.values[value] = ValueWeight(
+                value=value,
+                weight=val_data['weight'],
+                confidence=val_data['confidence'],
+                supporting_decisions=val_data['supporting_decisions']
+            )
+
+        # Restore history and metrics
+        self.choice_history = state.get('choice_history', [])
+        metrics = state.get('metrics', {})
+        self.total_preference_exposures = metrics.get('total_exposures', 0)
+        self.crystallized_preference_count = metrics.get('crystallized_count', 0)
+        self.value_confidence_average = metrics.get('value_confidence', 0.0)
+        self.behavioral_uniqueness_score = metrics.get('uniqueness', 0.0)
+
+        logger.info(f"Restored preference system: {self.crystallized_preference_count} "
+                   f"crystallized preferences, {len(self.preferences)} total, "
+                   f"uniqueness={self.behavioral_uniqueness_score:.2f}")
+
+
+# =============================================================================
 # ENUMERATIONS
 # =============================================================================
 
@@ -9348,6 +9960,585 @@ class DecisionSynthesisSystem:
         if 'action_cooldowns' in state:
             self._action_cooldowns = state['action_cooldowns']
 
+
+# =============================================================================
+# OPERATIONAL LIFE SUPPORT SYSTEMS
+# =============================================================================
+# These systems enable the agent to run safely, continuously, and autonomously
+# for months/years with minimal human supervision. They implement:
+# - Lifecycle management (start/pause/stop/resume)
+# - Resource monitoring and self-throttling
+# - WoW window containment and safety
+# - Fatigue-driven voluntary rest
+# - Operational state persistence
+# - Human supervision interface
+# =============================================================================
+
+class LifecycleState(Enum):
+    """Agent operational lifecycle states."""
+    STARTING = auto()    # Initializing systems
+    RUNNING = auto()     # Active gameplay
+    PAUSING = auto()     # Checkpointing for pause
+    PAUSED = auto()      # Suspended, awaiting resume
+    RESUMING = auto()    # Restoring from pause
+    STOPPING = auto()    # Graceful shutdown in progress
+    STOPPED = auto()     # Cleanly stopped
+    RESTING = auto()     # Voluntary rest period (fatigue-driven)
+    ERROR = auto()       # Error state requiring human intervention
+
+@dataclass
+class ResourceMetrics:
+    """Real-time resource usage metrics."""
+    timestamp: float
+    cpu_percent: float
+    memory_mb: float
+    memory_percent: float
+    tick_rate: float  # Actions per second
+
+@dataclass
+class RestPeriod:
+    """Record of a rest period."""
+    start_time: float
+    end_time: Optional[float]
+    duration_seconds: float
+    reason: str  # 'fatigue', 'manual', 'error', 'window_lost'
+    fatigue_at_start: float
+    planned_duration: float
+
+@dataclass
+class OperationalHistory:
+    """Historical operational metrics."""
+    total_uptime_seconds: float = 0.0
+    total_downtime_seconds: float = 0.0
+    total_rest_seconds: float = 0.0
+    session_count: int = 0
+    shutdown_reasons: List[Tuple[float, str]] = field(default_factory=list)
+    rest_periods: List[RestPeriod] = field(default_factory=list)
+    resource_warnings: List[Tuple[float, str]] = field(default_factory=list)
+    window_loss_events: List[float] = field(default_factory=list)
+
+
+class OperationalController:
+    """
+    Life support system for continuous autonomous operation.
+
+    Manages:
+    - Lifecycle state machine
+    - Resource monitoring and throttling
+    - WoW window safety verification
+    - Fatigue-driven rest cycles
+    - Supervision interface
+    - Operational persistence
+    """
+
+    def __init__(self, wow_window_title: str = "World of Warcraft"):
+        self.wow_window_title = wow_window_title
+
+        # Lifecycle state
+        self.state = LifecycleState.STARTING
+        self.state_lock = threading.RLock()
+        self.shutdown_requested = False
+        self.pause_requested = False
+
+        # Resource monitoring
+        self.process = psutil.Process()
+        self.resource_metrics: Deque[ResourceMetrics] = deque(maxlen=360)  # 1 hour at 10s sampling
+        self.last_resource_check = time.time()
+        self.resource_check_interval = 10.0  # seconds
+        self.cpu_throttle_threshold = 80.0  # percent
+        self.memory_throttle_threshold = 500.0  # MB
+        self.throttle_active = False
+        self.throttle_sleep_time = 0.1  # seconds between actions when throttled
+
+        # Window safety
+        self.window_focused = False
+        self.last_window_check = time.time()
+        self.window_check_interval = 1.0  # seconds
+        self.window_lost_count = 0
+        self.window_lost_threshold = 5  # consecutive failures before pause
+
+        # Fatigue and rest
+        self.current_rest: Optional[RestPeriod] = None
+        self.min_rest_duration = 6 * 3600  # 6 hours minimum
+        self.max_rest_duration = 10 * 3600  # 10 hours maximum
+        self.fatigue_shutdown_threshold = 0.85  # voluntary shutdown at this fatigue level
+
+        # Operational history
+        self.history = OperationalHistory()
+        self.session_start_time = time.time()
+        self.last_tick_time = time.time()
+        self.tick_count = 0
+
+        # Persistence
+        self.operational_state_path = DATA_DIR / "operational_state.json"
+        self.status_file_path = DATA_DIR / "agent_status.json"
+        self.last_status_update = time.time()
+        self.status_update_interval = 10.0  # Update status file every 10s
+
+        # Load persisted state
+        self._load_operational_state()
+
+        logger.info("OperationalController initialized")
+        logger.info(f"  Session #{self.history.session_count}")
+        logger.info(f"  Total uptime: {self.history.total_uptime_seconds/3600:.1f}h")
+        logger.info(f"  Total rest: {self.history.total_rest_seconds/3600:.1f}h")
+
+    def start(self):
+        """Start the agent lifecycle."""
+        with self.state_lock:
+            if self.state != LifecycleState.STARTING:
+                logger.warning(f"Cannot start from state {self.state}")
+                return False
+
+            # Check if we're coming out of rest
+            if self.current_rest and not self.current_rest.end_time:
+                # Still in rest period
+                rest_duration = time.time() - self.current_rest.start_time
+                if rest_duration < self.min_rest_duration:
+                    logger.info(f"Still resting (need {(self.min_rest_duration - rest_duration)/3600:.1f}h more)")
+                    logger.info("Agent will remain in RESTING state")
+                    self.state = LifecycleState.RESTING
+                    return False
+                else:
+                    # Rest complete, end rest period
+                    self._end_rest()
+
+            self.session_start_time = time.time()
+            self.history.session_count += 1
+            self.tick_count = 0
+            self.state = LifecycleState.RUNNING
+
+            logger.info(f"=== SESSION #{self.history.session_count} STARTED ===")
+            return True
+
+    def tick(self, fatigue: float) -> bool:
+        """
+        Main operational tick. Call this every agent decision cycle.
+
+        Returns True if agent should continue, False if it should stop/pause.
+        """
+        self.tick_count += 1
+        current_time = time.time()
+
+        # Check for shutdown/pause requests
+        if self.shutdown_requested:
+            self._initiate_shutdown("manual_request")
+            return False
+
+        if self.pause_requested:
+            self._initiate_pause()
+            return False
+
+        # Resource monitoring
+        if current_time - self.last_resource_check >= self.resource_check_interval:
+            self._check_resources()
+            self.last_resource_check = current_time
+
+        # Window safety check
+        if current_time - self.last_window_check >= self.window_check_interval:
+            if not self._verify_window_focus():
+                self.window_lost_count += 1
+                if self.window_lost_count >= self.window_lost_threshold:
+                    logger.warning("WoW window lost - pausing for safety")
+                    self.history.window_loss_events.append(current_time)
+                    self._initiate_pause()
+                    return False
+            else:
+                self.window_lost_count = 0
+            self.last_window_check = current_time
+
+        # Fatigue-driven shutdown check
+        if fatigue >= self.fatigue_shutdown_threshold:
+            logger.info(f"Fatigue threshold reached ({fatigue:.2f} >= {self.fatigue_shutdown_threshold})")
+            self._initiate_rest(fatigue, "fatigue_threshold")
+            return False
+
+        # Status file update
+        if current_time - self.last_status_update >= self.status_update_interval:
+            self._update_status_file(fatigue)
+            self.last_status_update = current_time
+
+        # Throttle if needed
+        if self.throttle_active:
+            time.sleep(self.throttle_sleep_time)
+
+        self.last_tick_time = current_time
+        return True
+
+    def _check_resources(self):
+        """Monitor CPU and memory usage, apply throttling if needed."""
+        try:
+            cpu_percent = self.process.cpu_percent(interval=0.1)
+            mem_info = self.process.memory_info()
+            memory_mb = mem_info.rss / (1024 * 1024)
+            memory_percent = self.process.memory_percent()
+
+            # Calculate tick rate
+            time_delta = time.time() - self.session_start_time
+            tick_rate = self.tick_count / max(time_delta, 1.0)
+
+            metrics = ResourceMetrics(
+                timestamp=time.time(),
+                cpu_percent=cpu_percent,
+                memory_mb=memory_mb,
+                memory_percent=memory_percent,
+                tick_rate=tick_rate
+            )
+            self.resource_metrics.append(metrics)
+
+            # Check for sustained high CPU
+            if len(self.resource_metrics) >= 6:  # 1 minute of data
+                recent_cpu = [m.cpu_percent for m in list(self.resource_metrics)[-6:]]
+                avg_cpu = sum(recent_cpu) / len(recent_cpu)
+
+                if avg_cpu > self.cpu_throttle_threshold and not self.throttle_active:
+                    logger.warning(f"High CPU detected ({avg_cpu:.1f}%) - enabling throttle")
+                    self.throttle_active = True
+                    self.history.resource_warnings.append((time.time(), f"cpu_throttle_{avg_cpu:.1f}"))
+                elif avg_cpu < self.cpu_throttle_threshold * 0.7 and self.throttle_active:
+                    logger.info(f"CPU normalized ({avg_cpu:.1f}%) - disabling throttle")
+                    self.throttle_active = False
+
+            # Check for memory growth
+            if memory_mb > self.memory_throttle_threshold:
+                logger.warning(f"High memory usage ({memory_mb:.1f}MB)")
+                self.history.resource_warnings.append((time.time(), f"memory_{memory_mb:.1f}MB"))
+
+            # Log periodic status
+            if self.tick_count % 600 == 0:  # Every ~10 minutes
+                logger.info(f"Resources: CPU={cpu_percent:.1f}% MEM={memory_mb:.1f}MB Rate={tick_rate:.2f}tps")
+
+        except Exception as e:
+            logger.error(f"Resource monitoring error: {e}")
+
+    def _verify_window_focus(self) -> bool:
+        """
+        Verify WoW window is focused.
+        Platform-specific implementation.
+        """
+        try:
+            # Try Windows implementation
+            if sys.platform == 'win32':
+                try:
+                    import win32gui
+                    hwnd = win32gui.GetForegroundWindow()
+                    window_title = win32gui.GetWindowText(hwnd)
+                    self.window_focused = self.wow_window_title.lower() in window_title.lower()
+                    return self.window_focused
+                except ImportError:
+                    logger.warning("win32gui not available - window safety checks disabled")
+                    self.window_focused = True  # Assume safe if can't check
+                    return True
+
+            # Try Linux implementation
+            elif sys.platform.startswith('linux'):
+                try:
+                    import subprocess
+                    result = subprocess.run(
+                        ['xdotool', 'getactivewindow', 'getwindowname'],
+                        capture_output=True,
+                        text=True,
+                        timeout=1.0
+                    )
+                    window_title = result.stdout.strip()
+                    self.window_focused = self.wow_window_title.lower() in window_title.lower()
+                    return self.window_focused
+                except (FileNotFoundError, subprocess.TimeoutExpired):
+                    logger.warning("xdotool not available - window safety checks disabled")
+                    self.window_focused = True
+                    return True
+
+            # Unsupported platform
+            else:
+                logger.warning(f"Window verification not supported on {sys.platform}")
+                self.window_focused = True
+                return True
+
+        except Exception as e:
+            logger.error(f"Window verification error: {e}")
+            return False
+
+    def _initiate_pause(self):
+        """Initiate graceful pause."""
+        with self.state_lock:
+            if self.state != LifecycleState.RUNNING:
+                return
+
+            logger.info("Pausing agent...")
+            self.state = LifecycleState.PAUSING
+
+            # Checkpoint will be done by main agent
+            uptime = time.time() - self.session_start_time
+            self.history.total_uptime_seconds += uptime
+
+            self.state = LifecycleState.PAUSED
+            self._save_operational_state()
+
+            logger.info(f"Agent paused (uptime: {uptime/60:.1f}min)")
+
+    def resume(self) -> bool:
+        """Resume from pause."""
+        with self.state_lock:
+            if self.state != LifecycleState.PAUSED:
+                logger.warning(f"Cannot resume from state {self.state}")
+                return False
+
+            logger.info("Resuming agent...")
+            self.state = LifecycleState.RESUMING
+
+            # Reset window check state
+            self.window_lost_count = 0
+            self.window_focused = False
+
+            # Verify window before resuming
+            if not self._verify_window_focus():
+                logger.warning("WoW window not focused - cannot resume safely")
+                self.state = LifecycleState.PAUSED
+                return False
+
+            self.session_start_time = time.time()
+            self.state = LifecycleState.RUNNING
+
+            logger.info("Agent resumed")
+            return True
+
+    def _initiate_shutdown(self, reason: str):
+        """Initiate graceful shutdown."""
+        with self.state_lock:
+            if self.state == LifecycleState.STOPPING or self.state == LifecycleState.STOPPED:
+                return
+
+            logger.info(f"Shutting down: {reason}")
+            self.state = LifecycleState.STOPPING
+
+            # Record uptime
+            if self.state == LifecycleState.RUNNING:
+                uptime = time.time() - self.session_start_time
+                self.history.total_uptime_seconds += uptime
+
+            # Record shutdown reason
+            self.history.shutdown_reasons.append((time.time(), reason))
+
+            # Keep only last 100 shutdown reasons
+            if len(self.history.shutdown_reasons) > 100:
+                self.history.shutdown_reasons = self.history.shutdown_reasons[-100:]
+
+            self.state = LifecycleState.STOPPED
+            self._save_operational_state()
+
+            logger.info(f"Agent stopped (reason: {reason})")
+
+    def _initiate_rest(self, fatigue: float, reason: str):
+        """Initiate voluntary rest period."""
+        with self.state_lock:
+            logger.info(f"Initiating rest: {reason} (fatigue={fatigue:.2f})")
+
+            # Calculate rest duration based on fatigue
+            # High fatigue = longer rest
+            rest_duration = self.min_rest_duration + (fatigue - 0.5) * 2 * 3600
+            rest_duration = max(self.min_rest_duration, min(rest_duration, self.max_rest_duration))
+
+            self.current_rest = RestPeriod(
+                start_time=time.time(),
+                end_time=None,
+                duration_seconds=0.0,
+                reason=reason,
+                fatigue_at_start=fatigue,
+                planned_duration=rest_duration
+            )
+
+            # Record uptime
+            if self.state == LifecycleState.RUNNING:
+                uptime = time.time() - self.session_start_time
+                self.history.total_uptime_seconds += uptime
+
+            self.state = LifecycleState.RESTING
+            self._save_operational_state()
+
+            logger.info(f"Entering rest state (planned duration: {rest_duration/3600:.1f}h)")
+            logger.info("Agent will remain stopped until rest period completes")
+            logger.info("Restart the agent after the rest period to continue")
+
+    def _end_rest(self):
+        """End current rest period."""
+        if not self.current_rest:
+            return
+
+        self.current_rest.end_time = time.time()
+        self.current_rest.duration_seconds = self.current_rest.end_time - self.current_rest.start_time
+
+        self.history.rest_periods.append(self.current_rest)
+        self.history.total_rest_seconds += self.current_rest.duration_seconds
+
+        # Keep only last 100 rest periods
+        if len(self.history.rest_periods) > 100:
+            self.history.rest_periods = self.history.rest_periods[-100:]
+
+        logger.info(f"Rest period complete ({self.current_rest.duration_seconds/3600:.1f}h)")
+        self.current_rest = None
+
+    def _update_status_file(self, fatigue: float):
+        """Update human-readable status file."""
+        try:
+            uptime = time.time() - self.session_start_time if self.state == LifecycleState.RUNNING else 0
+
+            # Get latest resource metrics
+            latest_metrics = self.resource_metrics[-1] if self.resource_metrics else None
+
+            status = {
+                'state': self.state.name,
+                'session_number': self.history.session_count,
+                'uptime_seconds': uptime,
+                'uptime_formatted': f"{uptime/3600:.1f}h",
+                'tick_count': self.tick_count,
+                'fatigue': fatigue,
+                'window_focused': self.window_focused,
+                'throttle_active': self.throttle_active,
+                'resources': {
+                    'cpu_percent': latest_metrics.cpu_percent if latest_metrics else 0.0,
+                    'memory_mb': latest_metrics.memory_mb if latest_metrics else 0.0,
+                    'tick_rate': latest_metrics.tick_rate if latest_metrics else 0.0
+                } if latest_metrics else None,
+                'history': {
+                    'total_uptime_hours': self.history.total_uptime_seconds / 3600,
+                    'total_rest_hours': self.history.total_rest_seconds / 3600,
+                    'total_sessions': self.history.session_count,
+                    'window_loss_events': len(self.history.window_loss_events),
+                    'resource_warnings': len(self.history.resource_warnings)
+                },
+                'current_rest': {
+                    'active': self.current_rest is not None,
+                    'reason': self.current_rest.reason if self.current_rest else None,
+                    'duration_hours': (time.time() - self.current_rest.start_time) / 3600 if self.current_rest else 0,
+                    'planned_duration_hours': self.current_rest.planned_duration / 3600 if self.current_rest else 0
+                } if self.current_rest else None,
+                'last_update': time.time(),
+                'last_update_formatted': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+
+            with open(self.status_file_path, 'w') as f:
+                json.dump(status, f, indent=2)
+
+        except Exception as e:
+            logger.error(f"Failed to update status file: {e}")
+
+    def _save_operational_state(self):
+        """Save operational state to disk."""
+        try:
+            state = {
+                'history': {
+                    'total_uptime_seconds': self.history.total_uptime_seconds,
+                    'total_downtime_seconds': self.history.total_downtime_seconds,
+                    'total_rest_seconds': self.history.total_rest_seconds,
+                    'session_count': self.history.session_count,
+                    'shutdown_reasons': self.history.shutdown_reasons[-100:],
+                    'rest_periods': [
+                        {
+                            'start_time': rp.start_time,
+                            'end_time': rp.end_time,
+                            'duration_seconds': rp.duration_seconds,
+                            'reason': rp.reason,
+                            'fatigue_at_start': rp.fatigue_at_start,
+                            'planned_duration': rp.planned_duration
+                        }
+                        for rp in self.history.rest_periods[-100:]
+                    ],
+                    'resource_warnings': self.history.resource_warnings[-100:],
+                    'window_loss_events': self.history.window_loss_events[-100:]
+                },
+                'current_rest': {
+                    'start_time': self.current_rest.start_time,
+                    'end_time': self.current_rest.end_time,
+                    'duration_seconds': self.current_rest.duration_seconds,
+                    'reason': self.current_rest.reason,
+                    'fatigue_at_start': self.current_rest.fatigue_at_start,
+                    'planned_duration': self.current_rest.planned_duration
+                } if self.current_rest else None,
+                'saved_at': time.time()
+            }
+
+            with open(self.operational_state_path, 'w') as f:
+                json.dump(state, f, indent=2)
+
+            logger.debug("Operational state saved")
+
+        except Exception as e:
+            logger.error(f"Failed to save operational state: {e}")
+
+    def _load_operational_state(self):
+        """Load operational state from disk."""
+        try:
+            if not self.operational_state_path.exists():
+                logger.info("No previous operational state found")
+                return
+
+            with open(self.operational_state_path, 'r') as f:
+                state = json.load(f)
+
+            # Restore history
+            hist_data = state.get('history', {})
+            self.history.total_uptime_seconds = hist_data.get('total_uptime_seconds', 0.0)
+            self.history.total_downtime_seconds = hist_data.get('total_downtime_seconds', 0.0)
+            self.history.total_rest_seconds = hist_data.get('total_rest_seconds', 0.0)
+            self.history.session_count = hist_data.get('session_count', 0)
+            self.history.shutdown_reasons = [tuple(r) for r in hist_data.get('shutdown_reasons', [])]
+            self.history.resource_warnings = [tuple(r) for r in hist_data.get('resource_warnings', [])]
+            self.history.window_loss_events = hist_data.get('window_loss_events', [])
+
+            # Restore rest periods
+            for rp_data in hist_data.get('rest_periods', []):
+                self.history.rest_periods.append(RestPeriod(
+                    start_time=rp_data['start_time'],
+                    end_time=rp_data['end_time'],
+                    duration_seconds=rp_data['duration_seconds'],
+                    reason=rp_data['reason'],
+                    fatigue_at_start=rp_data['fatigue_at_start'],
+                    planned_duration=rp_data['planned_duration']
+                ))
+
+            # Restore current rest if exists
+            rest_data = state.get('current_rest')
+            if rest_data:
+                self.current_rest = RestPeriod(
+                    start_time=rest_data['start_time'],
+                    end_time=rest_data['end_time'],
+                    duration_seconds=rest_data['duration_seconds'],
+                    reason=rest_data['reason'],
+                    fatigue_at_start=rest_data['fatigue_at_start'],
+                    planned_duration=rest_data['planned_duration']
+                )
+                logger.info(f"Resuming from rest period: {self.current_rest.reason}")
+
+            logger.info("Operational state restored")
+
+        except Exception as e:
+            logger.error(f"Failed to load operational state: {e}")
+
+    def request_shutdown(self):
+        """Request graceful shutdown."""
+        self.shutdown_requested = True
+
+    def request_pause(self):
+        """Request graceful pause."""
+        self.pause_requested = True
+
+    def get_operational_summary(self) -> str:
+        """Get human-readable operational summary."""
+        total_time = self.history.total_uptime_seconds + self.history.total_rest_seconds
+        uptime_pct = (self.history.total_uptime_seconds / total_time * 100) if total_time > 0 else 0
+
+        return f"""
+Operational Summary:
+  State: {self.state.name}
+  Session: #{self.history.session_count}
+  Total Uptime: {self.history.total_uptime_seconds/3600:.1f}h ({uptime_pct:.1f}%)
+  Total Rest: {self.history.total_rest_seconds/3600:.1f}h
+  Window Loss Events: {len(self.history.window_loss_events)}
+  Resource Warnings: {len(self.history.resource_warnings)}
+  Current Fatigue: {self.current_rest.fatigue_at_start:.2f if self.current_rest else 0.0}
+"""
+
+
 # =============================================================================
 # COGNITIVE CORE - MAIN INTEGRATION CLASS
 # =============================================================================
@@ -9751,6 +10942,113 @@ class CognitiveCore:
             # Casual players more cautious, less urgent
             directive.risk_estimate = min(1.0, directive.risk_estimate * 1.1)
             directive.time_horizon_seconds *= 1.2
+
+        # === PREFERENCE & VALUE SYSTEM (TIER 5) ===
+        # Personal preferences override optimal choices - this is where personality emerges
+        prefs = life.preference_system
+
+        # Zone preferences - avoid zones we hate, seek zones we love
+        current_zone = perception.zone_name if hasattr(perception, 'zone_name') else 'unknown'
+        if current_zone != 'unknown':
+            zone_pref = prefs.get_preference_strength(PreferenceDomain.ZONE, current_zone)
+            if zone_pref < -0.5:
+                # Strong aversion to this zone
+                directive.risk_estimate = min(1.0, directive.risk_estimate * 1.3)
+                directive.action_confidence *= 0.8
+                directive.reasoning_log.append(f"zone_aversion: don't like {current_zone} ({zone_pref:.2f})")
+            elif zone_pref > 0.5:
+                # Strong preference for this zone
+                directive.action_confidence *= 1.1
+                directive.reasoning_log.append(f"zone_preference: enjoy {current_zone} ({zone_pref:.2f})")
+
+        # Activity preferences - avoid activities we've learned to dislike
+        action_str = directive.primary_action.name.lower() if directive.primary_action else 'unknown'
+        activity_pref = prefs.get_preference_strength(PreferenceDomain.ACTIVITY, action_str)
+        if activity_pref < -0.5:
+            # We've learned we don't like this activity
+            pref_obj = prefs.get_preference(PreferenceDomain.ACTIVITY, action_str)
+            if pref_obj and pref_obj.is_crystallized():
+                # Strong crystallized aversion = actively avoid
+                directive.action_confidence *= 0.6
+                directive.reasoning_log.append(
+                    f"AVERSION: I don't like {action_str} "
+                    f"({pref_obj.experience_count} bad experiences)"
+                )
+        elif activity_pref > 0.5:
+            # We've learned we enjoy this activity
+            pref_obj = prefs.get_preference(PreferenceDomain.ACTIVITY, action_str)
+            if pref_obj and pref_obj.is_crystallized():
+                directive.action_confidence *= 1.15
+                directive.reasoning_log.append(
+                    f"preference: I enjoy {action_str} "
+                    f"({pref_obj.get_strength()})"
+                )
+
+        # Social preferences - solo vs group behavior
+        group_pref = prefs.get_preference_strength(PreferenceDomain.SOCIAL, 'group_play')
+        solo_pref = prefs.get_preference_strength(PreferenceDomain.SOCIAL, 'solo_play')
+
+        # If we strongly prefer solo and we're grouped, or vice versa, discomfort
+        if hasattr(perception, 'in_group'):
+            if perception.in_group and solo_pref > 0.6:
+                # Prefers solo but forced to group
+                directive.action_confidence *= 0.9
+                directive.reasoning_log.append("social_discomfort: prefer solo play")
+            elif not perception.in_group and group_pref > 0.6:
+                # Prefers group but playing solo
+                directive.time_horizon_seconds *= 0.9  # More impatient to find group
+                directive.reasoning_log.append("social_desire: prefer group play")
+
+        # Value-based decision modulation - what do we actually care about?
+        top_values = prefs.get_top_values(3)
+        if top_values:
+            primary_value, value_weight = top_values[0]
+
+            # EFFICIENCY value → optimize, take calculated risks
+            if primary_value == PersonalValue.EFFICIENCY and value_weight > 0.6:
+                directive.time_horizon_seconds *= 0.85  # More impatient, want optimal
+                directive.reasoning_log.append("value: prioritize efficiency")
+
+            # FUN value → accept suboptimal choices if they're enjoyable
+            elif primary_value == PersonalValue.FUN and value_weight > 0.6:
+                # Reduce pressure to optimize
+                directive.time_horizon_seconds *= 1.2  # More patient, less rushed
+                directive.reasoning_log.append("value: playing for fun, not optimization")
+
+            # SOCIAL value → prioritize helping others even at personal cost
+            elif primary_value == PersonalValue.SOCIAL and value_weight > 0.6:
+                if hasattr(perception, 'nearby_players_needing_help'):
+                    # Strong social value = willing to help even if suboptimal
+                    directive.reasoning_log.append("value: helping others matters more than efficiency")
+
+            # EXPLORATION value → willing to waste time discovering
+            elif primary_value == PersonalValue.EXPLORATION and value_weight > 0.6:
+                directive.reasoning_log.append("value: discovery over efficiency")
+
+            # WEALTH value → gold farming takes priority
+            elif primary_value == PersonalValue.WEALTH and value_weight > 0.6:
+                # More willing to grind for gold
+                if life.wealth.financial_anxiety < 0.3:  # Even when not anxious
+                    directive.reasoning_log.append("value: accumulating wealth is satisfying")
+
+            # AUTONOMY value → resist group pressure, prefer solo
+            elif primary_value == PersonalValue.AUTONOMY and value_weight > 0.6:
+                directive.reasoning_log.append("value: prefer independence and self-reliance")
+
+        # Authentic non-optimal choice - personality override
+        # Check if there's a preferred alternative to the optimal action
+        # This is where "I know X is better, but I prefer Y" happens
+        if random.random() < 0.05:  # 5% chance to check for preference override
+            # Simulate: is there an alternative action with strong preference?
+            # In full implementation, would check all available actions
+            # For now, just log when preferences might override
+            signature = prefs.get_behavioral_signature()
+            if signature['uniqueness_score'] > 0.5:
+                # Agent has developed distinct personality
+                directive.reasoning_log.append(
+                    f"personality: uniqueness={signature['uniqueness_score']:.2f}, "
+                    f"{len(signature['crystallized_preferences'])} crystallized preferences"
+                )
 
         return directive
 
@@ -25060,19 +26358,50 @@ def create_extended_agent():
 # Module-level test
 if __name__ == "__main__":
     import argparse
-    
+
+    # Global operational controller for signal handlers
+    operational_controller = None
+
+    def signal_handler_shutdown(signum, frame):
+        """Handle SIGINT (Ctrl+C) and SIGTERM for graceful shutdown."""
+        if operational_controller:
+            logger.info(f"Received signal {signum} - requesting graceful shutdown")
+            operational_controller.request_shutdown()
+        else:
+            logger.info("Signal received but no operational controller available")
+            sys.exit(0)
+
+    def signal_handler_pause(signum, frame):
+        """Handle SIGUSR1 for pause (Unix-like systems only)."""
+        if operational_controller:
+            logger.info("Received pause signal - requesting pause")
+            operational_controller.request_pause()
+
+    # Register signal handlers
+    signal.signal(signal.SIGINT, signal_handler_shutdown)
+    signal.signal(signal.SIGTERM, signal_handler_shutdown)
+
+    # Pause signal (Unix-like only)
+    if hasattr(signal, 'SIGUSR1'):
+        signal.signal(signal.SIGUSR1, signal_handler_pause)
+
     parser = argparse.ArgumentParser(description="WoW 1.12 Autonomous Research Agent")
     parser.add_argument("--test", action="store_true", help="Run in test mode (print systems only)")
     parser.add_argument("--extended", action="store_true", help="Enable extended capabilities")
     parser.add_argument("--cognitive", action="store_true", help="Enable cognitive system integration")
     args = parser.parse_args()
-    
+
     print("=" * 70)
     print("WOW 1.12 AUTONOMOUS PLAYER - RESEARCH AGENT")
     print("=" * 70)
     print()
     print("RESEARCH NOTICE: This agent is for OFFLINE, SINGLE-PLAYER research ONLY.")
     print("It operates via screen capture and OS-level input simulation.")
+    print()
+    print("LIFECYCLE CONTROLS:")
+    print("  Ctrl+C      - Graceful shutdown")
+    print("  kill -TERM  - Graceful shutdown")
+    print("  kill -USR1  - Pause (Unix-like systems)")
     print()
     
     if args.test:
@@ -25135,14 +26464,32 @@ if __name__ == "__main__":
             else:
                 print("Creating base agent...")
                 agent = WoWAutonomousPlayer()
-            
+
+            # Make operational controller globally available for signal handlers
+            if hasattr(agent, 'cognitive_core') and hasattr(agent.cognitive_core, 'operational'):
+                operational_controller = agent.cognitive_core.operational
+            elif hasattr(agent, 'operational'):
+                operational_controller = agent.operational
+            else:
+                logger.warning("No operational controller found in agent - signal handlers disabled")
+
             print("Agent initialized. Starting autonomous play...")
             print()
             print("=" * 70)
+
+            # Start the agent lifecycle
+            if hasattr(agent, 'cognitive_core'):
+                if not agent.cognitive_core.start():
+                    print("\nAgent is in REST state and cannot start yet.")
+                    print("Check agent_status.json for rest period details.")
+                    sys.exit(0)
+
             agent.run()
-            
+
         except KeyboardInterrupt:
-            print("\nInterrupted by user")
+            print("\nGraceful shutdown requested...")
+            if operational_controller:
+                operational_controller.request_shutdown()
         except Exception as e:
             logger.critical(f"Fatal error: {e}", exc_info=True)
             print(f"\nFATAL ERROR: {e}")
