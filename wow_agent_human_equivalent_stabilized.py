@@ -2050,9 +2050,16 @@ class HumanEquivalentCognition:
     - Behavioral momentum (identity continuity)
     """
     
-    def __init__(self, persistence_path: str = "human_cognition_state.json"):
+    def __init__(self, persistence_path: str = "human_cognition_state.json", config=None):
         self.persistence_path = persistence_path
-        
+
+        # Store experiment configuration
+        if config is None:
+            # Import here to avoid circular dependency
+            from experiment_config import ExperimentConfig
+            config = ExperimentConfig()  # Default: all tiers enabled
+        self.config = config
+
         # Initialize all cognitive systems
         self.beliefs = ProbabilisticBeliefSystem()
         self.procedural_memory = ProceduralMemorySystem()
@@ -2062,7 +2069,7 @@ class HumanEquivalentCognition:
             initial_exploration_rate=0.5,  # Start with high exploration
             min_exploration_rate=0.05      # Always keep some exploration
         )
-        
+
         # Behavioral momentum for identity continuity
         self.momentum = BehavioralMomentum()
 
@@ -2108,21 +2115,31 @@ class HumanEquivalentCognition:
         logger.info("  - Routine formation (session goals, habits)")
 
         # Tier 3: Unifying System - Autobiographical Memory
-        self.rumination = InternalRuminationSystem()
+        # TIER 6: Internal Rumination System (conditionally enabled)
+        if self.config.should_enable_tier_6():
+            self.rumination = InternalRuminationSystem()
+            logger.info("TIER 6: Internal Rumination System - ENABLED")
+        else:
+            self.rumination = None
+            logger.info("TIER 6: Internal Rumination System - DISABLED (baseline condition)")
+
         self.autobiographical_memory = AutobiographicalMemory()
 
         logger.info("Unifying System (Tier 3) initialized:")
         logger.info("  - Autobiographical memory (narrative identity, life story)")
 
-        # Tier 7: Meta-Cognitive Self-Regulation
-        self.meta_cognitive = MetaCognitiveLayer(rumination_system=self.rumination)
-
-        logger.info("Meta-Cognitive Layer (Tier 7) initialized:")
-        logger.info("  - Mental state awareness and recognition")
-        logger.info("  - Thought suppression with ironic process theory")
-        logger.info("  - Cognitive reappraisal (with skill learning)")
-        logger.info("  - Meta-rumination (ruminating about ruminating)")
-        logger.info("  - Insight generation (breakthrough moments)")
+        # Tier 7: Meta-Cognitive Self-Regulation (conditionally enabled)
+        if self.config.should_enable_tier_7():
+            self.meta_cognitive = MetaCognitiveLayer(rumination_system=self.rumination)
+            logger.info("TIER 7: Meta-Cognitive Layer - ENABLED")
+            logger.info("  - Mental state awareness and recognition")
+            logger.info("  - Thought suppression with ironic process theory")
+            logger.info("  - Cognitive reappraisal (with skill learning)")
+            logger.info("  - Meta-rumination (ruminating about ruminating)")
+            logger.info("  - Insight generation (breakthrough moments)")
+        else:
+            self.meta_cognitive = None
+            logger.info("TIER 7: Meta-Cognitive Layer - DISABLED (baseline condition)")
 
         # Tier 4: Temporal Awareness - Human Relationship With Time
         self.temporal_awareness = TemporalLifeAwareness()
@@ -2142,7 +2159,18 @@ class HumanEquivalentCognition:
         self.behavioral_logger = None
         self.last_decision_event = None
         self.deaths_to_analyze = []
-        self.enable_research_logging = False  # Will be set via config
+        self.enable_research_logging = self.config.enable_behavioral_logging
+
+        # Initialize behavioral logger if requested
+        if self.config.enable_behavioral_logging:
+            from behavioral_logger import BehavioralLogger
+            self.behavioral_logger = BehavioralLogger(
+                session_id=self.config.session_id or "default_session",
+                output_dir=self.config.research_data_dir
+            )
+            logger.info(f"Research logging ENABLED: session_id={self.config.session_id}")
+        else:
+            logger.info("Research logging DISABLED")
 
         # Operational Life Support - Continuous Runtime Management
         self.operational = OperationalController(wow_window_title="World of Warcraft")
@@ -27830,7 +27858,28 @@ if __name__ == "__main__":
     parser.add_argument("--test", action="store_true", help="Run in test mode (print systems only)")
     parser.add_argument("--extended", action="store_true", help="Enable extended capabilities")
     parser.add_argument("--cognitive", action="store_true", help="Enable cognitive system integration")
+
+    # Experimental configuration arguments
+    parser.add_argument("--enable-logging", action="store_true", help="Enable behavioral logging for research")
+    parser.add_argument("--session-id", type=str, default=None, help="Session identifier for research data")
+    parser.add_argument("--disable-tier6", action="store_true", help="Disable TIER 6 (rumination) for baseline")
+    parser.add_argument("--disable-tier7", action="store_true", help="Disable TIER 7 (meta-cognition) for baseline")
+    parser.add_argument("--research-data-dir", type=str, default="research_data", help="Directory for research data output")
+
     args = parser.parse_args()
+
+    # Create experiment configuration based on command-line arguments
+    experiment_config = None
+    if args.enable_logging or args.disable_tier6 or args.disable_tier7 or args.session_id:
+        from experiment_config import ExperimentConfig
+        experiment_config = ExperimentConfig(
+            enable_rumination=not args.disable_tier6,
+            enable_meta_cognitive=not args.disable_tier7,
+            enable_behavioral_logging=args.enable_logging,
+            session_id=args.session_id,
+            research_data_dir=args.research_data_dir
+        )
+        logger.info(f"Experiment configuration created: {experiment_config.get_tier_summary()}")
 
     print("=" * 70)
     print("WOW 1.12 AUTONOMOUS PLAYER - RESEARCH AGENT")
@@ -27844,6 +27893,14 @@ if __name__ == "__main__":
     print("  kill -TERM  - Graceful shutdown")
     print("  kill -USR1  - Pause (Unix-like systems)")
     print()
+
+    # Display experiment configuration if active
+    if experiment_config:
+        print("EXPERIMENTAL CONFIGURATION:")
+        print(f"  {experiment_config.get_tier_summary()}")
+        if experiment_config.enable_behavioral_logging:
+            print(f"  Logging: ENABLED (session: {experiment_config.session_id})")
+        print()
     
     if args.test:
         print("TEST MODE - Printing system information only")
@@ -27899,12 +27956,18 @@ if __name__ == "__main__":
         print()
         
         try:
+            # Note: Experimental configuration is stored but full integration
+            # with WoWAutonomousPlayer requires additional architectural work.
+            # For now, use HumanEquivalentCognition programmatically in separate scripts.
             if args.extended:
                 print("Creating agent with extended capabilities...")
                 agent, integrator = create_extended_agent()
             else:
                 print("Creating base agent...")
                 agent = WoWAutonomousPlayer()
+
+            # TODO: Integrate experiment_config with agent architecture
+            # Current limitation: Command-line config created but not yet integrated
 
             # Make operational controller globally available for signal handlers
             if hasattr(agent, 'cognitive_core') and hasattr(agent.cognitive_core, 'operational'):

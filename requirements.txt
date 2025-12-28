@@ -1,0 +1,18 @@
+# Human-Equivalent Cognition Research Project - Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core agent dependencies
+mss>=6.1.0                    # Screen capture for visual perception
+opencv-python>=4.8.0          # Image processing and computer vision
+numpy>=1.24.0                 # Numerical computations
+pynput>=1.7.6                 # OS-level keyboard and mouse input
+psutil>=5.9.0                 # System and process utilities
+
+# Research infrastructure dependencies
+pandas>=2.0.0                 # Data manipulation and CSV handling
+scipy>=1.10.0                 # Statistical analysis and hypothesis testing
+matplotlib>=3.7.0             # Data visualization
+seaborn>=0.12.0               # Statistical data visualization
+
+# Optional dependencies
+# pytesseract>=0.3.10         # OCR (mentioned in code but optional)
