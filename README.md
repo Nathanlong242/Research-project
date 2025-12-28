@@ -83,32 +83,28 @@ This research project implements a **seven-tier cognitive architecture** that cr
 
 ```
 Research-project/
-├── wow_agent_human_equivalent_stabilized.py  # Main agent (27,937 lines)
-├── behavioral_logger.py                       # Research instrumentation (~650 lines)
-├── research_analysis.py                       # Statistical analysis pipeline (~750 lines)
-├── experiment_config.py                       # Configuration system (~250 lines)
-├── run_experiment.py                          # Experimental runner script ⭐ NEW
-├── requirements.txt                           # Python dependencies ⭐ NEW
+├── CODE FILES (Keep as-is, do not modify)
+│   ├── wow_agent_human_equivalent_stabilized.py  # Main agent (27,937 lines)
+│   ├── behavioral_logger.py                       # Research instrumentation (~650 lines)
+│   ├── research_analysis.py                       # Statistical analysis pipeline (~750 lines)
+│   ├── experiment_config.py                       # Configuration system (~250 lines)
+│   ├── run_experiment.py                          # Experimental runner script
+│   └── requirements.txt                           # Python dependencies
 │
-├── TIER_6_IMPLEMENTATION_SUMMARY.md          # TIER 6 documentation (12 pages)
-├── TIER_7_DESIGN.md                          # TIER 7 specification (12 pages)
-├── TIER_7_IMPLEMENTATION_SUMMARY.md          # TIER 7 documentation (12 pages) ⭐
-├── INTEGRATION_GUIDE.md                      # Logger integration guide
-├── ARCHITECTURE_DIAGRAMS.md                  # Visual architecture diagrams ⭐
+├── DOCUMENTATION
+│   ├── README.md                                 # This file (project overview)
+│   ├── RESEARCH_STATUS.md                        # Project status and roadmap
+│   ├── TIER_IMPLEMENTATION_GUIDE.md              # Complete TIER 6 & 7 technical docs
+│   ├── RESEARCH_PAPER.md                         # Complete research paper (~16,200 words)
+│   ├── ARCHITECTURE_DIAGRAMS.md                  # Visual system architecture
+│   └── INTEGRATION_GUIDE.md                      # Behavioral logger integration
 │
-├── RESEARCH_PAPER_OUTLINE.md                 # Original paper outline (40 pages)
-├── PAPER_DRAFT_SECTIONS_1-2.md               # Paper: Intro + Related Work (~3,800 words) ⭐
-├── PAPER_DRAFT_SECTIONS_3-4.md               # Paper: Architecture + Methods (~4,200 words) ⭐
-├── PAPER_DRAFT_SECTIONS_5-7.md               # Paper: Results + Discussion + Conclusion (~8,400 words) ⭐
-│
-├── RESEARCH_STATUS.md                        # Comprehensive project status ⭐
-├── README.md                                 # This file
-│
-└── research_data/                            # Behavioral logs (created at runtime)
-    ├── session_XXX_decisions_TIMESTAMP.csv
-    ├── session_XXX_ruminations_TIMESTAMP.csv
-    ├── session_XXX_deaths_TIMESTAMP.csv
-    └── session_XXX_summary_TIMESTAMP.json
+└── RESEARCH DATA (Created at runtime)
+    └── research_data/
+        ├── session_XXX_decisions_TIMESTAMP.csv
+        ├── session_XXX_ruminations_TIMESTAMP.csv
+        ├── session_XXX_deaths_TIMESTAMP.csv
+        └── session_XXX_summary_TIMESTAMP.json
 ```
 
 ---
@@ -351,22 +347,23 @@ If you use this work, please cite:
 
 ## Documentation
 
-### Implementation Documentation
-- **`TIER_6_IMPLEMENTATION_SUMMARY.md`**: Complete TIER 6 rumination system (12 pages)
-- **`TIER_7_DESIGN.md`**: Original TIER 7 specification (12 pages)
-- **`TIER_7_IMPLEMENTATION_SUMMARY.md`**: Complete TIER 7 meta-cognition system (12 pages) ⭐
-- **`INTEGRATION_GUIDE.md`**: Logger integration for experiments
-- **`ARCHITECTURE_DIAGRAMS.md`**: Visual system architecture diagrams ⭐
+**Consolidated for clarity** - All documentation maintained without loss of information:
 
-### Research Paper Draft (~16,200 words)
-- **`PAPER_DRAFT_SECTIONS_1-2.md`**: Introduction + Related Work (~3,800 words) ⭐
-- **`PAPER_DRAFT_SECTIONS_3-4.md`**: Architecture + Methods (~4,200 words) ⭐
-- **`PAPER_DRAFT_SECTIONS_5-7.md`**: Results + Discussion + Conclusion (~8,400 words) ⭐
-- **`RESEARCH_PAPER_OUTLINE.md`**: Original comprehensive outline (40 pages)
+### Core Documentation (6 files)
+- **`README.md`** (this file): Project overview, quick start, structure
+- **`RESEARCH_STATUS.md`**: Comprehensive project status and roadmap
+- **`TIER_IMPLEMENTATION_GUIDE.md`**: Complete TIER 6 & 7 technical documentation (merged from 3 files)
+- **`RESEARCH_PAPER.md`**: Complete research paper (~16,200 words, merged from 3 sections)
+- **`ARCHITECTURE_DIAGRAMS.md`**: Visual system architecture
+- **`INTEGRATION_GUIDE.md`**: Behavioral logger integration guide
 
-### Project Management
-- **`RESEARCH_STATUS.md`**: Comprehensive project status and roadmap ⭐
-- **`README.md`**: This file (project overview)
+### What Was Consolidated
+To reduce repository clutter from 11 to 6 .md files:
+- **Paper sections merged**: `PAPER_DRAFT_SECTIONS_1-2.md` + `SECTIONS_3-4.md` + `SECTIONS_5-7.md` → `RESEARCH_PAPER.md`
+- **TIER docs merged**: `TIER_6_IMPLEMENTATION_SUMMARY.md` + `TIER_7_DESIGN.md` + `TIER_7_IMPLEMENTATION_SUMMARY.md` → `TIER_IMPLEMENTATION_GUIDE.md`
+- **Removed**: `RESEARCH_PAPER_OUTLINE.md` (superseded by complete paper)
+
+**All content preserved - organization improved**
 
 ---
 
