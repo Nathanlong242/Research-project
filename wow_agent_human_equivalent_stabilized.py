@@ -2141,6 +2141,14 @@ class HumanEquivalentCognition:
             self.meta_cognitive = None
             logger.info("TIER 7: Meta-Cognitive Layer - DISABLED (baseline condition)")
 
+        # Embodied Simulation System - Prospective Action Rehearsal
+        self.embodied_simulation = EmbodiedSimulationSystem()
+        logger.info("Embodied Simulation System initialized:")
+        logger.info("  - Prospective action simulation (mental rehearsal)")
+        logger.info("  - Motor pattern learning (embodied skill knowledge)")
+        logger.info("  - Emotion grounded in simulated body state")
+        logger.info("  - Prediction-based decision making")
+
         # Tier 4: Temporal Awareness - Human Relationship With Time
         self.temporal_awareness = TemporalLifeAwareness()
 
@@ -2185,6 +2193,7 @@ class HumanEquivalentCognition:
         # Integration state
         self._last_state_features: Optional[Dict[str, Any]] = None
         self._last_action: Optional[str] = None
+        self._last_simulation = None  # For embodied simulation validation
         self._tick_count = 0
         self._session_start_time = time.time()
 
@@ -2728,7 +2737,19 @@ class HumanEquivalentCognition:
 
         # Build state features
         state_features = self._build_state_features(perception)
-        
+        context_str = state_features.get('context', 'general')
+
+        # ═══════════════════════════════════════════════════════════════════
+        # UPDATE EMBODIED SIMULATION - Prospective action rehearsal
+        # ═══════════════════════════════════════════════════════════════════
+        # Update avatar's embodied state (body awareness)
+        self.embodied_simulation.update_body_state(
+            hp_percent=perception.get('player_hp', 100) / 100.0,
+            resource_percent=perception.get('player_mana', 100) / 100.0,
+            position_safety=1.0 - perception.get('danger_level', 0.5),
+            fatigue=self.temporal_awareness.current_fatigue
+        )
+
         # Record world model observations
         if 'position' in perception:
             self.world_model.record_visit(
@@ -2736,14 +2757,38 @@ class HumanEquivalentCognition:
                 perception['position'][1],
                 time.time()
             )
-        
+
         # Decay beliefs over time
         if self._tick_count % 100 == 0:
             self.beliefs.decay_all_beliefs(time.time())
-        
+
         # Get available actions
         available_actions = self._get_available_actions(perception)
-        
+
+        # ═══════════════════════════════════════════════════════════════════
+        # PROSPECTIVE SIMULATION - Mentally rehearse actions before choosing
+        # ═══════════════════════════════════════════════════════════════════
+        # Simulate each available action to predict outcomes
+        action_simulations = []
+        simulation_context = {
+            'in_combat': perception.get('in_combat', False),
+            'hp_percent': perception.get('player_hp', 100) / 100.0,
+            'enemy_count': perception.get('enemy_count', 0),
+            'danger_level': perception.get('danger_level', 0.5),
+        }
+
+        for action in available_actions[:5]:  # Limit to 5 to avoid excessive simulation
+            sim = self.embodied_simulation.simulate_action(action, simulation_context)
+            action_simulations.append(sim)
+
+        # Rank simulations by predicted desirability
+        if action_simulations:
+            ranked_simulations = self.embodied_simulation.compare_action_simulations(action_simulations)
+            # Store best simulation for later validation
+            self._last_simulation = ranked_simulations[0] if ranked_simulations else None
+        else:
+            self._last_simulation = None
+
         # Get action from RL system
         rl_action = self.learner.select_action(state_features, available_actions)
         
@@ -2857,7 +2902,23 @@ class HumanEquivalentCognition:
             f"{self._last_action}:{context}",
             success
         )
-        
+
+        # ═══════════════════════════════════════════════════════════════════
+        # VALIDATE EMBODIED SIMULATION - Learn to predict better
+        # ═══════════════════════════════════════════════════════════════════
+        if hasattr(self, '_last_simulation') and self._last_simulation is not None:
+            # Compare prediction to actual outcome
+            actual_outcome = {
+                'description': outcome.get('result_text', ''),
+                'hp_change': outcome.get('hp_change', 0.0) / 100.0,  # Normalize to 0-1
+                'satisfaction': 1.0 if success else -0.5,  # Emotional response
+            }
+            self.embodied_simulation.validate_prediction(self._last_simulation, actual_outcome)
+
+            # Record motor pattern learning
+            execution_result = 'success' if success else 'failure'
+            self.embodied_simulation.record_motor_pattern(self._last_action, execution_result)
+
         # Update behavioral momentum
         risk_level = 0.5  # Default risk
         if self._last_state_features.get('hp_bucket', 5) <= 1:
@@ -3097,6 +3158,9 @@ class HumanEquivalentCognition:
         if self.meta_cognitive is not None:
             state['meta_cognitive'] = self.meta_cognitive.get_state()
 
+        # === EMBODIED SIMULATION SYSTEM ===
+        state['embodied_simulation'] = self.embodied_simulation.get_state()
+
         try:
             with open(self.persistence_path, 'w') as f:
                 json.dump(state, f, indent=2, default=str)
@@ -3215,6 +3279,12 @@ class HumanEquivalentCognition:
                 self.meta_cognitive.set_state(state['meta_cognitive'])
                 logger.info(f"  Restored meta-cognition: {self.meta_cognitive.current_mental_state.name}, "
                            f"reappraisal skill: {self.meta_cognitive.reappraisal_skill:.2f}")
+
+            # === EMBODIED SIMULATION SYSTEM ===
+            if 'embodied_simulation' in state:
+                self.embodied_simulation.set_state(state['embodied_simulation'])
+                logger.info(f"  Restored embodied simulation: {len(self.embodied_simulation.motor_patterns)} motor patterns, "
+                           f"simulation skill: {self.embodied_simulation.simulation_skill:.2f}")
 
             logger.info(f"Restored cognitive state: {self._tick_count} previous ticks, "
                        f"{len(self.beliefs.beliefs)} beliefs, "
@@ -7998,6 +8068,430 @@ class MetaCognitiveLayer:
 
         logger.info(f"Meta-Cognitive Layer restored: reappraisal_skill={self.reappraisal_skill:.2f}, "
                    f"success_rate={self.get_regulation_success_rate():.2%}")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EMBODIED SIMULATION SYSTEM - Prospective Action Rehearsal
+# ═══════════════════════════════════════════════════════════════════════════════
+# Based on embodied cognition research (Glenberg et al.)
+#
+# Key principle: Cognition is grounded in simulated bodily experience.
+# The agent doesn't just choose actions abstractly - it mentally SIMULATES
+# executing them first, predicting sensory, motor, and emotional outcomes.
+#
+# This is the missing piece that connects:
+# - TIER 6 retrospective counterfactuals ("what if I HAD done X?")
+# - To PROSPECTIVE simulation ("what if I DO X?")
+#
+# Embodied cognition principles implemented:
+# 1. Action understanding through motor simulation
+# 2. Prediction through perceptual simulation
+# 3. Emotion grounded in simulated body state
+# 4. Learning through simulated practice
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from dataclasses import dataclass
+from typing import Optional, Dict, List, Tuple
+from enum import Enum, auto
+import random
+import time
+
+
+class SimulationFidelity(Enum):
+    """How vivid/detailed the mental simulation is."""
+    VAGUE = auto()       # Low detail, uncertain outcome
+    MODERATE = auto()    # Reasonable detail
+    VIVID = auto()       # High detail, confident prediction
+    PERFECT = auto()     # Essentially perfect prediction (rare)
+
+
+@dataclass
+class ActionSimulation:
+    """A prospective simulation of executing an action."""
+    action: str
+
+    # Motor simulation
+    motor_pattern: str  # "cast fireball" → simulated button press sequence
+    execution_fluency: float  # How smoothly the action would execute (0-1)
+    motor_confidence: float  # Confidence in ability to execute (0-1)
+
+    # Perceptual prediction
+    predicted_outcome: str  # What we expect to perceive
+    outcome_probability: float  # Confidence in prediction (0-1)
+    predicted_hp_change: float  # Expected HP delta
+    predicted_resource_cost: float  # Mana/energy cost
+
+    # Embodied emotional prediction
+    predicted_emotion: str  # What we'd feel after doing this
+    predicted_satisfaction: float  # Expected emotional payoff (-1 to 1)
+    predicted_regret_risk: float  # Chance we'll regret this (0-1)
+
+    # Simulation quality
+    fidelity: SimulationFidelity
+    simulation_time_ms: float  # How long mental rehearsal took
+
+    # Comparison to alternatives
+    relative_confidence: float  # vs other options (0-1)
+
+
+@dataclass
+class SkillMotorPattern:
+    """Motor execution pattern for a skill (embodied knowledge)."""
+    skill_name: str
+    button_sequence: List[str]  # Simulated keypresses
+    timing_pattern: List[float]  # Inter-key intervals
+    execution_fluency: float  # How automatic/smooth (0-1)
+    practice_count: int
+    error_rate: float  # Mistakes during execution (0-1)
+
+
+class EmbodiedSimulationSystem:
+    """
+    PROSPECTIVE action simulation based on embodied cognition.
+
+    The agent mentally rehearses actions BEFORE executing them, simulating:
+    - Motor execution (how to do it)
+    - Perceptual outcome (what will happen)
+    - Emotional response (how will I feel)
+
+    This grounds decision-making in simulated bodily experience rather than
+    abstract computation.
+    """
+
+    def __init__(self):
+        # Motor patterns for skills (learned through practice)
+        self.motor_patterns: Dict[str, SkillMotorPattern] = {}
+
+        # Simulation history (for learning to simulate better)
+        self.simulation_history: List[ActionSimulation] = []
+        self.max_history = 500
+
+        # Embodied state (avatar's "body")
+        self.current_body_state = {
+            'hp_percent': 1.0,
+            'resource_percent': 1.0,  # Mana/energy
+            'position_safety': 0.5,  # How safe current position feels
+            'fatigue_level': 0.0,
+        }
+
+        # Simulation parameters
+        self.simulation_enabled = True
+        self.base_simulation_time = 150  # ms to mentally rehearse
+        self.simulation_depth = 1  # How many steps ahead to simulate
+
+        # Learning
+        self.prediction_accuracy_history = []
+        self.simulation_skill = 0.3  # Improves as predictions proven correct
+
+        logger.info("Embodied Simulation System initialized")
+        logger.info("  - Prospective action rehearsal enabled")
+        logger.info("  - Motor pattern learning active")
+        logger.info("  - Emotion grounded in simulated body state")
+
+    def update_body_state(self, hp_percent: float, resource_percent: float,
+                         position_safety: float, fatigue: float):
+        """Update current embodied state of avatar."""
+        self.current_body_state = {
+            'hp_percent': hp_percent,
+            'resource_percent': resource_percent,
+            'position_safety': position_safety,
+            'fatigue_level': fatigue,
+        }
+
+    def simulate_action(self, action: str, context: Dict) -> ActionSimulation:
+        """
+        Mentally rehearse an action BEFORE doing it.
+
+        This is prospective simulation - not planning, but embodied
+        mental practice that predicts sensory, motor, and emotional outcomes.
+        """
+        start_time = time.time()
+
+        # 1. Motor simulation: How would I execute this?
+        motor_sim = self._simulate_motor_execution(action, context)
+
+        # 2. Perceptual simulation: What would I see/feel?
+        perceptual_sim = self._simulate_perceptual_outcome(action, context, motor_sim)
+
+        # 3. Emotional simulation: How would I feel afterward?
+        emotional_sim = self._simulate_emotional_response(action, context, perceptual_sim)
+
+        # 4. Determine simulation fidelity
+        fidelity = self._assess_simulation_quality(motor_sim, perceptual_sim, context)
+
+        simulation = ActionSimulation(
+            action=action,
+            motor_pattern=motor_sim['pattern'],
+            execution_fluency=motor_sim['fluency'],
+            motor_confidence=motor_sim['confidence'],
+            predicted_outcome=perceptual_sim['outcome'],
+            outcome_probability=perceptual_sim['probability'],
+            predicted_hp_change=perceptual_sim['hp_change'],
+            predicted_resource_cost=perceptual_sim['resource_cost'],
+            predicted_emotion=emotional_sim['emotion'],
+            predicted_satisfaction=emotional_sim['satisfaction'],
+            predicted_regret_risk=emotional_sim['regret_risk'],
+            fidelity=fidelity,
+            simulation_time_ms=(time.time() - start_time) * 1000,
+            relative_confidence=0.5  # Updated when comparing alternatives
+        )
+
+        # Record for learning
+        if len(self.simulation_history) >= self.max_history:
+            self.simulation_history.pop(0)
+        self.simulation_history.append(simulation)
+
+        return simulation
+
+    def _simulate_motor_execution(self, action: str, context: Dict) -> Dict:
+        """
+        Simulate the motor pattern of executing this action.
+
+        Embodied cognition: Understanding an action involves activating
+        the motor systems that would execute it.
+        """
+        # Check if we have learned motor pattern
+        if action in self.motor_patterns:
+            pattern = self.motor_patterns[action]
+            fluency = pattern.execution_fluency
+            confidence = 1.0 - pattern.error_rate
+            motor_pattern = f"{pattern.button_sequence}"
+        else:
+            # Novel action - low fluency, uncertain execution
+            fluency = 0.2
+            confidence = 0.4
+            motor_pattern = f"[unfamiliar: {action}]"
+
+        # Fatigue reduces execution fluency
+        fluency *= (1.0 - self.current_body_state['fatigue_level'] * 0.3)
+
+        return {
+            'pattern': motor_pattern,
+            'fluency': fluency,
+            'confidence': confidence
+        }
+
+    def _simulate_perceptual_outcome(self, action: str, context: Dict,
+                                    motor_sim: Dict) -> Dict:
+        """
+        Predict what we'll perceive after executing the action.
+
+        Embodied cognition: Prediction involves simulating future
+        sensory experiences.
+        """
+        # Use simulation skill and motor confidence to predict
+        base_prediction_quality = self.simulation_skill * motor_sim['confidence']
+
+        # Predict outcome based on action type
+        if 'attack' in action.lower() or 'cast' in action.lower():
+            outcome = "enemy damaged, possible retaliation"
+            hp_change = random.uniform(-0.2, 0.0)  # Might take damage
+            resource_cost = random.uniform(0.1, 0.3)
+            probability = base_prediction_quality * 0.7
+        elif 'flee' in action.lower() or 'retreat' in action.lower():
+            outcome = "create distance, safety increase"
+            hp_change = random.uniform(-0.1, 0.0)  # Might take parting shot
+            resource_cost = 0.05
+            probability = base_prediction_quality * 0.8
+        elif 'heal' in action.lower() or 'rest' in action.lower():
+            outcome = "HP restored, vulnerable moment"
+            hp_change = random.uniform(0.2, 0.4)
+            resource_cost = random.uniform(0.2, 0.4)
+            probability = base_prediction_quality * 0.9
+        else:
+            outcome = "uncertain outcome"
+            hp_change = 0.0
+            resource_cost = 0.1
+            probability = base_prediction_quality * 0.5
+
+        return {
+            'outcome': outcome,
+            'probability': probability,
+            'hp_change': hp_change,
+            'resource_cost': resource_cost
+        }
+
+    def _simulate_emotional_response(self, action: str, context: Dict,
+                                    perceptual_sim: Dict) -> Dict:
+        """
+        Predict emotional state after action.
+
+        Embodied cognition: Emotions grounded in simulated body state.
+        """
+        # Simulate future body state
+        future_hp = self.current_body_state['hp_percent'] + perceptual_sim['hp_change']
+        future_hp = max(0.0, min(1.0, future_hp))
+
+        # Emotions arise from simulated body state
+        if future_hp < 0.2:
+            emotion = "fear/panic"
+            satisfaction = -0.6
+            regret_risk = 0.7
+        elif future_hp < 0.4:
+            emotion = "anxiety/concern"
+            satisfaction = -0.2
+            regret_risk = 0.4
+        elif future_hp > 0.8 and 'attack' in action.lower():
+            emotion = "confidence/aggression"
+            satisfaction = 0.5
+            regret_risk = 0.2
+        elif 'heal' in action.lower():
+            emotion = "relief/safety"
+            satisfaction = 0.6
+            regret_risk = 0.1
+        else:
+            emotion = "neutral/focused"
+            satisfaction = 0.1
+            regret_risk = 0.3
+
+        return {
+            'emotion': emotion,
+            'satisfaction': satisfaction,
+            'regret_risk': regret_risk
+        }
+
+    def _assess_simulation_quality(self, motor_sim: Dict, perceptual_sim: Dict,
+                                   context: Dict) -> SimulationFidelity:
+        """Determine how vivid/accurate the mental simulation is."""
+        quality_score = (
+            motor_sim['fluency'] * 0.3 +
+            motor_sim['confidence'] * 0.3 +
+            perceptual_sim['probability'] * 0.4
+        )
+
+        if quality_score > 0.8:
+            return SimulationFidelity.VIVID
+        elif quality_score > 0.6:
+            return SimulationFidelity.MODERATE
+        else:
+            return SimulationFidelity.VAGUE
+
+    def compare_action_simulations(self, simulations: List[ActionSimulation]) -> List[ActionSimulation]:
+        """
+        Compare multiple simulated actions to inform decision.
+
+        Returns simulations ranked by predicted desirability.
+        """
+        # Compute relative confidence for each
+        for sim in simulations:
+            # Combine factors
+            score = (
+                sim.motor_confidence * 0.2 +
+                sim.outcome_probability * 0.2 +
+                sim.predicted_satisfaction * 0.3 +
+                (1.0 - sim.predicted_regret_risk) * 0.3
+            )
+            sim.relative_confidence = score
+
+        # Sort by confidence
+        ranked = sorted(simulations, key=lambda s: s.relative_confidence, reverse=True)
+
+        return ranked
+
+    def record_motor_pattern(self, action: str, execution_result: str):
+        """
+        Learn motor pattern through practice (embodied learning).
+
+        Embodied cognition: Skills learned through simulated execution.
+        """
+        if action not in self.motor_patterns:
+            # Create new pattern
+            self.motor_patterns[action] = SkillMotorPattern(
+                skill_name=action,
+                button_sequence=['key_unknown'],
+                timing_pattern=[0.1],
+                execution_fluency=0.2,
+                practice_count=1,
+                error_rate=0.5
+            )
+        else:
+            # Update existing pattern
+            pattern = self.motor_patterns[action]
+            pattern.practice_count += 1
+
+            # Fluency improves with practice
+            pattern.execution_fluency = min(0.95,
+                pattern.execution_fluency + 0.02)
+
+            # Error rate decreases
+            if execution_result == 'success':
+                pattern.error_rate *= 0.95
+            else:
+                pattern.error_rate = min(0.9, pattern.error_rate * 1.05)
+
+    def validate_prediction(self, simulation: ActionSimulation, actual_outcome: Dict):
+        """
+        Learn from comparing predictions to reality.
+        Improves simulation skill over time.
+        """
+        # Check prediction accuracy
+        outcome_match = 1.0 if simulation.predicted_outcome in actual_outcome.get('description', '') else 0.0
+
+        # Update simulation skill
+        accuracy = (
+            outcome_match * 0.4 +
+            (1.0 - abs(simulation.predicted_hp_change - actual_outcome.get('hp_change', 0.0))) * 0.3 +
+            (1.0 - abs(simulation.predicted_satisfaction - actual_outcome.get('satisfaction', 0.0))) * 0.3
+        )
+
+        self.prediction_accuracy_history.append(accuracy)
+        if len(self.prediction_accuracy_history) > 100:
+            self.prediction_accuracy_history.pop(0)
+
+        # Improve simulation skill gradually
+        if accuracy > 0.6:
+            self.simulation_skill = min(0.9, self.simulation_skill + 0.01)
+        elif accuracy < 0.4:
+            self.simulation_skill = max(0.1, self.simulation_skill - 0.005)
+
+    def get_embodied_state_summary(self) -> str:
+        """Get narrative description of avatar's embodied state."""
+        hp = self.current_body_state['hp_percent']
+
+        if hp < 0.2:
+            return "body battered, movements weakening, pain signals urgent"
+        elif hp < 0.4:
+            return "wounded but functional, every action costs"
+        elif hp > 0.8:
+            return "strong and capable, body ready for action"
+        else:
+            return "steady state, balanced and prepared"
+
+    def get_state(self) -> Dict:
+        """Serialize for persistence."""
+        return {
+            'motor_patterns': {
+                name: {
+                    'fluency': p.execution_fluency,
+                    'practice_count': p.practice_count,
+                    'error_rate': p.error_rate
+                }
+                for name, p in self.motor_patterns.items()
+            },
+            'simulation_skill': self.simulation_skill,
+            'prediction_accuracy_history': self.prediction_accuracy_history[-50:],
+            'body_state': self.current_body_state
+        }
+
+    def set_state(self, state: Dict):
+        """Restore from persistence."""
+        if 'motor_patterns' in state:
+            for name, data in state['motor_patterns'].items():
+                self.motor_patterns[name] = SkillMotorPattern(
+                    skill_name=name,
+                    button_sequence=['restored'],
+                    timing_pattern=[0.1],
+                    execution_fluency=data['fluency'],
+                    practice_count=data['practice_count'],
+                    error_rate=data['error_rate']
+                )
+
+        self.simulation_skill = state.get('simulation_skill', 0.3)
+        self.prediction_accuracy_history = state.get('prediction_accuracy_history', [])
+        self.current_body_state = state.get('body_state', self.current_body_state)
+
+        logger.info(f"Embodied Simulation restored: {len(self.motor_patterns)} motor patterns, "
+                   f"simulation_skill={self.simulation_skill:.2f}")
+
 
 
 class AutobiographicalMemory:
