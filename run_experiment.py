@@ -157,26 +157,84 @@ Examples:
         traceback.print_exc()
         sys.exit(1)
 
-    # Run agent
-    # TODO: Add proper game loop here
-    # For now, this is a placeholder that shows the configuration is working
-    logger.warning("NOTE: Full game loop not yet implemented in this script")
-    logger.warning("HumanEquivalentCognition requires integration with screen capture and input systems")
-    logger.warning("Use this script to verify configuration, then integrate with full agent architecture")
+    # Run agent game loop
+    # This loop simulates the perception -> tick() -> action cycle
+    # For full integration with WoW, replace get_simulated_perception() with actual screen capture
+    running = True
+    tick_count = 0
+    start_time = time.time()
+    duration_seconds = args.duration * 60 if args.duration else None
 
+    logger.info("Starting game loop...")
+    logger.info("Press Ctrl+C to stop")
+
+    def get_simulated_perception(tick: int) -> dict:
+        """Generate simulated perception data for testing cognitive systems."""
+        import random
+        return {
+            'level': min(60, 1 + tick // 1000),  # Slow level progression
+            'zone': 'Elwynn Forest',
+            'position': (random.uniform(-100, 100), random.uniform(-100, 100)),
+            'player_hp': random.uniform(50, 100),
+            'player_mana': random.uniform(30, 100),
+            'in_combat': random.random() < 0.3,
+            'enemy_count': random.randint(0, 3) if random.random() < 0.3 else 0,
+            'danger_level': random.uniform(0.1, 0.7),
+            'current_activity': random.choice(['exploring', 'combat', 'resting', 'questing']),
+            'gold': 10 + tick // 100,
+        }
+
+    try:
+        while running:
+            # Check duration limit
+            elapsed = time.time() - start_time
+            if duration_seconds and elapsed >= duration_seconds:
+                logger.info(f"Duration limit reached ({args.duration} minutes)")
+                break
+
+            tick_count += 1
+
+            # Get perception (simulated or from screen capture)
+            perception = get_simulated_perception(tick_count)
+
+            # Process cognitive tick
+            try:
+                decision = agent.tick(perception)
+
+                if decision is None:
+                    # Agent requested shutdown (fatigue, rest period, etc.)
+                    logger.info("Agent requested shutdown")
+                    break
+
+                # Log decision periodically
+                if tick_count % 100 == 0:
+                    logger.info(f"Tick {tick_count}: action={decision.get('action', 'unknown')}, "
+                               f"confidence={decision.get('confidence', 0):.2f}")
+
+            except Exception as e:
+                logger.error(f"Decision error at tick {tick_count}: {e}")
+
+            # Simulate real-time pacing (1 tick per second)
+            time.sleep(1.0)
+
+    except KeyboardInterrupt:
+        logger.info("Interrupted by user")
+    finally:
+        # Shutdown agent and save state
+        logger.info("Shutting down agent...")
+        agent.shutdown()
+
+    # Print summary
+    elapsed_minutes = (time.time() - start_time) / 60
     print()
     print("=" * 70)
-    print("EXPERIMENT CONFIGURATION VERIFIED")
+    print("EXPERIMENT COMPLETED")
     print("=" * 70)
-    print()
-    print("Next steps:")
-    print("1. Integrate HumanEquivalentCognition with WoW screen capture")
-    print("2. Add game loop with perception -> tick() -> action cycle")
-    print("3. Run full experiments for data collection")
-    print()
-    print("For now, the experimental configuration is ready and tested.")
     print(f"Session ID: {config.session_id}")
     print(f"Condition: {config.condition_name}")
+    print(f"Total ticks: {tick_count}")
+    print(f"Duration: {elapsed_minutes:.1f} minutes")
+    print(f"Data saved to: {config.research_data_dir}/")
     print("=" * 70)
 
 
