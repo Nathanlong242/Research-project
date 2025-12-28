@@ -139,7 +139,6 @@ def test_h6_2_decision_quality(data_dir):
 def test_h6_3_intrusive_thought_contamination(data_dir):
     """H6.3: Intrusive thoughts bias action selection toward congruent actions"""
     decisions = load_all_sessions(data_dir, '*_decisions_*.csv')
-    ruminations = load_all_sessions(data_dir, '*_ruminations_*.csv')
 
     # Filter to TIER6
     tier6_decisions = decisions[decisions['condition'] == 'TIER6']
@@ -278,8 +277,8 @@ def test_h7_5_regulation_learning(data_dir):
     """H7.5: Reappraisal skill improves from 0.3 → 0.6-0.8 over 100+ attempts"""
     ruminations = load_all_sessions(data_dir, '*_ruminations_*.csv')
 
-    # Filter to TIER7
-    tier7 = ruminations[ruminations['condition'] == 'TIER7']
+    # Filter to TIER7 (use .copy() to avoid SettingWithCopyWarning)
+    tier7 = ruminations[ruminations['condition'] == 'TIER7'].copy()
 
     # Get early vs late reappraisal success rates
     tier7_sorted = tier7.sort_values('timestamp')
