@@ -12,55 +12,121 @@ This research project implements a **seven-tier cognitive architecture** that cr
 
 **Environment**: World of Warcraft 1.12 (vanilla) - complex game environment with combat, exploration, social interaction
 **Approach**: Screen-based perception + OS-level input (no memory reading, no cheating)
-**Scale**: 27,937 lines of Python implementing 7 tiers of human-equivalent cognition
+**Scale**: 30,820 lines of Python implementing 7 tiers of human-equivalent cognition (32,963 lines total across all modules)
 
 ---
 
 ## The Human-Equivalence Hierarchy
 
-### TIER 1: Probabilistic Belief Formation
-**Problem**: Perfect knowledge doesn't exhibit human uncertainty
-**Solution**: Bayesian-like belief updating with decay, priors, evidence accumulation
+### Foundation: Core Cognitive Systems
+**Probabilistic Belief System**: Bayesian-like belief updating with decay, priors, evidence accumulation
+**Procedural Memory System**: Skill acquisition through practice with power law learning curves
+**Internal World Model**: Spatial memory, enemy spawn patterns, danger zones
+**Drive System**: Competing motivational drives (safety, progress, curiosity, comfort, social)
+**Reinforcement Learning**: Q-learning with exploration-exploitation tradeoff and temporal difference learning
 
-### TIER 2: Motivational Drive System
-**Problem**: Single objective function doesn't capture human ambivalence
-**Solution**: Competing drives (safety, progress, curiosity, comfort, social) with dynamic weighting
+### TIER 1: Human Life Systems
+**Problem**: Agents learn but don't *live* - no long-horizon goals or emotional investment
+**Solution**: Complete lifecycle modeling from 1-60 leveling journey through endgame
+- Progression lifecycle with milestone awareness and phase transitions
+- Wealth emotional state (gold anxiety, security, spending patterns)
+- Gear intuition learning (experience-based equipment evaluation)
+- Profession commitment tracking (identity formation through crafting)
+- Endgame preparation planning (raid readiness, attunement quests)
+- Power spike detection (excitement and confidence from upgrades)
 
-### TIER 3: Episodic & Autobiographical Memory
-**Problem**: Agents lack personal histories that shape identity
-**Solution**: Event-based memory with emotional indexing, associative recall, life story construction
+### TIER 2: Social Life, Exploration & Mastery
+**Problem**: Agents lack social bonds, curiosity, trauma responses, and personal combat identity
+**Solution**: Relationship formation, exploration drives, death psychology, combat mastery
+- Social relationship system (friends, enemies, trust, reputation)
+- Exploration & discovery system (curiosity-driven zone exploration)
+- Death psychology system (trauma responses, revenge motivation, fear learning)
+- Combat mastery identity (personal fighting style development)
+- Quest narrative engagement (story investment, quest memory)
+- Routine formation system (session goals, habit formation)
 
-### TIER 4: Emotional States with Behavioral Consequences
-**Problem**: Emotions in agents are often cosmetic labels
-**Solution**: Functional emotions that modulate decisions (fear → risk aversion, confidence → exploration)
+### TIER 3: Autobiographical Memory
+**Problem**: Agents lack continuous narrative identity across their lifespan
+**Solution**: Life story construction with emotional indexing and identity-defining moments
+- Autobiographical event recording with significance weighting
+- Life narrative construction (turning events into personal story)
+- Identity-defining moment tracking (events that shape self-concept)
+- Associative recall triggered by current context
 
-### TIER 5: Personality Crystallization
-**Problem**: Agents don't develop unique personalities through experience
-**Solution**: Combat styles, preference formation, identity statements that persist and constrain behavior
+### TIER 4: Temporal Awareness
+**Problem**: Agents don't experience fatigue, burnout, or need for rest
+**Solution**: Human relationship with time - session fatigue, burnout tracking, rest-seeking
+- Session duration tracking with fatigue accumulation
+- Activity-based burnout (grinding fatigue, social burnout)
+- Rest-seeking behavior when exhausted
+- Performance degradation over extended sessions
+
+### TIER 5: Preference & Value Crystallization
+**Problem**: Agents don't develop authentic personal preferences and values
+**Solution**: Experience-driven preference formation that creates unique personality
+- Preference learning from experiences (gear styles, combat approaches, activities)
+- Value formation based on success/failure history
+- Idiosyncratic taste development (unique to each agent instance)
+- Authentic choice-making constrained by crystallized preferences
 
 ### TIER 6: Internal Rumination & Counterfactual Thinking
 **Problem**: Agents process experiences and move on. Humans dwell, replay, obsess.
 **Solution**: Persistent intrusive thoughts, counterfactual scenarios, decision contamination, mental load
+- Counterfactual generation ("what if" scenarios after failures)
+- Intrusive thought system (unwanted recurring thoughts)
+- Mental load accumulation (rumination consumes cognitive capacity)
+- Decision contamination (rumination biases future choices)
+- Temporal persistence (thoughts recur over time, not just immediate)
 
 **Breakthrough**: TIER 6 makes the agent **experience time** rather than just process it.
 
 ### TIER 7: Meta-Cognitive Self-Regulation ⭐ **[COMPLETE]**
 **Problem**: The agent has thoughts but isn't aware of them or able to regulate them
 **Solution**: Mental state detection, thought suppression (with ironic process), cognitive reappraisal, meta-rumination, insight generation
+- Mental state awareness (recognizing rumination, anxiety, obsession)
+- Thought suppression with ironic process theory (attempts to suppress increase intrusion frequency)
+- Cognitive reappraisal learning (reframing negative thoughts, skill improves with practice)
+- Meta-rumination (ruminating about ruminating - "why can't I stop thinking about this?")
+- Probabilistic insight generation (breakthrough moments after prolonged rumination)
+- Regulation strategy learning (agents learn which strategies work for them)
 
 **The Final Layer**: The agent doesn't just think - it thinks about thinking. It struggles with its own mind.
+
+### Advanced Cognitive Systems (Supporting All Tiers)
+**Core Affect System**: Russell's circumplex (arousal × valence), discrete emotions, mood states, somatic markers
+**Executive Function System**: Task switching, inhibitory control, conflict monitoring, error detection
+**Automatic Planning System**: Multi-step goal decomposition, means-ends analysis, plan monitoring
+**Intrinsic Curiosity System**: Knowledge gap detection, prediction error exploration, mastery motivation
+**Embodied Simulation System**: Prospective action rehearsal, motor pattern learning, emotion grounding
+**Perception System**: Feature extraction, pattern recognition, perceptual learning, salience computation
+**Attention System**: Selective, divided, sustained attention with capacity limits
+**Reasoning System**: Deductive, inductive, causal, and analogical reasoning
+**Motor Control System**: Action planning, sequence chunking, speed-accuracy tradeoff, power law of practice
 
 ---
 
 ## Project Status
 
 ### ✅ Completed
-- **Architecture**: All 7 tiers implemented (27,937 lines)
-- **TIER 6**: Internal rumination system fully integrated
-- **TIER 7**: Meta-cognitive self-regulation COMPLETE ⭐
+- **Architecture**: All 7 tiers implemented (30,820 lines main agent, 32,963 lines total)
+- **Foundation Systems**: Probabilistic beliefs, procedural memory, world model, drives, reinforcement learning
+- **TIER 1**: Human Life Systems (progression, wealth, gear, professions, endgame prep, power spikes)
+- **TIER 2**: Social Life, Exploration & Mastery (relationships, exploration, death psychology, combat mastery, quests, routines)
+- **TIER 3**: Autobiographical Memory (life story construction, identity-defining moments)
+- **TIER 4**: Temporal Awareness (fatigue, burnout, rest-seeking behavior)
+- **TIER 5**: Preference & Value Crystallization (authentic personality formation)
+- **TIER 6**: Internal Rumination System (counterfactuals, intrusive thoughts, mental load)
+- **TIER 7**: Meta-Cognitive Self-Regulation (thought suppression, reappraisal, meta-rumination, insight) ⭐
+- **Advanced Systems**: Core affect, executive function, planning, curiosity, embodied simulation
+- **Neuroscience Systems**: Perception, attention, reasoning, motor control
+- **Identity Continuity**: Regression prevention, behavioral fingerprinting, session validation
+- **Operational Controller**: Lifecycle management, resource monitoring, supervision interface
 - **Behavioral Logger**: Research instrumentation for empirical validation
-- **Analysis Pipeline**: Statistical analysis and hypothesis testing tools
-- **Configuration System**: TIER control for experimental baselines
+- **Analysis Pipeline**: Statistical analysis and hypothesis testing tools (research_analysis.py)
+- **Configuration System**: TIER control for experimental baselines (experiment_config.py)
+- **Experiment Runner**: Command-line interface for controlled experiments (run_experiment.py)
+- **Environment Validation**: Dependency checking and environment setup (validate_environment.py)
+- **Experiment Monitoring**: Real-time experiment tracking (monitor_experiments.py)
 - **Research Paper**: Complete draft (~16,200 words across 7 sections)
 - **Documentation**: Complete implementation summaries, architecture diagrams, integration guide
 - **Research Status**: Comprehensive project status tracking
@@ -83,28 +149,41 @@ This research project implements a **seven-tier cognitive architecture** that cr
 
 ```
 Research-project/
-├── CODE FILES (Keep as-is, do not modify)
-│   ├── wow_agent_human_equivalent_stabilized.py  # Main agent (27,937 lines)
-│   ├── behavioral_logger.py                       # Research instrumentation (~650 lines)
-│   ├── research_analysis.py                       # Statistical analysis pipeline (~750 lines)
-│   ├── experiment_config.py                       # Configuration system (~250 lines)
-│   ├── run_experiment.py                          # Experimental runner script
-│   └── requirements.txt                           # Python dependencies
+├── CORE AGENT
+│   └── wow_agent_human_equivalent_stabilized.py    # Main agent (30,820 lines)
+│       • All 7 cognitive tiers + advanced systems
+│       • Identity continuity validation
+│       • Operational lifecycle controller
 │
-├── DOCUMENTATION
-│   ├── README.md                                 # This file (project overview)
-│   ├── RESEARCH_STATUS.md                        # Project status and roadmap
-│   ├── TIER_IMPLEMENTATION_GUIDE.md              # Complete TIER 6 & 7 technical docs
-│   ├── RESEARCH_PAPER.md                         # Complete research paper (~16,200 words)
-│   ├── ARCHITECTURE_DIAGRAMS.md                  # Visual system architecture
-│   └── INTEGRATION_GUIDE.md                      # Behavioral logger integration
+├── RESEARCH INFRASTRUCTURE
+│   ├── behavioral_logger.py                        # Research instrumentation (~650 lines)
+│   ├── research_analysis.py                        # Statistical analysis pipeline (~750 lines)
+│   ├── experiment_config.py                        # Tier configuration system (~270 lines)
+│   ├── run_experiment.py                           # Experimental runner script (~185 lines)
+│   ├── monitor_experiments.py                      # Real-time experiment monitoring (~220 lines)
+│   ├── validate_environment.py                     # Environment validation (~180 lines)
+│   ├── extract_results_template.py                 # Results extraction template (~290 lines)
+│   └── requirements.txt                            # Python dependencies
+│
+├── DOCUMENTATION (10 files)
+│   ├── README.md                                  # This file (project overview)
+│   ├── RESEARCH_STATUS.md                         # Project status and roadmap
+│   ├── RESEARCH_PAPER.md                          # Complete research paper (~16,200 words)
+│   ├── TIER_IMPLEMENTATION_GUIDE.md               # Complete TIER 6 & 7 technical docs
+│   ├── ARCHITECTURE_DIAGRAMS.md                   # Visual system architecture
+│   ├── INTEGRATION_GUIDE.md                       # Behavioral logger integration
+│   ├── EXPERIMENTAL_EXECUTION_PLAN.md             # Experiment execution protocol
+│   ├── COLLABORATION_SUMMARY.md                   # Research collaboration overview
+│   ├── CRITICAL_ANALYSIS_AND_RISKS.md             # Risk analysis and mitigation
+│   └── IMMEDIATE_ACTION_CHECKLIST.md              # Next steps checklist
 │
 └── RESEARCH DATA (Created at runtime)
     └── research_data/
-        ├── session_XXX_decisions_TIMESTAMP.csv
-        ├── session_XXX_ruminations_TIMESTAMP.csv
-        ├── session_XXX_deaths_TIMESTAMP.csv
-        └── session_XXX_summary_TIMESTAMP.json
+        ├── session_XXX_decisions_TIMESTAMP.csv     # Decision-level data
+        ├── session_XXX_ruminations_TIMESTAMP.csv   # Rumination events
+        ├── session_XXX_deaths_TIMESTAMP.csv        # Death events and responses
+        ├── session_XXX_metacog_TIMESTAMP.csv       # Meta-cognitive events (TIER 7)
+        └── session_XXX_summary_TIMESTAMP.json      # Session summary statistics
 ```
 
 ---
@@ -410,5 +489,6 @@ This research builds on decades of work in:
 
 **Project Status**: Active Research
 **Version**: 8.0.0 (TIER 7 Complete) ⭐
-**Last Updated**: December 27, 2025
-**Next Milestone**: Empirical Validation + Research Paper
+**Last Updated**: December 28, 2025
+**Lines of Code**: 30,820 (main agent) | 32,963 (total)
+**Next Milestone**: Empirical Validation + Research Paper Submission
