@@ -12,7 +12,7 @@ This document consolidates all implementation details for the rumination and met
 
 ### What I Identified as the Critical Gap
 
-After analyzing the entire codebase (27k+ lines, 1MB), I identified that the agent had:
+After analyzing the entire codebase (30k+ lines, 1.3MB), I identified that the agent had:
 - Sophisticated memory systems (episodic, semantic, autobiographical)
 - Emotional states (fear, confidence, anxiety, joy)
 - Decision-making with hesitation
@@ -198,7 +198,7 @@ if action_confidence < 0.4:
 - **New classes**: 3 (RuminativeThought, CounterfactualScenario, InternalRuminationSystem)
 - **New enums**: 1 (RuminationType)
 - **Integration points**: 8
-- **Total file size**: 1.1MB (27,286 lines)
+- **Total file size**: 1.3MB (30,820 lines)
 
 ### Design Principles
 
@@ -851,7 +851,7 @@ if insight:
 - **New classes**: 6
 - **New dataclasses**: 4
 - **Integration points**: 12
-- **Total file size**: ~28,500 lines (1.2MB)
+- **Total file size**: ~30,820 lines (1.3MB)
 
 ---
 
@@ -1352,7 +1352,7 @@ self.min_insight_interval = 600  # 10 minutes between insights
 - **New enums**: 1 (MentalState - 8 states)
 - **Methods**: 11
 - **Integration points**: 3 (init, tick, persistence)
-- **Total file size**: 27,937 lines (1.16 MB)
+- **Total file size**: 30,820 lines (1.3 MB)
 
 ---
 

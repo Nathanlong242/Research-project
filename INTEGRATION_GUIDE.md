@@ -2,7 +2,9 @@
 
 ## Overview
 
-This guide shows how to integrate the `BehavioralLogger` into `wow_agent_human_equivalent_stabilized.py` to enable empirical validation of TIER 6 rumination systems.
+This guide shows how to integrate the `BehavioralLogger` into `wow_agent_human_equivalent_stabilized.py` to enable empirical validation of TIER 6 (rumination) and TIER 7 (meta-cognition) systems.
+
+**Updated**: December 28, 2025 - Now includes TIER 7 meta-cognitive logging.
 
 ---
 
@@ -336,32 +338,45 @@ if self.behavioral_logger:
 
 ## Baseline Comparison Setup
 
-To create TIER 5 baseline (no rumination), add configuration flag:
+The experiment configuration system (`experiment_config.py`) provides predefined configurations for controlled comparisons:
 
 ```python
-parser.add_argument('--disable-tier6', action='store_true',
-                   help='Disable TIER 6 rumination for baseline comparison')
+from experiment_config import ExperimentConfig
+
+# TIER 7: Full system (rumination + meta-cognition)
+config = ExperimentConfig.tier_7_full(session_id="T7_run_001")
+
+# TIER 6: Rumination without meta-cognition
+config = ExperimentConfig.tier_6_baseline(session_id="T6_run_001")
+
+# TIER 5: Baseline (no rumination or meta-cognition)
+config = ExperimentConfig.tier_5_baseline(session_id="T5_run_001")
 ```
 
-In init:
-
-```python
-if not args.disable_tier6:
-    self.rumination = InternalRuminationSystem()
-else:
-    self.rumination = None  # Baseline: no rumination
-    logger.info("TIER 6 rumination DISABLED (baseline mode)")
-```
-
-Then run experiments:
+**Run experiments using the CLI runner**:
 
 ```bash
-# TIER 6 (full system)
-python wow_agent_human_equivalent_stabilized.py --enable-logging --session-id tier6_run_001
+# TIER 7 (full system with meta-cognition)
+python run_experiment.py --condition tier7 --session-id T7_run_001
+
+# TIER 6 (rumination only, no meta-cognition)
+python run_experiment.py --condition tier6 --session-id T6_run_001
 
 # TIER 5 (baseline without rumination)
-python wow_agent_human_equivalent_stabilized.py --enable-logging --session-id tier5_run_001 --disable-tier6
+python run_experiment.py --condition tier5 --session-id T5_run_001
 ```
+
+### TIER 7 Meta-Cognitive Logging
+
+When TIER 7 is enabled, additional events are logged:
+
+- **Suppression attempts** and ironic process effects
+- **Reappraisal attempts** with success/failure outcomes
+- **Meta-rumination** triggers
+- **Insight events** and resolutions
+- **Mental state transitions** (clear-headed → rumination spiral, etc.)
+
+These events are captured automatically through the `MetaCognitiveLayer` integration.
 
 ---
 
