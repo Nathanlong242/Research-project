@@ -2149,6 +2149,42 @@ class HumanEquivalentCognition:
         logger.info("  - Emotion grounded in simulated body state")
         logger.info("  - Prediction-based decision making")
 
+        # === ADVANCED COGNITIVE SYSTEMS ===
+        # Core Affect System - Unified emotional architecture
+        self.core_affect = CoreAffectSystem()
+        logger.info("Core Affect System initialized:")
+        logger.info("  - Arousal × Valence dimensions (Russell's circumplex)")
+        logger.info("  - Discrete emotions (12 types with action tendencies)")
+        logger.info("  - Mood states (persistent affective baselines)")
+        logger.info("  - Somatic markers (gut feelings for decisions)")
+        logger.info("  - Emotion modulates learning, exploration, attention")
+
+        # Executive Function System - Cognitive control & flexibility
+        self.executive_function = ExecutiveFunctionSystem()
+        logger.info("Executive Function System initialized:")
+        logger.info("  - Task switching with reconfiguration costs")
+        logger.info("  - Inhibitory control (suppress prepotent responses)")
+        logger.info("  - Conflict monitoring (detect competing actions)")
+        logger.info("  - Error detection (performance monitoring)")
+        logger.info("  - Cognitive flexibility (adaptive control)")
+
+        # Automatic Planning System - Goal decomposition
+        self.planner = AutomaticPlanningSystem()
+        logger.info("Automatic Planning System initialized:")
+        logger.info("  - Multi-step goal decomposition")
+        logger.info("  - Means-ends analysis (bridge current → goal)")
+        logger.info("  - Plan monitoring and replanning")
+        logger.info("  - Proactive execution of strategies")
+
+        # Intrinsic Curiosity System - Information-seeking motivation
+        self.curiosity = IntrinsicCuriositySystem()
+        logger.info("Intrinsic Curiosity System initialized:")
+        logger.info("  - Knowledge gap detection (information gap theory)")
+        logger.info("  - Prediction error driven exploration")
+        logger.info("  - Competence/mastery motivation")
+        logger.info("  - Optimal challenge seeking (flow theory)")
+        logger.info("  - Self-generated learning goals")
+
         # Tier 4: Temporal Awareness - Human Relationship With Time
         self.temporal_awareness = TemporalLifeAwareness()
 
@@ -2833,8 +2869,38 @@ class HumanEquivalentCognition:
                 self.rumination.mental_noise_level = intrusive_thought.emotional_intensity * 0.3
 
         # TIER 7: Meta-cognitive processing
-        if hasattr(self, 'meta_cognitive'):
+        if hasattr(self, 'meta_cognitive') and self.meta_cognitive is not None:
             self.meta_cognitive.tick(current_context=context_str)
+
+        # ═══════════════════════════════════════════════════════════════════
+        # ADVANCED COGNITIVE SYSTEMS INTEGRATION
+        # ═══════════════════════════════════════════════════════════════════
+
+        # Core Affect: Update emotional state each tick
+        self.core_affect.tick()
+
+        # Executive Function: Decay cognitive control (increases when conflicts/errors occur)
+        self.executive_function.decay_cognitive_control()
+
+        # Apply switch cost penalty if recent task switch
+        switch_cost_penalty = self.executive_function.get_switch_cost_penalty()
+        confidence -= switch_cost_penalty * 0.3  # Reduce confidence after task switch
+
+        # Curiosity: Check for exploration motivation
+        curiosity_driven = self.curiosity.should_explore_for_curiosity()
+        if curiosity_driven:
+            # Override action with exploration for knowledge
+            exploration_actions = [a for a in available_actions if 'explore' in a or 'investigate' in a]
+            if exploration_actions:
+                chosen_action = random.choice(exploration_actions)
+                action_source = "curiosity"
+
+        # Planner: Check for planned action
+        if self.planner.should_follow_plan():
+            planned_action = self.planner.get_next_planned_action()
+            if planned_action and planned_action in available_actions:
+                chosen_action = planned_action
+                action_source = "plan"
 
         # Compute hesitation (uncertainty causes delay)
         hesitation = 0.0
@@ -3161,6 +3227,12 @@ class HumanEquivalentCognition:
         # === EMBODIED SIMULATION SYSTEM ===
         state['embodied_simulation'] = self.embodied_simulation.get_state()
 
+        # === ADVANCED COGNITIVE SYSTEMS ===
+        state['core_affect'] = self.core_affect.get_state()
+        state['executive_function'] = self.executive_function.get_state()
+        state['planner'] = self.planner.get_state()
+        state['curiosity'] = self.curiosity.get_state()
+
         try:
             with open(self.persistence_path, 'w') as f:
                 json.dump(state, f, indent=2, default=str)
@@ -3285,6 +3357,16 @@ class HumanEquivalentCognition:
                 self.embodied_simulation.set_state(state['embodied_simulation'])
                 logger.info(f"  Restored embodied simulation: {len(self.embodied_simulation.motor_patterns)} motor patterns, "
                            f"simulation skill: {self.embodied_simulation.simulation_skill:.2f}")
+
+            # === ADVANCED COGNITIVE SYSTEMS ===
+            if 'core_affect' in state:
+                self.core_affect.set_state(state['core_affect'])
+            if 'executive_function' in state:
+                self.executive_function.set_state(state['executive_function'])
+            if 'planner' in state:
+                self.planner.set_state(state['planner'])
+            if 'curiosity' in state:
+                self.curiosity.set_state(state['curiosity'])
 
             logger.info(f"Restored cognitive state: {self._tick_count} previous ticks, "
                        f"{len(self.beliefs.beliefs)} beliefs, "
@@ -8492,6 +8574,1271 @@ class EmbodiedSimulationSystem:
         logger.info(f"Embodied Simulation restored: {len(self.motor_patterns)} motor patterns, "
                    f"simulation_skill={self.simulation_skill:.2f}")
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CORE AFFECT SYSTEM - Unified Emotional Architecture
+# ═══════════════════════════════════════════════════════════════════════════════
+# Integrates scattered emotional components into a coherent affect system based on:
+# - Russell's circumplex model (arousal × valence dimensions)
+# - Discrete emotion theory (fear, anger, joy, sadness, surprise, disgust)
+# - Appraisal theory (primary/secondary appraisal)
+# - Somatic marker hypothesis (Damasio: emotions guide decisions)
+#
+# This system provides the missing unified emotional substrate that:
+# - Modulates all cognitive processes (attention, memory, learning, decision-making)
+# - Provides homeostatic feedback on goal progress
+# - Generates somatic markers for intuitive decision-making
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class EmotionType(Enum):
+    """Discrete emotions with specific action tendencies."""
+    JOY = auto()          # Approach, continue, celebrate
+    FEAR = auto()         # Avoid, flee, freeze
+    ANGER = auto()        # Fight, confront, remove obstacle
+    SADNESS = auto()      # Withdraw, conserve, seek support
+    SURPRISE = auto()     # Orient, investigate, update beliefs
+    DISGUST = auto()      # Reject, avoid contamination
+    PRIDE = auto()        # Display competence, increase self-esteem
+    SHAME = auto()        # Hide, withdraw, self-criticism
+    ANXIETY = auto()      # Vigilance, worry, risk avoidance
+    RELIEF = auto()       # Relax, recovery, positive update
+    FRUSTRATION = auto()  # Persist with effort, or give up
+    CONTENTMENT = auto()  # Maintain current state, low arousal positive
+
+
+@dataclass
+class EmotionalState:
+    """Current emotional state with intensity."""
+    emotion: EmotionType
+    intensity: float  # 0-1
+    arousal: float   # 0-1 (physiological activation)
+    valence: float   # -1 to +1 (pleasant vs unpleasant)
+    onset_time: float
+    trigger: str  # What caused this emotion
+    action_tendency: str  # What this emotion wants to do
+
+
+class MoodState(Enum):
+    """Longer-duration affective baselines that color cognition."""
+    NEUTRAL = auto()
+    ANXIOUS = auto()       # Persistent worry, threat-focused
+    DEPRESSED = auto()     # Low energy, negative bias, withdrawal
+    ELATED = auto()        # High energy, positive bias, approach
+    IRRITABLE = auto()     # Quick to anger, low threshold
+    CONFIDENT = auto()     # High self-efficacy, approach challenges
+
+
+class CoreAffectSystem:
+    """
+    Unified emotional architecture integrating affect across all cognition.
+
+    Provides:
+    - Core affect dimensions (arousal × valence)
+    - Discrete emotions with action tendencies
+    - Mood states that bias processing
+    - Appraisal mechanisms
+    - Somatic markers for decisions
+    - Emotion regulation
+    """
+
+    def __init__(self):
+        # Core affect (Russell's circumplex)
+        self.arousal = 0.5  # 0 (calm) to 1 (highly aroused)
+        self.valence = 0.0  # -1 (unpleasant) to +1 (pleasant)
+
+        # Current discrete emotion
+        self.current_emotion = EmotionalState(
+            emotion=EmotionType.CONTENTMENT,
+            intensity=0.3,
+            arousal=0.3,
+            valence=0.2,
+            onset_time=time.time(),
+            trigger="initial_state",
+            action_tendency="maintain"
+        )
+
+        # Mood (longer duration affective baseline)
+        self.current_mood = MoodState.NEUTRAL
+        self.mood_duration = 0.0
+        self.mood_intensity = 0.3
+
+        # Emotion history
+        self.emotion_history: List[EmotionalState] = []
+        self.max_history = 100
+
+        # Somatic markers (gut feelings about situations)
+        self.somatic_markers: Dict[str, float] = {}  # situation -> valence
+
+        # Emotion regulation state
+        self.regulation_active = False
+        self.regulation_strategy = None  # 'suppression', 'reappraisal', 'distraction'
+
+        # Emotional reactivity (trait-like)
+        self.emotional_reactivity = 0.6  # How easily emotions triggered
+        self.recovery_rate = 0.1  # How quickly emotions decay
+
+    def appraise_event(self, event: Dict[str, Any]) -> EmotionalState:
+        """
+        Appraise an event and generate appropriate emotion.
+
+        Primary appraisal: Is this relevant to my goals? Good or bad?
+        Secondary appraisal: Can I cope with this?
+        """
+        # Extract event features
+        goal_relevance = event.get('goal_relevance', 0.5)
+        goal_congruence = event.get('goal_congruence', 0.0)  # -1 (blocks) to +1 (helps)
+        coping_potential = event.get('coping_potential', 0.5)
+        novelty = event.get('novelty', 0.0)
+        urgency = event.get('urgency', 0.5)
+
+        # Compute arousal (based on relevance, novelty, urgency)
+        arousal = min(1.0, (goal_relevance + novelty + urgency) / 3.0)
+        arousal *= self.emotional_reactivity
+
+        # Compute valence (based on goal congruence)
+        valence = goal_congruence
+
+        # Select discrete emotion based on appraisal pattern
+        emotion_type = self._select_emotion_from_appraisal(
+            goal_congruence, coping_potential, novelty, urgency
+        )
+
+        # Determine action tendency
+        action_tendency = self._get_action_tendency(emotion_type)
+
+        # Create emotional state
+        emotion_state = EmotionalState(
+            emotion=emotion_type,
+            intensity=min(1.0, goal_relevance * self.emotional_reactivity),
+            arousal=arousal,
+            valence=valence,
+            onset_time=time.time(),
+            trigger=event.get('description', 'unknown'),
+            action_tendency=action_tendency
+        )
+
+        return emotion_state
+
+    def _select_emotion_from_appraisal(self, goal_congruence: float,
+                                       coping_potential: float,
+                                       novelty: float,
+                                       urgency: float) -> EmotionType:
+        """Select discrete emotion based on appraisal dimensions."""
+
+        # High novelty → SURPRISE
+        if novelty > 0.7:
+            return EmotionType.SURPRISE
+
+        # Goal congruent (positive outcomes)
+        if goal_congruence > 0.3:
+            if urgency > 0.6:
+                return EmotionType.JOY
+            elif goal_congruence > 0.6:
+                return EmotionType.PRIDE
+            else:
+                return EmotionType.CONTENTMENT
+
+        # Goal incongruent (negative outcomes)
+        elif goal_congruence < -0.3:
+            # Can cope? → ANGER (fight). Can't cope? → FEAR (flee)
+            if coping_potential > 0.6:
+                return EmotionType.ANGER
+            elif coping_potential < 0.3:
+                return EmotionType.FEAR
+            elif urgency < 0.3:
+                return EmotionType.SADNESS
+            else:
+                return EmotionType.FRUSTRATION
+
+        # Neutral
+        else:
+            return EmotionType.CONTENTMENT
+
+    def _get_action_tendency(self, emotion: EmotionType) -> str:
+        """Get the behavioral tendency for each emotion."""
+        tendencies = {
+            EmotionType.JOY: "approach_continue",
+            EmotionType.FEAR: "avoid_flee",
+            EmotionType.ANGER: "confront_remove_obstacle",
+            EmotionType.SADNESS: "withdraw_conserve",
+            EmotionType.SURPRISE: "orient_investigate",
+            EmotionType.DISGUST: "reject_avoid",
+            EmotionType.PRIDE: "display_persist",
+            EmotionType.SHAME: "hide_withdraw",
+            EmotionType.ANXIETY: "vigilance_avoid_risk",
+            EmotionType.RELIEF: "relax_recover",
+            EmotionType.FRUSTRATION: "persist_or_quit",
+            EmotionType.CONTENTMENT: "maintain_status",
+        }
+        return tendencies.get(emotion, "neutral")
+
+    def update_emotion(self, new_emotion: EmotionalState):
+        """Update current emotion and affect dimensions."""
+        # Store in history
+        self.emotion_history.append(self.current_emotion)
+        if len(self.emotion_history) > self.max_history:
+            self.emotion_history.pop(0)
+
+        # Update current emotion
+        self.current_emotion = new_emotion
+
+        # Update core affect dimensions
+        self.arousal = new_emotion.arousal
+        self.valence = new_emotion.valence
+
+        # Create somatic marker for this situation
+        self._update_somatic_marker(new_emotion)
+
+    def _update_somatic_marker(self, emotion: EmotionalState):
+        """Learn gut feelings about situations from emotional experiences."""
+        situation_signature = emotion.trigger[:50]  # Truncate to key features
+
+        # Update somatic marker as running average
+        if situation_signature in self.somatic_markers:
+            # Weighted update: recent emotions count more
+            current = self.somatic_markers[situation_signature]
+            self.somatic_markers[situation_signature] = 0.7 * current + 0.3 * emotion.valence
+        else:
+            self.somatic_markers[situation_signature] = emotion.valence
+
+    def get_somatic_marker(self, situation: str) -> Optional[float]:
+        """Get gut feeling about a situation (if previously experienced)."""
+        situation_signature = situation[:50]
+        return self.somatic_markers.get(situation_signature, None)
+
+    def tick(self):
+        """Update emotional state each tick (decay, mood updates)."""
+        # Decay arousal toward baseline
+        baseline_arousal = 0.4
+        self.arousal += (baseline_arousal - self.arousal) * self.recovery_rate
+
+        # Decay valence toward neutral (mood baseline)
+        mood_baseline = self._get_mood_valence_baseline()
+        self.valence += (mood_baseline - self.valence) * self.recovery_rate
+
+        # Decay emotion intensity
+        self.current_emotion.intensity *= (1.0 - self.recovery_rate)
+
+        # Update mood based on recent emotion history
+        self._update_mood()
+
+    def _update_mood(self):
+        """Update mood based on recent emotional experiences."""
+        if len(self.emotion_history) < 5:
+            return
+
+        # Average valence and arousal over recent history
+        recent_window = self.emotion_history[-20:]
+        avg_valence = sum(e.valence for e in recent_window) / len(recent_window)
+        avg_arousal = sum(e.arousal for e in recent_window) / len(recent_window)
+
+        # Map to mood states
+        if avg_arousal > 0.6 and avg_valence > 0.3:
+            new_mood = MoodState.ELATED
+        elif avg_arousal > 0.6 and avg_valence < -0.3:
+            new_mood = MoodState.ANXIOUS
+        elif avg_arousal < 0.4 and avg_valence < -0.3:
+            new_mood = MoodState.DEPRESSED
+        elif avg_valence < -0.2 and avg_arousal > 0.5:
+            new_mood = MoodState.IRRITABLE
+        elif avg_valence > 0.3 and avg_arousal < 0.5:
+            new_mood = MoodState.CONFIDENT
+        else:
+            new_mood = MoodState.NEUTRAL
+
+        if new_mood != self.current_mood:
+            self.current_mood = new_mood
+            self.mood_duration = 0.0
+        else:
+            self.mood_duration += 1
+
+    def _get_mood_valence_baseline(self) -> float:
+        """Get the valence baseline for current mood."""
+        baselines = {
+            MoodState.NEUTRAL: 0.0,
+            MoodState.ANXIOUS: -0.3,
+            MoodState.DEPRESSED: -0.5,
+            MoodState.ELATED: 0.4,
+            MoodState.IRRITABLE: -0.2,
+            MoodState.CONFIDENT: 0.2,
+        }
+        return baselines.get(self.current_mood, 0.0)
+
+    def modulate_learning_rate(self, base_rate: float) -> float:
+        """Emotions modulate learning rate (high arousal → faster learning)."""
+        return base_rate * (1.0 + 0.5 * self.arousal)
+
+    def modulate_exploration_rate(self, base_rate: float) -> float:
+        """Emotions modulate exploration (fear reduces, joy increases)."""
+        if self.current_emotion.emotion == EmotionType.FEAR:
+            return base_rate * 0.5
+        elif self.current_emotion.emotion == EmotionType.JOY:
+            return base_rate * 1.3
+        elif self.current_emotion.emotion == EmotionType.ANXIETY:
+            return base_rate * 0.7
+        else:
+            return base_rate
+
+    def bias_attention(self, stimuli_salience: Dict[str, float]) -> Dict[str, float]:
+        """Emotions bias attention toward mood-congruent stimuli."""
+        biased_salience = stimuli_salience.copy()
+
+        # Anxiety/fear → attend to threats
+        if self.current_emotion.emotion in [EmotionType.FEAR, EmotionType.ANXIETY]:
+            for stimulus in biased_salience:
+                if 'danger' in stimulus or 'threat' in stimulus or 'enemy' in stimulus:
+                    biased_salience[stimulus] *= 2.0
+
+        # Depression → attend to negative
+        elif self.current_mood == MoodState.DEPRESSED:
+            for stimulus in biased_salience:
+                if 'loss' in stimulus or 'failure' in stimulus:
+                    biased_salience[stimulus] *= 1.5
+
+        return biased_salience
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'arousal': self.arousal,
+            'valence': self.valence,
+            'current_emotion': {
+                'type': self.current_emotion.emotion.name,
+                'intensity': self.current_emotion.intensity,
+                'arousal': self.current_emotion.arousal,
+                'valence': self.current_emotion.valence,
+                'trigger': self.current_emotion.trigger,
+            },
+            'current_mood': self.current_mood.name,
+            'mood_duration': self.mood_duration,
+            'somatic_markers': self.somatic_markers,
+            'emotional_reactivity': self.emotional_reactivity,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        self.arousal = state.get('arousal', 0.5)
+        self.valence = state.get('valence', 0.0)
+
+        if 'current_emotion' in state:
+            em = state['current_emotion']
+            try:
+                emotion_type = EmotionType[em['type']]
+            except KeyError:
+                emotion_type = EmotionType.CONTENTMENT
+
+            self.current_emotion = EmotionalState(
+                emotion=emotion_type,
+                intensity=em.get('intensity', 0.3),
+                arousal=em.get('arousal', 0.5),
+                valence=em.get('valence', 0.0),
+                onset_time=time.time(),
+                trigger=em.get('trigger', 'restored'),
+                action_tendency=self._get_action_tendency(emotion_type)
+            )
+
+        if 'current_mood' in state:
+            try:
+                self.current_mood = MoodState[state['current_mood']]
+            except KeyError:
+                self.current_mood = MoodState.NEUTRAL
+
+        self.mood_duration = state.get('mood_duration', 0.0)
+        self.somatic_markers = state.get('somatic_markers', {})
+        self.emotional_reactivity = state.get('emotional_reactivity', 0.6)
+
+        logger.info(f"Core Affect restored: emotion={self.current_emotion.emotion.name}, "
+                   f"mood={self.current_mood.name}, {len(self.somatic_markers)} somatic markers")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXECUTIVE FUNCTION SYSTEM - Cognitive Control & Flexibility
+# ═══════════════════════════════════════════════════════════════════════════════
+# Implements frontal lobe executive functions:
+# - Task switching with reconfiguration costs
+# - Inhibitory control (suppress inappropriate actions)
+# - Conflict monitoring (detect competing responses)
+# - Error detection and correction
+# - Cognitive flexibility
+#
+# Missing piece: The agent can select actions but lacks mechanisms to flexibly
+# switch strategies, inhibit impulses, or monitor for conflicts and errors.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TaskContext(Enum):
+    """Different task contexts requiring different cognitive sets."""
+    COMBAT = auto()
+    EXPLORATION = auto()
+    SOCIAL = auto()
+    QUESTING = auto()
+    RESOURCE_GATHERING = auto()
+    TRAVEL = auto()
+    CRAFTING = auto()
+    REST = auto()
+
+
+@dataclass
+class ConflictEvent:
+    """Detected conflict between competing action tendencies."""
+    timestamp: float
+    competing_actions: List[str]
+    conflict_strength: float  # How much they compete
+    resolution: str  # Which action won
+    resolution_time: float  # How long to resolve
+
+
+@dataclass
+class ErrorEvent:
+    """Detected error in performance monitoring."""
+    timestamp: float
+    expected_outcome: str
+    actual_outcome: str
+    error_magnitude: float
+    corrective_action: Optional[str]
+
+
+class ExecutiveFunctionSystem:
+    """
+    Cognitive control system for flexible, goal-directed behavior.
+
+    Provides:
+    - Task set switching with costs
+    - Response inhibition
+    - Conflict monitoring
+    - Error detection
+    - Cognitive flexibility
+    """
+
+    def __init__(self):
+        # Current task context
+        self.current_task_context = TaskContext.EXPLORATION
+        self.task_context_stability = 0.0  # How long in current context
+
+        # Task switching
+        self.switch_cost_active = False
+        self.switch_cost_magnitude = 0.0  # Performance degradation after switch
+        self.switch_cost_decay = 0.1  # How fast switch cost dissipates
+
+        # Inhibitory control
+        self.prepotent_response = None  # The automatic/habitual response
+        self.inhibition_active = False
+        self.inhibition_success_rate = 0.5
+        self.inhibition_attempts = 0
+        self.inhibition_successes = 0
+
+        # Conflict monitoring
+        self.conflict_threshold = 0.5  # When to trigger increased control
+        self.conflicts_detected: List[ConflictEvent] = []
+        self.max_conflict_history = 50
+        self.cognitive_control_level = 0.5  # Increases when conflicts detected
+
+        # Error detection
+        self.errors_detected: List[ErrorEvent] = []
+        self.max_error_history = 50
+        self.error_monitoring_sensitivity = 0.6
+
+        # Cognitive flexibility
+        self.perseveration_tendency = 0.3  # Tendency to stick with current strategy
+        self.rule_following_rigidity = 0.5  # How hard to break current rules
+
+    def detect_task_switch(self, new_context: TaskContext) -> bool:
+        """Detect if task context has changed (requires reconfiguration)."""
+        if new_context != self.current_task_context:
+            # Task switch occurred
+            self._execute_task_switch(new_context)
+            return True
+        else:
+            self.task_context_stability += 1
+            return False
+
+    def _execute_task_switch(self, new_context: TaskContext):
+        """Execute task switch with reconfiguration cost."""
+        old_context = self.current_task_context
+        self.current_task_context = new_context
+
+        # Reset stability
+        self.task_context_stability = 0.0
+
+        # Impose switch cost (reduces performance temporarily)
+        # Cost is higher for larger shifts
+        context_distance = self._compute_context_distance(old_context, new_context)
+        self.switch_cost_magnitude = context_distance * 0.5
+        self.switch_cost_active = True
+
+        logger.debug(f"Task switch: {old_context.name} → {new_context.name} "
+                    f"(cost: {self.switch_cost_magnitude:.2f})")
+
+    def _compute_context_distance(self, ctx1: TaskContext, ctx2: TaskContext) -> float:
+        """Compute similarity between task contexts (0=same, 1=very different)."""
+        # Simple heuristic: combat vs non-combat is large switch
+        combat_contexts = {TaskContext.COMBAT}
+
+        if (ctx1 in combat_contexts) != (ctx2 in combat_contexts):
+            return 1.0  # Large switch
+        else:
+            return 0.5  # Moderate switch
+
+    def get_switch_cost_penalty(self) -> float:
+        """Get current performance penalty from task switching."""
+        if not self.switch_cost_active:
+            return 0.0
+
+        penalty = self.switch_cost_magnitude
+
+        # Decay switch cost over time
+        self.switch_cost_magnitude *= (1.0 - self.switch_cost_decay)
+
+        if self.switch_cost_magnitude < 0.05:
+            self.switch_cost_active = False
+            self.switch_cost_magnitude = 0.0
+
+        return penalty
+
+    def attempt_inhibition(self, prepotent_action: str, correct_action: str) -> str:
+        """Attempt to inhibit automatic response in favor of correct one."""
+        self.prepotent_response = prepotent_action
+        self.inhibition_attempts += 1
+
+        # Inhibition success depends on cognitive control level
+        inhibition_probability = self.inhibition_success_rate * self.cognitive_control_level
+
+        if random.random() < inhibition_probability:
+            # Successfully inhibited prepotent response
+            self.inhibition_successes += 1
+            self.inhibition_active = True
+            logger.debug(f"Inhibition success: suppressed {prepotent_action}, chose {correct_action}")
+            return correct_action
+        else:
+            # Failed to inhibit - prepotent response executed
+            self.inhibition_active = False
+            logger.debug(f"Inhibition failure: executed prepotent {prepotent_action}")
+            return prepotent_action
+
+    def monitor_conflict(self, action_candidates: Dict[str, float]) -> float:
+        """
+        Monitor for conflict between competing action tendencies.
+        Returns conflict level (0-1).
+        """
+        if len(action_candidates) < 2:
+            return 0.0
+
+        # Get top 2 actions by utility
+        sorted_actions = sorted(action_candidates.items(), key=lambda x: x[1], reverse=True)
+        top1_util = sorted_actions[0][1]
+        top2_util = sorted_actions[1][1]
+
+        # Conflict strength: how close are the top competitors?
+        # High conflict = utilities very similar
+        if top1_util > 0:
+            conflict_strength = top2_util / top1_util
+        else:
+            conflict_strength = 0.5
+
+        # Record conflict event if above threshold
+        if conflict_strength > self.conflict_threshold:
+            conflict_event = ConflictEvent(
+                timestamp=time.time(),
+                competing_actions=[sorted_actions[0][0], sorted_actions[1][0]],
+                conflict_strength=conflict_strength,
+                resolution=sorted_actions[0][0],
+                resolution_time=0.0  # Will be updated
+            )
+            self.conflicts_detected.append(conflict_event)
+
+            if len(self.conflicts_detected) > self.max_conflict_history:
+                self.conflicts_detected.pop(0)
+
+            # Increase cognitive control in response to conflict
+            self.cognitive_control_level = min(1.0, self.cognitive_control_level + 0.1)
+
+            logger.debug(f"Conflict detected: {conflict_event.competing_actions} "
+                        f"(strength: {conflict_strength:.2f})")
+
+        return conflict_strength
+
+    def detect_error(self, expected_outcome: Dict, actual_outcome: Dict) -> Optional[ErrorEvent]:
+        """
+        Monitor performance and detect errors (prediction vs reality mismatch).
+        """
+        # Compare expected vs actual
+        error_magnitude = self._compute_outcome_error(expected_outcome, actual_outcome)
+
+        if error_magnitude > self.error_monitoring_sensitivity:
+            # Error detected!
+            error_event = ErrorEvent(
+                timestamp=time.time(),
+                expected_outcome=str(expected_outcome),
+                actual_outcome=str(actual_outcome),
+                error_magnitude=error_magnitude,
+                corrective_action=None  # Will be determined by agent
+            )
+
+            self.errors_detected.append(error_event)
+            if len(self.errors_detected) > self.max_error_history:
+                self.errors_detected.pop(0)
+
+            # Increase cognitive control after error
+            self.cognitive_control_level = min(1.0, self.cognitive_control_level + 0.15)
+
+            logger.debug(f"Error detected: magnitude {error_magnitude:.2f}")
+            return error_event
+
+        return None
+
+    def _compute_outcome_error(self, expected: Dict, actual: Dict) -> float:
+        """Compute magnitude of prediction error."""
+        # Simple version: check key outcomes
+        error = 0.0
+
+        if 'success' in expected and 'success' in actual:
+            if expected['success'] != actual['success']:
+                error += 0.5
+
+        if 'hp_change' in expected and 'hp_change' in actual:
+            hp_error = abs(expected['hp_change'] - actual['hp_change']) / 100.0
+            error += hp_error
+
+        if 'reward' in expected and 'reward' in actual:
+            reward_error = abs(expected['reward'] - actual['reward']) / 10.0
+            error += reward_error * 0.3
+
+        return min(1.0, error)
+
+    def decay_cognitive_control(self):
+        """Gradually reduce cognitive control when no conflicts/errors."""
+        baseline = 0.5
+        self.cognitive_control_level += (baseline - self.cognitive_control_level) * 0.05
+
+    def get_inhibition_success_rate(self) -> float:
+        """Get success rate of inhibitory control."""
+        if self.inhibition_attempts == 0:
+            return 0.5
+        return self.inhibition_successes / self.inhibition_attempts
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'current_task_context': self.current_task_context.name,
+            'task_context_stability': self.task_context_stability,
+            'cognitive_control_level': self.cognitive_control_level,
+            'inhibition_success_rate': self.inhibition_success_rate,
+            'inhibition_attempts': self.inhibition_attempts,
+            'inhibition_successes': self.inhibition_successes,
+            'conflict_count': len(self.conflicts_detected),
+            'error_count': len(self.errors_detected),
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        if 'current_task_context' in state:
+            try:
+                self.current_task_context = TaskContext[state['current_task_context']]
+            except KeyError:
+                self.current_task_context = TaskContext.EXPLORATION
+
+        self.task_context_stability = state.get('task_context_stability', 0.0)
+        self.cognitive_control_level = state.get('cognitive_control_level', 0.5)
+        self.inhibition_success_rate = state.get('inhibition_success_rate', 0.5)
+        self.inhibition_attempts = state.get('inhibition_attempts', 0)
+        self.inhibition_successes = state.get('inhibition_successes', 0)
+
+        logger.info(f"Executive Function restored: context={self.current_task_context.name}, "
+                   f"control={self.cognitive_control_level:.2f}, "
+                   f"inhibition_rate={self.get_inhibition_success_rate():.2%}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AUTOMATIC PLANNING SYSTEM - Goal Decomposition & Means-Ends Analysis
+# ═══════════════════════════════════════════════════════════════════════════════
+# Implements multi-step planning and goal decomposition:
+# - Automatic subgoal generation from abstract goals
+# - Means-ends analysis (bridge current state → goal state)
+# - Action sequencing with preconditions
+# - Plan monitoring and replanning
+#
+# Missing piece: Agent has goals but doesn't automatically decompose them into
+# executable action sequences. Reacts to current state rather than proactively
+# executing multi-step strategies.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class PlanStep:
+    """A single step in a multi-step plan."""
+    step_number: int
+    action: str
+    preconditions: Dict[str, Any]  # What must be true before this step
+    expected_effects: Dict[str, Any]  # What this step accomplishes
+    estimated_duration: float  # How long this step takes
+    completed: bool = False
+
+
+@dataclass
+class Plan:
+    """A complete multi-step plan to achieve a goal."""
+    goal: str
+    steps: List[PlanStep]
+    creation_time: float
+    current_step: int = 0
+    plan_status: str = "active"  # "active", "completed", "failed", "abandoned"
+    failure_count: int = 0
+
+
+class AutomaticPlanningSystem:
+    """
+    Multi-step planning through goal decomposition and means-ends analysis.
+
+    Provides:
+    - Automatic subgoal generation
+    - Action sequence planning
+    - Plan execution monitoring
+    - Replanning when obstacles arise
+    - Mental simulation of future
+    """
+
+    def __init__(self):
+        # Active plans
+        self.active_plans: List[Plan] = []
+        self.max_active_plans = 3
+
+        # Completed/failed plan history
+        self.plan_history: List[Plan] = []
+        self.max_history = 50
+
+        # Planning parameters
+        self.planning_depth = 5  # How many steps ahead to plan
+        self.replan_threshold = 2  # Failures before replanning
+
+        # Plan execution
+        self.current_focus_plan = None
+        self.plan_commitment = 0.7  # How strongly to stick to plans
+
+    def create_plan(self, goal: str, current_state: Dict[str, Any]) -> Optional[Plan]:
+        """
+        Create a multi-step plan to achieve goal from current state.
+        Uses means-ends analysis.
+        """
+        # Decompose goal into subgoals
+        subgoals = self._decompose_goal(goal, current_state)
+
+        if not subgoals:
+            return None
+
+        # Create plan steps from subgoals
+        steps = []
+        for i, subgoal in enumerate(subgoals):
+            step = self._create_plan_step(i, subgoal, current_state)
+            steps.append(step)
+
+        plan = Plan(
+            goal=goal,
+            steps=steps,
+            creation_time=time.time(),
+            current_step=0,
+            plan_status="active"
+        )
+
+        # Add to active plans
+        self.active_plans.append(plan)
+        if len(self.active_plans) > self.max_active_plans:
+            # Remove oldest incomplete plan
+            self.active_plans.pop(0)
+
+        logger.debug(f"Created plan for '{goal}' with {len(steps)} steps")
+        return plan
+
+    def _decompose_goal(self, goal: str, current_state: Dict[str, Any]) -> List[str]:
+        """Decompose abstract goal into concrete subgoals."""
+        # Simple heuristic decomposition (could be much more sophisticated)
+
+        if "reach level" in goal.lower():
+            # Level up goal → exp grinding subgoals
+            target_level = self._extract_number(goal)
+            current_level = current_state.get('level', 1)
+
+            subgoals = []
+            for level in range(current_level + 1, target_level + 1):
+                subgoals.append(f"reach_level_{level}")
+            return subgoals[:self.planning_depth]  # Limit depth
+
+        elif "gold" in goal.lower():
+            # Gold acquisition goal
+            target_gold = self._extract_number(goal)
+            current_gold = current_state.get('gold', 0)
+            gap = target_gold - current_gold
+
+            return [
+                "find_grinding_spot",
+                f"farm_gold_{gap//2}",
+                f"farm_gold_{gap}",
+                "sell_items"
+            ]
+
+        elif "quest" in goal.lower():
+            # Quest completion
+            return [
+                "accept_quest",
+                "gather_quest_items",
+                "complete_objectives",
+                "turn_in_quest"
+            ]
+
+        elif "gear" in goal.lower() or "item" in goal.lower():
+            # Item acquisition
+            return [
+                "identify_source",
+                "travel_to_location",
+                "farm_boss_or_vendor",
+                "acquire_item"
+            ]
+
+        else:
+            # Generic goal - single step
+            return [goal]
+
+    def _extract_number(self, text: str) -> int:
+        """Extract first number from text."""
+        import re
+        match = re.search(r'\d+', text)
+        return int(match.group()) if match else 0
+
+    def _create_plan_step(self, step_num: int, subgoal: str,
+                         current_state: Dict[str, Any]) -> PlanStep:
+        """Create a plan step from a subgoal."""
+        # Determine action and preconditions for this subgoal
+
+        if "reach_level" in subgoal:
+            return PlanStep(
+                step_number=step_num,
+                action="grind_exp",
+                preconditions={'alive': True, 'in_level_appropriate_zone': True},
+                expected_effects={'level_up': True},
+                estimated_duration=1800.0  # 30 minutes per level (rough estimate)
+            )
+
+        elif "farm_gold" in subgoal:
+            return PlanStep(
+                step_number=step_num,
+                action="farm_gold",
+                preconditions={'alive': True, 'has_bag_space': True},
+                expected_effects={'gold_increased': True},
+                estimated_duration=900.0  # 15 minutes
+            )
+
+        elif "quest" in subgoal:
+            return PlanStep(
+                step_number=step_num,
+                action=subgoal,
+                preconditions={'alive': True, 'in_quest_area': True},
+                expected_effects={'quest_progress': True},
+                estimated_duration=600.0  # 10 minutes per quest step
+            )
+
+        else:
+            # Generic step
+            return PlanStep(
+                step_number=step_num,
+                action=subgoal,
+                preconditions={},
+                expected_effects={},
+                estimated_duration=300.0  # 5 minutes default
+            )
+
+    def monitor_plan_execution(self, current_state: Dict[str, Any]):
+        """Monitor active plans and update progress."""
+        for plan in self.active_plans:
+            if plan.plan_status != "active":
+                continue
+
+            # Check if current step is complete
+            current_step = plan.steps[plan.current_step]
+
+            if self._check_step_completion(current_step, current_state):
+                # Step complete!
+                current_step.completed = True
+                plan.current_step += 1
+
+                logger.debug(f"Plan step complete: {current_step.action}")
+
+                # Check if entire plan complete
+                if plan.current_step >= len(plan.steps):
+                    plan.plan_status = "completed"
+                    self._on_plan_completed(plan)
+
+            # Check for plan failures (preconditions violated)
+            elif not self._check_preconditions(current_step, current_state):
+                plan.failure_count += 1
+
+                if plan.failure_count >= self.replan_threshold:
+                    # Replan needed
+                    logger.debug(f"Plan failed, initiating replan: {plan.goal}")
+                    self._replan(plan, current_state)
+
+    def _check_step_completion(self, step: PlanStep, current_state: Dict[str, Any]) -> bool:
+        """Check if a plan step has been completed."""
+        # Check if expected effects are present in current state
+        for effect, expected_value in step.expected_effects.items():
+            if effect not in current_state:
+                return False
+            if current_state[effect] != expected_value:
+                return False
+        return True
+
+    def _check_preconditions(self, step: PlanStep, current_state: Dict[str, Any]) -> bool:
+        """Check if preconditions for a step are met."""
+        for precondition, required_value in step.preconditions.items():
+            if precondition not in current_state:
+                return False
+            if current_state[precondition] != required_value:
+                return False
+        return True
+
+    def _replan(self, failed_plan: Plan, current_state: Dict[str, Any]):
+        """Create a new plan when current plan fails."""
+        # Mark old plan as failed
+        failed_plan.plan_status = "failed"
+        self.plan_history.append(failed_plan)
+        self.active_plans.remove(failed_plan)
+
+        # Create new plan for same goal
+        new_plan = self.create_plan(failed_plan.goal, current_state)
+
+        if new_plan:
+            logger.debug(f"Replanned for goal: {failed_plan.goal}")
+
+    def _on_plan_completed(self, plan: Plan):
+        """Handle plan completion."""
+        self.plan_history.append(plan)
+        self.active_plans.remove(plan)
+        logger.info(f"Plan completed: {plan.goal} ({len(plan.steps)} steps)")
+
+    def get_next_planned_action(self) -> Optional[str]:
+        """Get the next action from active plans."""
+        if not self.active_plans:
+            return None
+
+        # Get highest priority active plan (first in list for now)
+        plan = self.active_plans[0]
+
+        if plan.current_step >= len(plan.steps):
+            return None
+
+        current_step = plan.steps[plan.current_step]
+        return current_step.action
+
+    def should_follow_plan(self) -> bool:
+        """Decide if agent should follow plan vs reactive decision."""
+        # Random commitment check
+        return random.random() < self.plan_commitment
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'active_plan_count': len(self.active_plans),
+            'completed_plan_count': len([p for p in self.plan_history if p.plan_status == "completed"]),
+            'failed_plan_count': len([p for p in self.plan_history if p.plan_status == "failed"]),
+            'plan_commitment': self.plan_commitment,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        self.plan_commitment = state.get('plan_commitment', 0.7)
+
+        logger.info(f"Planning System restored: {state.get('active_plan_count', 0)} active plans, "
+                   f"{state.get('completed_plan_count', 0)} completed")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INTRINSIC CURIOSITY SYSTEM - Information-Seeking & Prediction Error
+# ═══════════════════════════════════════════════════════════════════════════════
+# Implements intrinsic motivation based on:
+# - Information gap theory (Loewenstein): curiosity from knowledge gaps
+# - Prediction error minimization (free energy principle)
+# - Competence motivation (White): mastery for its own sake
+# - Optimal arousal theory (Berlyne): seek optimal novelty/complexity
+#
+# Missing piece: Exploration exists but isn't grounded in genuine curiosity about
+# specific knowledge gaps or prediction errors. No intrinsic mastery motivation.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class KnowledgeGap:
+    """A recognized gap in knowledge that triggers curiosity."""
+    topic: str
+    gap_type: str  # 'unknown', 'uncertain', 'inconsistent'
+    intensity: float  # How curious about this (0-1)
+    discovery_time: float
+    resolved: bool = False
+    resolution_time: Optional[float] = None
+
+
+@dataclass
+class PredictionError:
+    """Prediction error that drives learning and curiosity."""
+    timestamp: float
+    predicted: str
+    actual: str
+    error_magnitude: float
+    learned: bool = False
+
+
+class IntrinsicCuriositySystem:
+    """
+    Intrinsic motivation system based on information-seeking and mastery.
+
+    Provides:
+    - Knowledge gap detection and curiosity
+    - Prediction error driven exploration
+    - Competence/mastery motivation
+    - Optimal challenge seeking
+    - Self-generated learning goals
+    """
+
+    def __init__(self):
+        # Knowledge gaps (things we know we don't know)
+        self.knowledge_gaps: List[KnowledgeGap] = []
+        self.max_gaps = 50
+
+        # Prediction errors (surprises)
+        self.prediction_errors: List[PredictionError] = []
+        self.max_errors = 100
+
+        # Competence tracking (mastery motivation)
+        self.skill_mastery_levels: Dict[str, float] = {}  # skill -> mastery (0-1)
+        self.mastery_seeking_drive = 0.6  # Intrinsic mastery motivation
+
+        # Optimal arousal/challenge seeking
+        self.current_challenge_level = 0.5  # How challenging current activity
+        self.optimal_challenge = 0.6  # Sweet spot (flow theory)
+        self.boredom_threshold = 0.3  # Below this → too easy
+        self.anxiety_threshold = 0.8  # Above this → too hard
+
+        # Curiosity parameters
+        self.curiosity_drive = 0.5  # How strongly driven by curiosity
+        self.novelty_preference = 0.5  # How much to seek new experiences
+
+        # Information seeking behavior
+        self.questions_asked = 0
+        self.experiments_conducted = 0
+        self.exploration_for_knowledge = 0
+
+    def detect_knowledge_gap(self, topic: str, gap_type: str = 'unknown') -> KnowledgeGap:
+        """
+        Detect a gap in knowledge, triggering curiosity.
+
+        Gap types:
+        - 'unknown': Complete ignorance (highest curiosity)
+        - 'uncertain': Partial knowledge (moderate curiosity)
+        - 'inconsistent': Conflicting beliefs (high curiosity to resolve)
+        """
+        # Compute curiosity intensity based on gap type
+        intensity_map = {
+            'unknown': 0.8,
+            'uncertain': 0.6,
+            'inconsistent': 0.9,
+        }
+
+        intensity = intensity_map.get(gap_type, 0.5)
+
+        # Create knowledge gap
+        gap = KnowledgeGap(
+            topic=topic,
+            gap_type=gap_type,
+            intensity=intensity * self.curiosity_drive,
+            discovery_time=time.time(),
+            resolved=False
+        )
+
+        # Add to gaps
+        self.knowledge_gaps.append(gap)
+        if len(self.knowledge_gaps) > self.max_gaps:
+            # Remove oldest resolved gap
+            resolved_gaps = [g for g in self.knowledge_gaps if g.resolved]
+            if resolved_gaps:
+                self.knowledge_gaps.remove(resolved_gaps[0])
+
+        logger.debug(f"Knowledge gap detected: {topic} ({gap_type}, intensity: {intensity:.2f})")
+        return gap
+
+    def resolve_knowledge_gap(self, topic: str):
+        """Mark a knowledge gap as resolved (curiosity satisfied)."""
+        for gap in self.knowledge_gaps:
+            if gap.topic == topic and not gap.resolved:
+                gap.resolved = True
+                gap.resolution_time = time.time()
+                logger.debug(f"Knowledge gap resolved: {topic}")
+                break
+
+    def record_prediction_error(self, predicted: str, actual: str,
+                               magnitude: float) -> PredictionError:
+        """
+        Record a prediction error (surprise).
+        High prediction errors → curiosity to understand why.
+        """
+        error = PredictionError(
+            timestamp=time.time(),
+            predicted=predicted,
+            actual=actual,
+            error_magnitude=magnitude,
+            learned=False
+        )
+
+        self.prediction_errors.append(error)
+        if len(self.prediction_errors) > self.max_errors:
+            self.prediction_errors.pop(0)
+
+        # Large prediction errors trigger curiosity
+        if magnitude > 0.5:
+            self.detect_knowledge_gap(
+                f"why_{predicted}_became_{actual}",
+                gap_type='unknown'
+            )
+
+        return error
+
+    def get_intrinsic_reward(self, event: Dict[str, Any]) -> float:
+        """
+        Compute intrinsic reward from curiosity/mastery (separate from extrinsic).
+
+        Returns positive reward for:
+        - Resolving knowledge gaps
+        - Reducing prediction error
+        - Achieving mastery milestones
+        - Optimal challenge engagement
+        """
+        reward = 0.0
+
+        # Reward for knowledge gap resolution
+        if event.get('knowledge_gained', False):
+            # Check if this resolves any active gaps
+            for gap in self.knowledge_gaps:
+                if not gap.resolved and gap.topic in str(event):
+                    reward += gap.intensity * 2.0  # Curiosity satisfaction
+                    self.resolve_knowledge_gap(gap.topic)
+
+        # Reward for prediction error reduction (learning)
+        if event.get('prediction_improved', False):
+            reward += 0.5
+
+        # Reward for mastery progress
+        if event.get('skill_improvement', False):
+            skill = event.get('skill_name', 'unknown')
+            improvement = event.get('improvement_amount', 0.1)
+            reward += improvement * self.mastery_seeking_drive * 2.0
+
+        # Reward for novel experiences
+        if event.get('novel_experience', False):
+            novelty = event.get('novelty_level', 0.5)
+            reward += novelty * self.novelty_preference
+
+        # Reward/penalty for challenge level
+        if 'challenge_level' in event:
+            challenge = event['challenge_level']
+            # Optimal challenge → reward (flow state)
+            # Too easy or too hard → penalty (boredom/anxiety)
+            distance_from_optimal = abs(challenge - self.optimal_challenge)
+            if distance_from_optimal < 0.2:
+                reward += 1.0  # In flow!
+            else:
+                reward -= distance_from_optimal * 0.5
+
+        return reward
+
+    def should_explore_for_curiosity(self) -> bool:
+        """Decide if agent should explore to satisfy curiosity vs exploit."""
+        # Check if we have unresolved knowledge gaps
+        unresolved_gaps = [g for g in self.knowledge_gaps if not g.resolved]
+
+        if not unresolved_gaps:
+            return False
+
+        # Probability of curiosity-driven exploration
+        # Higher when more intense gaps
+        max_intensity = max(g.intensity for g in unresolved_gaps)
+        explore_prob = max_intensity * self.curiosity_drive
+
+        return random.random() < explore_prob
+
+    def get_most_curious_topic(self) -> Optional[str]:
+        """Get the topic we're most curious about."""
+        unresolved = [g for g in self.knowledge_gaps if not g.resolved]
+        if not unresolved:
+            return None
+
+        most_intense = max(unresolved, key=lambda g: g.intensity)
+        return most_intense.topic
+
+    def update_skill_mastery(self, skill: str, performance: float):
+        """Update mastery level for a skill (for competence motivation)."""
+        if skill not in self.skill_mastery_levels:
+            self.skill_mastery_levels[skill] = 0.0
+
+        # Gradual mastery increase
+        current = self.skill_mastery_levels[skill]
+        self.skill_mastery_levels[skill] = current + (performance - current) * 0.1
+
+    def get_mastery_motivation(self, skill: str) -> float:
+        """Get intrinsic motivation to practice a skill toward mastery."""
+        current_mastery = self.skill_mastery_levels.get(skill, 0.0)
+
+        # Motivation peaks at intermediate mastery (most room to grow)
+        # Low at 0 (don't know it's worth learning) and at 1 (already mastered)
+        inverted_u = 4 * current_mastery * (1 - current_mastery)  # Peaks at 0.5
+
+        return inverted_u * self.mastery_seeking_drive
+
+    def assess_challenge_level(self, task_difficulty: float, agent_skill: float) -> float:
+        """
+        Assess if task difficulty matches agent skill (flow theory).
+        Returns challenge level (0=too easy, 1=too hard, ~0.6=optimal).
+        """
+        # Challenge = task difficulty relative to skill
+        if agent_skill > 0:
+            challenge = task_difficulty / agent_skill
+        else:
+            challenge = 1.0  # Unknown skill = maximum challenge
+
+        # Clamp to 0-1
+        challenge = max(0.0, min(1.0, challenge))
+
+        self.current_challenge_level = challenge
+        return challenge
+
+    def get_flow_state_probability(self) -> float:
+        """Get probability agent is in 'flow' state (optimal challenge)."""
+        distance_from_optimal = abs(self.current_challenge_level - self.optimal_challenge)
+
+        if distance_from_optimal < 0.1:
+            return 0.9  # Very likely in flow
+        elif distance_from_optimal < 0.3:
+            return 0.5  # Moderate flow
+        else:
+            return 0.1  # Not in flow
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'knowledge_gap_count': len([g for g in self.knowledge_gaps if not g.resolved]),
+            'prediction_error_count': len(self.prediction_errors),
+            'skill_mastery_levels': self.skill_mastery_levels,
+            'curiosity_drive': self.curiosity_drive,
+            'mastery_seeking_drive': self.mastery_seeking_drive,
+            'current_challenge_level': self.current_challenge_level,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        self.skill_mastery_levels = state.get('skill_mastery_levels', {})
+        self.curiosity_drive = state.get('curiosity_drive', 0.5)
+        self.mastery_seeking_drive = state.get('mastery_seeking_drive', 0.6)
+        self.current_challenge_level = state.get('current_challenge_level', 0.5)
+
+        logger.info(f"Curiosity System restored: {state.get('knowledge_gap_count', 0)} gaps, "
+                   f"{len(self.skill_mastery_levels)} skills tracked, "
+                   f"curiosity_drive={self.curiosity_drive:.2f}")
 
 
 class AutobiographicalMemory:
