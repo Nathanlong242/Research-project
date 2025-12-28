@@ -1,45 +1,71 @@
 # Human-Equivalent Cognition: Architecture Visualizations
 
+**Last Updated**: December 28, 2025
+**System Scale**: 30,820 lines (main agent) | 32,963 lines (total)
+**Implementation**: All 7 tiers + advanced cognitive systems + neuroscience-based systems
+
+---
+
 ## Overview: The 7-Tier Cognitive Architecture
+
+**Note**: This architecture builds upon a foundation of core cognitive systems (probabilistic beliefs, procedural memory, world model, drives, reinforcement learning) and is supported by advanced systems (core affect, executive function, planning, curiosity, embodied simulation) and neuroscience-based systems (perception, attention, reasoning, motor control).
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│                    PERCEPTION (Screen Capture)                      │
-│                    Computer Vision (OpenCV)                         │
+│                    PERCEPTION SYSTEM                                │
+│   Feature extraction, pattern recognition, perceptual learning     │
 └─────────────────────────────┬──────────────────────────────────────┘
                               │
                               ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│ TIER 1: PROBABILISTIC BELIEF FORMATION                             │
+│              FOUNDATION: CORE COGNITIVE SYSTEMS                     │
 │ ┌────────────────────────────────────────────────────────────────┐ │
-│ │ • Bayesian-like belief updating                                │ │
-│ │ • Evidence accumulation over time                              │ │
-│ │ • Belief decay (memories fade)                                 │ │
-│ │ • Confidence calibration                                       │ │
+│ │ • Probabilistic Belief System (Bayesian updating)              │ │
+│ │ • Procedural Memory System (skill acquisition)                 │ │
+│ │ • Internal World Model (spatial memory, spawn patterns)        │ │
+│ │ • Drive System (competing motivations)                         │ │
+│ │ • Reinforcement Learning (Q-learning, exploration)             │ │
 │ └────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────┬──────────────────────────────────────┘
                               │
                               ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│ TIER 2: MOTIVATIONAL DRIVE SYSTEM                                  │
+│ TIER 1: HUMAN LIFE SYSTEMS                                         │
 │ ┌────────────────────────────────────────────────────────────────┐ │
-│ │ Competing Drives:                                              │ │
-│ │ • SAFETY (avoid death) ←→ PROGRESS (level up)                 │ │
-│ │ • CURIOSITY (explore) ←→ COMFORT (stay safe)                  │ │
-│ │ • SOCIAL (interact) ←→ SOLO (independence)                    │ │
+│ │ • Progression Lifecycle (1-60 journey, milestones)             │ │
+│ │ • Wealth Emotional State (gold anxiety, security)              │ │
+│ │ • Gear Intuition Learning (experience-based evaluation)        │ │
+│ │ • Profession Commitment (identity through crafting)            │ │
+│ │ • Endgame Preparation (raid readiness, attunement)             │ │
+│ │ • Power Spike Detection (excitement from upgrades)             │ │
 │ │                                                                │ │
-│ │ Drive weights shift based on context & outcomes                │ │
+│ │ "Living in WoW" not just "Learning WoW"                       │ │
 │ └────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────┬──────────────────────────────────────┘
                               │
                               ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│ TIER 3: EPISODIC & AUTOBIOGRAPHICAL MEMORY                         │
+│ TIER 2: SOCIAL LIFE, EXPLORATION & MASTERY                         │
 │ ┌────────────────────────────────────────────────────────────────┐ │
-│ │ • Episodic: Specific events (deaths, victories, discoveries)   │ │
-│ │ • Semantic: Facts learned from experience                      │ │
-│ │ • Autobiographical: Life story, chapters, identity             │ │
-│ │ • Associative recall: location → memories, person → memories   │ │
+│ │ • Social Relationships (friends, enemies, trust)               │ │
+│ │ • Exploration Discovery (curiosity-driven)                     │ │
+│ │ • Death Psychology (trauma, revenge, fear)                     │ │
+│ │ • Combat Mastery Identity (personal fighting style)            │ │
+│ │ • Quest Narrative Engagement (story investment)                │ │
+│ │ • Routine Formation (session goals, habits)                    │ │
+│ │                                                                │ │
+│ │ Social bonds, curiosity, trauma, mastery pursuit               │ │
+│ └────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────┬──────────────────────────────────────┘
+                              │
+                              ▼
+┌────────────────────────────────────────────────────────────────────┐
+│ TIER 3: AUTOBIOGRAPHICAL MEMORY                                    │
+│ ┌────────────────────────────────────────────────────────────────┐ │
+│ │ • Life story construction (narrative identity)                 │ │
+│ │ • Identity-defining moments (events that shape self)           │ │
+│ │ • Emotional indexing (memories tagged by feeling)              │ │
+│ │ • Associative recall (context triggers memories)               │ │
 │ │                                                                │ │
 │ │ "Who am I?" "What's my story?" "How have I changed?"          │ │
 │ └────────────────────────────────────────────────────────────────┘ │
@@ -47,28 +73,27 @@
                               │
                               ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│ TIER 4: EMOTIONAL STATES WITH BEHAVIORAL CONSEQUENCES              │
+│ TIER 4: TEMPORAL AWARENESS                                         │
 │ ┌────────────────────────────────────────────────────────────────┐ │
-│ │ Emotions triggered by outcomes:                                │ │
-│ │ • FEAR (after death) → flee earlier, avoid danger              │ │
-│ │ • CONFIDENCE (after wins) → take risks, explore                │ │
-│ │ • FRUSTRATION (after failures) → abandon strategies            │ │
-│ │ • JOY (after discoveries) → explore more                       │ │
+│ │ • Session fatigue tracking (energy depletion)                  │ │
+│ │ • Activity burnout (grinding fatigue, social burnout)          │ │
+│ │ • Rest-seeking behavior (voluntary breaks)                     │ │
+│ │ • Performance degradation (extended play effects)              │ │
 │ │                                                                │ │
-│ │ Emotions modulate decisions (not just cosmetic labels)         │ │
+│ │ "I'm exhausted" "I need a break" - Human time experience       │ │
 │ └────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────┬──────────────────────────────────────┘
                               │
                               ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│ TIER 5: PERSONALITY CRYSTALLIZATION                                │
+│ TIER 5: PREFERENCE & VALUE CRYSTALLIZATION                         │
 │ ┌────────────────────────────────────────────────────────────────┐ │
-│ │ • Combat style emerges: aggressive / defensive / balanced      │ │
-│ │ • Preference formation: favorite abilities, strategies         │ │
-│ │ • Identity statements: "I'm a cautious player"                 │ │
-│ │ • Personality persists across sessions                         │ │
+│ │ • Preference learning (gear styles, combat approaches)         │ │
+│ │ • Value formation (success/failure history shapes values)      │ │
+│ │ • Idiosyncratic tastes (unique to each agent instance)         │ │
+│ │ • Authentic choice-making (constrained by preferences)         │ │
 │ │                                                                │ │
-│ │ Each agent becomes UNIQUE through experience                   │ │
+│ │ Each agent develops AUTHENTIC personality through experience   │ │
 │ └────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────┬──────────────────────────────────────┘
                               │
