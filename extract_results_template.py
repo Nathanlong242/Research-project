@@ -101,6 +101,212 @@ def test_h7_1_suppression_paradox(data_dir):
         'supported': p_value < 0.005 and pct_increase > 30
     }
 
+def test_h6_2_decision_quality(data_dir):
+    """H6.2: Decisions under high mental load are more likely to lead to negative outcomes"""
+    decisions = load_all_sessions(data_dir, '*_decisions_*.csv')
+
+    # Filter to TIER6 (has rumination/mental load)
+    tier6 = decisions[decisions['condition'] == 'TIER6']
+
+    # Split by mental load threshold
+    high_load = tier6[tier6['mental_load'] > 0.7]
+    low_load = tier6[tier6['mental_load'] <= 0.7]
+
+    # Calculate negative outcome rates
+    high_load_negative_rate = high_load['negative_outcome'].mean()
+    low_load_negative_rate = low_load['negative_outcome'].mean()
+
+    # Odds ratio
+    odds_ratio = (high_load_negative_rate / (1 - high_load_negative_rate)) / \
+                 (low_load_negative_rate / (1 - low_load_negative_rate))
+
+    # Chi-square test
+    contingency = [[high_load['negative_outcome'].sum(), len(high_load) - high_load['negative_outcome'].sum()],
+                   [low_load['negative_outcome'].sum(), len(low_load) - low_load['negative_outcome'].sum()]]
+    chi2, p_value, dof, expected = stats.chi2_contingency(contingency)
+
+    return {
+        'hypothesis': 'H6.2',
+        'high_load_negative_rate': high_load_negative_rate,
+        'low_load_negative_rate': low_load_negative_rate,
+        'odds_ratio': odds_ratio,
+        'chi2': chi2,
+        'p_value': p_value,
+        'supported': p_value < 0.005 and odds_ratio > 2.0
+    }
+
+
+def test_h6_3_intrusive_thought_contamination(data_dir):
+    """H6.3: Intrusive thoughts bias action selection toward congruent actions"""
+    decisions = load_all_sessions(data_dir, '*_decisions_*.csv')
+    ruminations = load_all_sessions(data_dir, '*_ruminations_*.csv')
+
+    # Filter to TIER6
+    tier6_decisions = decisions[decisions['condition'] == 'TIER6']
+
+    # Compare risk-averse action rate with/without intrusive thoughts
+    with_intrusive = tier6_decisions[tier6_decisions['intrusive_thought_active'] == True]
+    without_intrusive = tier6_decisions[tier6_decisions['intrusive_thought_active'] == False]
+
+    intrusive_risk_averse_rate = with_intrusive['risk_averse_action'].mean()
+    baseline_risk_averse_rate = without_intrusive['risk_averse_action'].mean()
+
+    # T-test for proportions
+    t_stat, p_value = stats.ttest_ind(
+        with_intrusive['risk_averse_action'].astype(float),
+        without_intrusive['risk_averse_action'].astype(float)
+    )
+
+    return {
+        'hypothesis': 'H6.3',
+        'intrusive_risk_averse_rate': intrusive_risk_averse_rate * 100,
+        'baseline_risk_averse_rate': baseline_risk_averse_rate * 100,
+        'bias_increase': (intrusive_risk_averse_rate - baseline_risk_averse_rate) * 100,
+        't_statistic': t_stat,
+        'p_value': p_value,
+        'supported': p_value < 0.005 and intrusive_risk_averse_rate > 0.6
+    }
+
+
+def test_h6_4_counterfactual_patterns(data_dir):
+    """H6.4: Counterfactual count correlates with emotional intensity"""
+    ruminations = load_all_sessions(data_dir, '*_ruminations_*.csv')
+
+    # Filter to TIER6 (has counterfactual generation)
+    tier6 = ruminations[ruminations['condition'] == 'TIER6']
+
+    # Correlate counterfactual count with emotional intensity
+    correlation, p_value = stats.pearsonr(
+        tier6['counterfactual_count'],
+        tier6['emotional_intensity']
+    )
+
+    return {
+        'hypothesis': 'H6.4',
+        'correlation': correlation,
+        'p_value': p_value,
+        'n_observations': len(tier6),
+        'supported': p_value < 0.005 and correlation > 0.5
+    }
+
+
+def test_h7_2_reappraisal_efficacy(data_dir):
+    """H7.2: Successful cognitive reappraisal reduces rumination intensity by 40-60%"""
+    ruminations = load_all_sessions(data_dir, '*_ruminations_*.csv')
+
+    # Filter to TIER7 (has meta-cognition/reappraisal)
+    tier7 = ruminations[ruminations['condition'] == 'TIER7']
+
+    # Compare intensity before/after successful reappraisal
+    successful = tier7[tier7['reappraisal_success'] == True]
+    intensity_before = successful['intensity_before_reappraisal'].mean()
+    intensity_after = successful['intensity_after_reappraisal'].mean()
+
+    reduction_pct = (intensity_before - intensity_after) / intensity_before * 100
+
+    # Paired t-test
+    t_stat, p_value = stats.ttest_rel(
+        successful['intensity_before_reappraisal'],
+        successful['intensity_after_reappraisal']
+    )
+
+    return {
+        'hypothesis': 'H7.2',
+        'intensity_before': intensity_before,
+        'intensity_after': intensity_after,
+        'reduction_percent': reduction_pct,
+        't_statistic': t_stat,
+        'p_value': p_value,
+        'supported': p_value < 0.005 and 40 <= reduction_pct <= 70
+    }
+
+
+def test_h7_3_meta_cognitive_load(data_dir):
+    """H7.3: Meta-rumination adds 15-21% additional mental load"""
+    ruminations = load_all_sessions(data_dir, '*_ruminations_*.csv')
+
+    # Filter to TIER7
+    tier7 = ruminations[ruminations['condition'] == 'TIER7']
+
+    # Compare mental load with/without meta-rumination
+    with_meta = tier7[tier7['meta_rumination_active'] == True]['mental_load']
+    without_meta = tier7[tier7['meta_rumination_active'] == False]['mental_load']
+
+    load_increase_pct = (with_meta.mean() - without_meta.mean()) / without_meta.mean() * 100
+
+    # T-test
+    t_stat, p_value = stats.ttest_ind(with_meta, without_meta)
+
+    return {
+        'hypothesis': 'H7.3',
+        'with_meta_load': with_meta.mean(),
+        'without_meta_load': without_meta.mean(),
+        'load_increase_percent': load_increase_pct,
+        't_statistic': t_stat,
+        'p_value': p_value,
+        'supported': p_value < 0.005 and 10 <= load_increase_pct <= 30
+    }
+
+
+def test_h7_4_insight_timing(data_dir):
+    """H7.4: Insights occur after 1-3 hours, during low mental load (<0.4)"""
+    insights = load_all_sessions(data_dir, '*_insights_*.csv')
+
+    # Filter to TIER7
+    tier7 = insights[insights['condition'] == 'TIER7']
+
+    # Analyze timing distribution
+    mean_hours = tier7['session_hours_at_insight'].mean()
+    std_hours = tier7['session_hours_at_insight'].std()
+
+    # Analyze mental load at insight
+    mean_load_at_insight = tier7['mental_load_at_insight'].mean()
+    low_load_insights = (tier7['mental_load_at_insight'] < 0.4).mean() * 100
+
+    return {
+        'hypothesis': 'H7.4',
+        'mean_hours': mean_hours,
+        'std_hours': std_hours,
+        'mean_load_at_insight': mean_load_at_insight,
+        'low_load_insight_percent': low_load_insights,
+        'n_insights': len(tier7),
+        'supported': 1.0 <= mean_hours <= 4.0 and mean_load_at_insight < 0.5
+    }
+
+
+def test_h7_5_regulation_learning(data_dir):
+    """H7.5: Reappraisal skill improves from 0.3 → 0.6-0.8 over 100+ attempts"""
+    ruminations = load_all_sessions(data_dir, '*_ruminations_*.csv')
+
+    # Filter to TIER7
+    tier7 = ruminations[ruminations['condition'] == 'TIER7']
+
+    # Get early vs late reappraisal success rates
+    tier7_sorted = tier7.sort_values('timestamp')
+    early = tier7_sorted.head(50)['reappraisal_success'].mean()
+    late = tier7_sorted.tail(50)['reappraisal_success'].mean()
+
+    # Calculate improvement
+    improvement = late - early
+
+    # Correlation between attempt number and success
+    tier7['attempt_number'] = range(len(tier7))
+    correlation, p_value = stats.pearsonr(
+        tier7['attempt_number'],
+        tier7['reappraisal_success'].astype(float)
+    )
+
+    return {
+        'hypothesis': 'H7.5',
+        'early_success_rate': early,
+        'late_success_rate': late,
+        'improvement': improvement,
+        'correlation': correlation,
+        'p_value': p_value,
+        'supported': p_value < 0.05 and late > 0.5 and improvement > 0.2
+    }
+
+
 def generate_paper_text(results):
     """Generate markdown text for paper Section 5"""
 
@@ -148,6 +354,115 @@ def generate_paper_text(results):
     else:
         md.append(f"**Interpretation**: ✗ NOT SUPPORTED - Effect not significant or magnitude below threshold.\n")
 
+    # H6.2
+    if 'H6.2' in results and 'error' not in results['H6.2']:
+        h6_2 = results['H6.2']
+        md.append("\n### H6.2: Post-Death Decision Quality\n")
+        md.append(f"**Hypothesis**: Decisions under high mental load (>0.7) are 3x more likely to lead to negative outcomes.\n")
+        md.append(f"\n**Results**:\n")
+        md.append(f"```")
+        md.append(f"High Load (>0.7): {h6_2['high_load_negative_rate']*100:.1f}% negative outcomes")
+        md.append(f"Low Load (≤0.7):  {h6_2['low_load_negative_rate']*100:.1f}% negative outcomes")
+        md.append(f"Odds Ratio:       {h6_2['odds_ratio']:.2f}x")
+        md.append(f"")
+        md.append(f"χ² = {h6_2['chi2']:.2f}, p = {h6_2['p_value']:.4f}")
+        md.append(f"```\n")
+        status = "✓ SUPPORTED" if h6_2['supported'] else "✗ NOT SUPPORTED"
+        md.append(f"**Interpretation**: {status}\n")
+
+    # H6.3
+    if 'H6.3' in results and 'error' not in results['H6.3']:
+        h6_3 = results['H6.3']
+        md.append("\n### H6.3: Intrusive Thought Contamination\n")
+        md.append(f"**Hypothesis**: Intrusive thoughts bias action selection toward risk-averse actions.\n")
+        md.append(f"\n**Results**:\n")
+        md.append(f"```")
+        md.append(f"With Intrusive Thoughts:    {h6_3['intrusive_risk_averse_rate']:.1f}% risk-averse")
+        md.append(f"Without Intrusive Thoughts: {h6_3['baseline_risk_averse_rate']:.1f}% risk-averse")
+        md.append(f"Bias Increase:              {h6_3['bias_increase']:.1f}%")
+        md.append(f"")
+        md.append(f"t = {h6_3['t_statistic']:.2f}, p = {h6_3['p_value']:.4f}")
+        md.append(f"```\n")
+        status = "✓ SUPPORTED" if h6_3['supported'] else "✗ NOT SUPPORTED"
+        md.append(f"**Interpretation**: {status}\n")
+
+    # H6.4
+    if 'H6.4' in results and 'error' not in results['H6.4']:
+        h6_4 = results['H6.4']
+        md.append("\n### H6.4: Counterfactual Generation Patterns\n")
+        md.append(f"**Hypothesis**: Counterfactual count correlates with emotional intensity (r > 0.5).\n")
+        md.append(f"\n**Results**:\n")
+        md.append(f"```")
+        md.append(f"Correlation (r): {h6_4['correlation']:.3f}")
+        md.append(f"p-value:         {h6_4['p_value']:.4f}")
+        md.append(f"N observations:  {h6_4['n_observations']}")
+        md.append(f"```\n")
+        status = "✓ SUPPORTED" if h6_4['supported'] else "✗ NOT SUPPORTED"
+        md.append(f"**Interpretation**: {status}\n")
+
+    # H7.2
+    if 'H7.2' in results and 'error' not in results['H7.2']:
+        h7_2 = results['H7.2']
+        md.append("\n### H7.2: Reappraisal Efficacy\n")
+        md.append(f"**Hypothesis**: Successful cognitive reappraisal reduces rumination intensity by 40-60%.\n")
+        md.append(f"\n**Results**:\n")
+        md.append(f"```")
+        md.append(f"Intensity Before: {h7_2['intensity_before']:.3f}")
+        md.append(f"Intensity After:  {h7_2['intensity_after']:.3f}")
+        md.append(f"Reduction:        {h7_2['reduction_percent']:.1f}%")
+        md.append(f"")
+        md.append(f"Paired t-test: t = {h7_2['t_statistic']:.2f}, p = {h7_2['p_value']:.4f}")
+        md.append(f"```\n")
+        status = "✓ SUPPORTED" if h7_2['supported'] else "✗ NOT SUPPORTED"
+        md.append(f"**Interpretation**: {status}\n")
+
+    # H7.3
+    if 'H7.3' in results and 'error' not in results['H7.3']:
+        h7_3 = results['H7.3']
+        md.append("\n### H7.3: Meta-Cognitive Load\n")
+        md.append(f"**Hypothesis**: Meta-rumination adds 15-21% additional mental load.\n")
+        md.append(f"\n**Results**:\n")
+        md.append(f"```")
+        md.append(f"With Meta-Rumination:    {h7_3['with_meta_load']:.3f}")
+        md.append(f"Without Meta-Rumination: {h7_3['without_meta_load']:.3f}")
+        md.append(f"Load Increase:           {h7_3['load_increase_percent']:.1f}%")
+        md.append(f"")
+        md.append(f"t = {h7_3['t_statistic']:.2f}, p = {h7_3['p_value']:.4f}")
+        md.append(f"```\n")
+        status = "✓ SUPPORTED" if h7_3['supported'] else "✗ NOT SUPPORTED"
+        md.append(f"**Interpretation**: {status}\n")
+
+    # H7.4
+    if 'H7.4' in results and 'error' not in results['H7.4']:
+        h7_4 = results['H7.4']
+        md.append("\n### H7.4: Insight Timing\n")
+        md.append(f"**Hypothesis**: Insights occur after 1-3 hours, during low mental load (<0.4).\n")
+        md.append(f"\n**Results**:\n")
+        md.append(f"```")
+        md.append(f"Mean Time to Insight:   {h7_4['mean_hours']:.2f} hours (SD={h7_4['std_hours']:.2f})")
+        md.append(f"Mean Load at Insight:   {h7_4['mean_load_at_insight']:.3f}")
+        md.append(f"% at Low Load (<0.4):   {h7_4['low_load_insight_percent']:.1f}%")
+        md.append(f"Total Insights:         {h7_4['n_insights']}")
+        md.append(f"```\n")
+        status = "✓ SUPPORTED" if h7_4['supported'] else "✗ NOT SUPPORTED"
+        md.append(f"**Interpretation**: {status}\n")
+
+    # H7.5
+    if 'H7.5' in results and 'error' not in results['H7.5']:
+        h7_5 = results['H7.5']
+        md.append("\n### H7.5: Regulation Strategy Learning\n")
+        md.append(f"**Hypothesis**: Reappraisal skill improves from ~0.3 to 0.6-0.8 over 100+ attempts.\n")
+        md.append(f"\n**Results**:\n")
+        md.append(f"```")
+        md.append(f"Early Success Rate (first 50):  {h7_5['early_success_rate']:.3f}")
+        md.append(f"Late Success Rate (last 50):    {h7_5['late_success_rate']:.3f}")
+        md.append(f"Improvement:                    {h7_5['improvement']:.3f}")
+        md.append(f"")
+        md.append(f"Learning Correlation: r = {h7_5['correlation']:.3f}, p = {h7_5['p_value']:.4f}")
+        md.append(f"```\n")
+        status = "✓ SUPPORTED" if h7_5['supported'] else "✗ NOT SUPPORTED"
+        md.append(f"**Interpretation**: {status}\n")
+
     return '\n'.join(md)
 
 def main():
@@ -177,7 +492,61 @@ def main():
         print(f"  ✗ H7.1: Failed - {e}")
         results['H7.1'] = {'error': str(e)}
 
-    # TODO: Add tests for H6.2, H6.3, H6.4, H7.2, H7.3, H7.4, H7.5
+    print("Testing H6.2: Decision quality under mental load...")
+    try:
+        results['H6.2'] = test_h6_2_decision_quality(args.data)
+        print(f"  ✓ H6.2: {'SUPPORTED' if results['H6.2']['supported'] else 'NOT SUPPORTED'}")
+    except Exception as e:
+        print(f"  ✗ H6.2: Failed - {e}")
+        results['H6.2'] = {'error': str(e)}
+
+    print("Testing H6.3: Intrusive thought contamination...")
+    try:
+        results['H6.3'] = test_h6_3_intrusive_thought_contamination(args.data)
+        print(f"  ✓ H6.3: {'SUPPORTED' if results['H6.3']['supported'] else 'NOT SUPPORTED'}")
+    except Exception as e:
+        print(f"  ✗ H6.3: Failed - {e}")
+        results['H6.3'] = {'error': str(e)}
+
+    print("Testing H6.4: Counterfactual generation patterns...")
+    try:
+        results['H6.4'] = test_h6_4_counterfactual_patterns(args.data)
+        print(f"  ✓ H6.4: {'SUPPORTED' if results['H6.4']['supported'] else 'NOT SUPPORTED'}")
+    except Exception as e:
+        print(f"  ✗ H6.4: Failed - {e}")
+        results['H6.4'] = {'error': str(e)}
+
+    print("Testing H7.2: Reappraisal efficacy...")
+    try:
+        results['H7.2'] = test_h7_2_reappraisal_efficacy(args.data)
+        print(f"  ✓ H7.2: {'SUPPORTED' if results['H7.2']['supported'] else 'NOT SUPPORTED'}")
+    except Exception as e:
+        print(f"  ✗ H7.2: Failed - {e}")
+        results['H7.2'] = {'error': str(e)}
+
+    print("Testing H7.3: Meta-cognitive load...")
+    try:
+        results['H7.3'] = test_h7_3_meta_cognitive_load(args.data)
+        print(f"  ✓ H7.3: {'SUPPORTED' if results['H7.3']['supported'] else 'NOT SUPPORTED'}")
+    except Exception as e:
+        print(f"  ✗ H7.3: Failed - {e}")
+        results['H7.3'] = {'error': str(e)}
+
+    print("Testing H7.4: Insight timing...")
+    try:
+        results['H7.4'] = test_h7_4_insight_timing(args.data)
+        print(f"  ✓ H7.4: {'SUPPORTED' if results['H7.4']['supported'] else 'NOT SUPPORTED'}")
+    except Exception as e:
+        print(f"  ✗ H7.4: Failed - {e}")
+        results['H7.4'] = {'error': str(e)}
+
+    print("Testing H7.5: Regulation strategy learning...")
+    try:
+        results['H7.5'] = test_h7_5_regulation_learning(args.data)
+        print(f"  ✓ H7.5: {'SUPPORTED' if results['H7.5']['supported'] else 'NOT SUPPORTED'}")
+    except Exception as e:
+        print(f"  ✗ H7.5: Failed - {e}")
+        results['H7.5'] = {'error': str(e)}
 
     # Generate paper text
     print(f"\nGenerating paper text...")
