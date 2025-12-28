@@ -132,18 +132,30 @@ Examples:
         sys.exit(1)
 
     # Create agent with experimental configuration
-    logger.info("Creating HumanEquivalentCognition agent...")
-    agent = HumanEquivalentCognition(config=config)
-
-    # Start the agent
-    logger.info("Starting agent lifecycle...")
-    if not agent.start():
-        logger.error("Agent failed to start (may be in REST state)")
-        logger.error("Check agent_status.json for details")
+    try:
+        logger.info("Creating HumanEquivalentCognition agent...")
+        agent = HumanEquivalentCognition(config=config)
+    except Exception as e:
+        logger.error(f"Failed to create agent: {e}")
+        logger.error("This may be due to missing dependencies or initialization errors")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
-    logger.info("Agent started successfully")
-    logger.info("=" * 70)
+    # Start the agent
+    try:
+        logger.info("Starting agent lifecycle...")
+        if not agent.start():
+            logger.error("Agent failed to start (may be in REST state)")
+            logger.error("Check agent_status.json for details")
+            sys.exit(1)
+        logger.info("Agent started successfully")
+        logger.info("=" * 70)
+    except Exception as e:
+        logger.error(f"Error starting agent: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
     # Run agent
     # TODO: Add proper game loop here

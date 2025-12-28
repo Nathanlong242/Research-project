@@ -142,7 +142,7 @@ This project has successfully completed the design, implementation, and document
 config = ExperimentConfig.tier_7_full(session_id="T7_run_001")
 
 # TIER 6: Rumination without meta-cognition
-config = ExperimentConfig.tier_6_rumination_only(session_id="T6_run_001")
+config = ExperimentConfig.tier_6_baseline(session_id="T6_run_001")
 
 # TIER 5: Baseline (no rumination)
 config = ExperimentConfig.tier_5_baseline(session_id="T5_run_001")
