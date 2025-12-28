@@ -87,19 +87,21 @@ Research-project/
 ├── behavioral_logger.py                       # Research instrumentation (~650 lines)
 ├── research_analysis.py                       # Statistical analysis pipeline (~750 lines)
 ├── experiment_config.py                       # Configuration system (~250 lines)
+├── run_experiment.py                          # Experimental runner script ⭐ NEW
+├── requirements.txt                           # Python dependencies ⭐ NEW
 │
 ├── TIER_6_IMPLEMENTATION_SUMMARY.md          # TIER 6 documentation (12 pages)
 ├── TIER_7_DESIGN.md                          # TIER 7 specification (12 pages)
 ├── TIER_7_IMPLEMENTATION_SUMMARY.md          # TIER 7 documentation (12 pages) ⭐
 ├── INTEGRATION_GUIDE.md                      # Logger integration guide
-├── ARCHITECTURE_DIAGRAMS.md                  # Visual architecture diagrams ⭐ NEW
+├── ARCHITECTURE_DIAGRAMS.md                  # Visual architecture diagrams ⭐
 │
 ├── RESEARCH_PAPER_OUTLINE.md                 # Original paper outline (40 pages)
-├── PAPER_DRAFT_SECTIONS_1-2.md               # Paper: Intro + Related Work (~3,800 words) ⭐ NEW
-├── PAPER_DRAFT_SECTIONS_3-4.md               # Paper: Architecture + Methods (~4,200 words) ⭐ NEW
-├── PAPER_DRAFT_SECTIONS_5-7.md               # Paper: Results + Discussion + Conclusion (~8,400 words) ⭐ NEW
+├── PAPER_DRAFT_SECTIONS_1-2.md               # Paper: Intro + Related Work (~3,800 words) ⭐
+├── PAPER_DRAFT_SECTIONS_3-4.md               # Paper: Architecture + Methods (~4,200 words) ⭐
+├── PAPER_DRAFT_SECTIONS_5-7.md               # Paper: Results + Discussion + Conclusion (~8,400 words) ⭐
 │
-├── RESEARCH_STATUS.md                        # Comprehensive project status ⭐ NEW
+├── RESEARCH_STATUS.md                        # Comprehensive project status ⭐
 ├── README.md                                 # This file
 │
 └── research_data/                            # Behavioral logs (created at runtime)
@@ -116,7 +118,8 @@ Research-project/
 ### Prerequisites
 
 ```bash
-pip install mss opencv-python numpy pynput psutil pandas scipy matplotlib seaborn
+# Install all dependencies from requirements.txt
+pip install -r requirements.txt
 ```
 
 ### Running the Agent (Standard Mode)
@@ -125,33 +128,49 @@ pip install mss opencv-python numpy pynput psutil pandas scipy matplotlib seabor
 python wow_agent_human_equivalent_stabilized.py
 ```
 
-### Running with Research Logging
+### Running Experimental Conditions
 
-```python
-# In code, enable behavioral logging:
-agent = HumanEquivalentCognition()
-agent.enable_behavioral_logging(session_id="tier6_run_001")
-agent.run()
+Use the `run_experiment.py` script for controlled experiments with different cognitive tier configurations:
+
+```bash
+# TIER 7: Full system with meta-cognition
+python run_experiment.py --condition tier7 --session-id T7_run_001
+
+# TIER 6: Rumination only (no meta-cognition)
+python run_experiment.py --condition tier6 --session-id T6_run_001
+
+# TIER 5: Baseline (no rumination or meta-cognition)
+python run_experiment.py --condition tier5 --session-id T5_run_001
+
+# Custom configuration
+python run_experiment.py --disable-tier7 --session-id custom_001
+
+# Disable logging
+python run_experiment.py --condition tier7 --session-id T7_run_001 --no-logging
 ```
 
-### Running Baseline Comparison
+### Programmatic Configuration
+
+For custom experimental setups in Python code:
 
 ```python
-# Using experiment configuration system
 from experiment_config import ExperimentConfig
+from wow_agent_human_equivalent_stabilized import HumanEquivalentCognition
 
 # TIER 7 (full system with meta-cognition)
 config = ExperimentConfig.tier_7_full(session_id="T7_run_001", enable_logging=True)
 
 # TIER 6 (rumination without meta-cognition)
-config = ExperimentConfig.tier_6_rumination_only(session_id="T6_run_001", enable_logging=True)
+config = ExperimentConfig.tier_6_baseline(session_id="T6_run_001", enable_logging=True)
 
 # TIER 5 (baseline - no rumination)
 config = ExperimentConfig.tier_5_baseline(session_id="T5_run_001", enable_logging=True)
 
-# Then run agent with config
+# Create agent with config
 agent = HumanEquivalentCognition(config=config)
-agent.run()
+
+# Use agent.tick() in your game loop for processing
+# Note: HumanEquivalentCognition requires integration with screen capture/input systems
 ```
 
 ### Analyzing Results

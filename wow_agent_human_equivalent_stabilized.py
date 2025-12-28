@@ -2188,17 +2188,6 @@ class HumanEquivalentCognition:
         self._tick_count = 0
         self._session_start_time = time.time()
 
-        # Anticipatory rumination for difficult decisions
-        if action_confidence < 0.4 and hasattr(self, 'rumination'):
-            # Low confidence triggers anticipatory worry
-            if random.random() < 0.3:
-                self.rumination.trigger_rumination_from_event(
-                    'uncertain_future',
-                    f"attempting {selected_action}",
-                    (1.0 - action_confidence) * 0.6,
-                    context={'upcoming_action': str(selected_action)}
-                )
-        
         # Hesitation and uncertainty modeling
         self._confidence_threshold = 0.6  # Below this, hesitate
         self._hesitation_duration = 0.0
@@ -3098,11 +3087,15 @@ class HumanEquivalentCognition:
 
             # === PERSONALITY SYSTEM (TIER 5) ===
             'preference_system': self.preference_system.get_state(),
-            'rumination': self.rumination.get_state(),
-
-            # === META-COGNITIVE LAYER (TIER 7) ===
-            'meta_cognitive': self.meta_cognitive.get_state(),
         }
+
+        # === TIER 6: RUMINATION (conditionally saved) ===
+        if self.rumination is not None:
+            state['rumination'] = self.rumination.get_state()
+
+        # === TIER 7: META-COGNITIVE LAYER (conditionally saved) ===
+        if self.meta_cognitive is not None:
+            state['meta_cognitive'] = self.meta_cognitive.get_state()
 
         try:
             with open(self.persistence_path, 'w') as f:
@@ -3207,20 +3200,21 @@ class HumanEquivalentCognition:
                            f"Fatigue: {self.temporal_awareness.current_fatigue:.2f}")
 
             # === PERSONALITY SYSTEM (TIER 5) ===
-            if 'rumination' in state:
-                self.rumination.set_state(state['rumination'])
-                logger.info(f"  Restored rumination: {len(self.rumination.active_ruminations)} active thoughts")
-
-            # === META-COGNITIVE LAYER (TIER 7) ===
-            if 'meta_cognitive' in state:
-                self.meta_cognitive.set_state(state['meta_cognitive'])
-                logger.info(f"  Restored meta-cognition: {self.meta_cognitive.current_mental_state.name}, "
-                           f"reappraisal skill: {self.meta_cognitive.reappraisal_skill:.2f}")
-
             if 'preference_system' in state:
                 self.preference_system.restore_state(state['preference_system'])
                 logger.info(f"  Restored personality: {self.preference_system.crystallized_preference_count} preferences, "
                            f"uniqueness: {self.preference_system.behavioral_uniqueness_score:.2f}")
+
+            # === TIER 6: RUMINATION (conditionally loaded) ===
+            if 'rumination' in state and self.rumination is not None:
+                self.rumination.set_state(state['rumination'])
+                logger.info(f"  Restored rumination: {len(self.rumination.active_ruminations)} active thoughts")
+
+            # === TIER 7: META-COGNITIVE LAYER (conditionally loaded) ===
+            if 'meta_cognitive' in state and self.meta_cognitive is not None:
+                self.meta_cognitive.set_state(state['meta_cognitive'])
+                logger.info(f"  Restored meta-cognition: {self.meta_cognitive.current_mental_state.name}, "
+                           f"reappraisal skill: {self.meta_cognitive.reappraisal_skill:.2f}")
 
             logger.info(f"Restored cognitive state: {self._tick_count} previous ticks, "
                        f"{len(self.beliefs.beliefs)} beliefs, "
