@@ -14826,10 +14826,11 @@ Operational Summary:
 class CognitiveCore:
     VERSION = "1.0.0"
     DEFAULT_SAVE_PATH = "cognitive_state.json.gz"
-    
-    def __init__(self, save_path: Optional[str] = None):
+
+    def __init__(self, save_path: Optional[str] = None, config=None):
         self.save_path = save_path or self.DEFAULT_SAVE_PATH
         self.persistence = PersistenceManager(self.save_path)
+        self.config = config  # Store experiment configuration
         
         self._lock = threading.RLock()
         
@@ -14859,7 +14860,7 @@ class CognitiveCore:
         # === LIFE SYSTEMS INTEGRATION ===
         # Re-enabled: These 13 systems make the agent "live" rather than just "learn"
         # Integration: Called from process_tick() to update life state on every decision
-        self.human_cognition = HumanEquivalentCognition()
+        self.human_cognition = HumanEquivalentCognition(config=self.config)
 
         self.personality = PersonalityProfile(
             risk_tolerance=0.4,
@@ -17698,7 +17699,8 @@ class DecisionEngine:
                  combat: CombatBehavior, navigation: NavigationBehavior,
                  rest: RestBehavior, loot: LootBehavior, trainer: TrainerBehavior,
                  spell_scanner: SpellbookScanner,
-                 spell_knowledge: SpellKnowledge, progress: ProgressKnowledge):
+                 spell_knowledge: SpellKnowledge, progress: ProgressKnowledge,
+                 config=None):
         self.perception = perception
         self.executor = executor
         self.combat = combat
@@ -17709,18 +17711,20 @@ class DecisionEngine:
         self.spell_scanner = spell_scanner
         self.spells = spell_knowledge
         self.progress = progress
-        
+        self.config = config  # Store experiment configuration
+
         self._last_state = None
         self._was_in_combat = False
         self._needs_spellbook_scan = True
         self._level_trained = 0
-        
+
         # ═══════════════════════════════════════════════════════════════════
         # COGNITIVE SYSTEM INTEGRATION
         # ═══════════════════════════════════════════════════════════════════
         try:
             self.cognitive_core = CognitiveCore(
-                save_path=str(DATA_DIR / "cognitive_state.json.gz")
+                save_path=str(DATA_DIR / "cognitive_state.json.gz"),
+                config=self.config
             )
             self.cognitive_core.initialize()
             self._use_cognitive_system = True
@@ -22833,16 +22837,21 @@ class WoWAutonomousPlayer:
     """
     Main autonomous player agent.
     Coordinates all subsystems for autonomous gameplay.
-    
+
     RESEARCH NOTICE: This agent is designed for offline, single-player
     research use only. It does not interact with live game servers.
     """
-    
-    def __init__(self):
+
+    def __init__(self, config=None):
         logger.info("=" * 70)
         logger.info("WOW 1.12 AUTONOMOUS PLAYER - RESEARCH AGENT")
         logger.info("For offline, single-player research use only")
         logger.info("=" * 70)
+
+        # Store experiment configuration
+        self.config = config
+        if config:
+            logger.info(f"Experiment config: {config.get_tier_summary()}")
         
         # Core systems
         self.capture = ScreenCapture()
@@ -22880,11 +22889,12 @@ class WoWAutonomousPlayer:
             self.spell_knowledge, self.world_knowledge
         )
         
-        # Decision engine
+        # Decision engine (pass experiment config for cognitive system integration)
         self.decision = DecisionEngine(
             self.perception, self.executor,
             self.combat, self.navigation, self.rest, self.loot, self.trainer,
-            self.spell_scanner, self.spell_knowledge, self.progress_knowledge
+            self.spell_scanner, self.spell_knowledge, self.progress_knowledge,
+            config=self.config
         )
         
         # Control state
@@ -30630,17 +30640,20 @@ def integrate_extended_capabilities(base_agent: 'WoWAutonomousPlayer'):
 # ENTRY POINT FOR EXTENDED AGENT
 # =============================================================================
 
-def create_extended_agent():
+def create_extended_agent(config=None):
     """
     Create a WoWAutonomousPlayer with all extended capabilities.
+
+    Args:
+        config: Optional ExperimentConfig for cognitive tier configuration
     """
-    # Import and create base agent
+    # Import and create base agent with experiment config
     # (Assumes this is running in same file or imported)
-    agent = WoWAutonomousPlayer()
-    
+    agent = WoWAutonomousPlayer(config=config)
+
     # Integrate extended capabilities
     integrator = integrate_extended_capabilities(agent)
-    
+
     return agent, integrator
 
 
@@ -30776,18 +30789,17 @@ if __name__ == "__main__":
         print()
         
         try:
-            # Note: Experimental configuration is stored but full integration
-            # with WoWAutonomousPlayer requires additional architectural work.
-            # For now, use HumanEquivalentCognition programmatically in separate scripts.
+            # Create agent with experiment configuration integrated
             if args.extended:
                 print("Creating agent with extended capabilities...")
-                agent, integrator = create_extended_agent()
+                agent, integrator = create_extended_agent(config=experiment_config)
             else:
                 print("Creating base agent...")
-                agent = WoWAutonomousPlayer()
+                agent = WoWAutonomousPlayer(config=experiment_config)
 
-            # TODO: Integrate experiment_config with agent architecture
-            # Current limitation: Command-line config created but not yet integrated
+            # Log configuration integration status
+            if experiment_config:
+                logger.info(f"Experiment config integrated: {experiment_config.get_tier_summary()}")
 
             # Make operational controller globally available for signal handlers
             if hasattr(agent, 'cognitive_core') and hasattr(agent.cognitive_core, 'operational'):
