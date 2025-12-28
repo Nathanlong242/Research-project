@@ -2185,6 +2185,41 @@ class HumanEquivalentCognition:
         logger.info("  - Optimal challenge seeking (flow theory)")
         logger.info("  - Self-generated learning goals")
 
+        # === NEUROSCIENCE-BASED SYSTEMS (Brain-Behavior Mapping) ===
+        # Perception System - Sensory processing & pattern recognition
+        self.perception = PerceptionSystem()
+        logger.info("Perception System initialized:")
+        logger.info("  - Feature extraction from raw sensory input")
+        logger.info("  - Pattern matching & object recognition")
+        logger.info("  - Perceptual binding (features → objects)")
+        logger.info("  - Perceptual learning (improve recognition)")
+        logger.info("  - Salience computation (attention-grabbing)")
+
+        # Attention System - Selective, divided, sustained attention
+        self.attention = AttentionSystem()
+        logger.info("Attention System initialized:")
+        logger.info("  - Selective attention (filter irrelevant)")
+        logger.info("  - Divided attention (multitask with costs)")
+        logger.info("  - Sustained attention (vigilance over time)")
+        logger.info("  - Attentional capture (automatic orienting)")
+        logger.info("  - Attention capacity limits")
+
+        # Reasoning System - Deductive, inductive, causal, analogical
+        self.reasoning = ReasoningSystem()
+        logger.info("Reasoning System initialized:")
+        logger.info("  - Deductive reasoning (logical inference)")
+        logger.info("  - Inductive reasoning (generalization)")
+        logger.info("  - Causal reasoning (cause-effect learning)")
+        logger.info("  - Analogical reasoning (structure mapping)")
+
+        # Motor Control System - Action planning & execution
+        self.motor_control = MotorControlSystem()
+        logger.info("Motor Control System initialized:")
+        logger.info("  - Motor program learning (reaction times)")
+        logger.info("  - Action sequence chunking")
+        logger.info("  - Speed-accuracy tradeoff")
+        logger.info("  - Power law of practice (RT improvement)")
+
         # Tier 4: Temporal Awareness - Human Relationship With Time
         self.temporal_awareness = TemporalLifeAwareness()
 
@@ -3233,6 +3268,12 @@ class HumanEquivalentCognition:
         state['planner'] = self.planner.get_state()
         state['curiosity'] = self.curiosity.get_state()
 
+        # === NEUROSCIENCE-BASED SYSTEMS ===
+        state['perception'] = self.perception.get_state()
+        state['attention'] = self.attention.get_state()
+        state['reasoning'] = self.reasoning.get_state()
+        state['motor_control'] = self.motor_control.get_state()
+
         try:
             with open(self.persistence_path, 'w') as f:
                 json.dump(state, f, indent=2, default=str)
@@ -3367,6 +3408,16 @@ class HumanEquivalentCognition:
                 self.planner.set_state(state['planner'])
             if 'curiosity' in state:
                 self.curiosity.set_state(state['curiosity'])
+
+            # === NEUROSCIENCE-BASED SYSTEMS ===
+            if 'perception' in state:
+                self.perception.set_state(state['perception'])
+            if 'attention' in state:
+                self.attention.set_state(state['attention'])
+            if 'reasoning' in state:
+                self.reasoning.set_state(state['reasoning'])
+            if 'motor_control' in state:
+                self.motor_control.set_state(state['motor_control'])
 
             logger.info(f"Restored cognitive state: {self._tick_count} previous ticks, "
                        f"{len(self.beliefs.beliefs)} beliefs, "
@@ -9839,6 +9890,940 @@ class IntrinsicCuriositySystem:
         logger.info(f"Curiosity System restored: {state.get('knowledge_gap_count', 0)} gaps, "
                    f"{len(self.skill_mastery_levels)} skills tracked, "
                    f"curiosity_drive={self.curiosity_drive:.2f}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PERCEPTION SYSTEM - Sensory Processing & Pattern Recognition
+# ═══════════════════════════════════════════════════════════════════════════════
+# Implements brain's perceptual processing based on neuroscience:
+# - Visual processing (object recognition, motion, faces)
+# - Auditory processing (sound localization, patterns)
+# - Perceptual binding (combining features into objects)
+# - Attention-guided perception
+# - Perceptual learning
+#
+# Missing piece: Agent receives "perception" dict but doesn't process it like
+# a brain would - no feature extraction, pattern matching, or perceptual learning.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class PerceptualFeature(Enum):
+    """Types of perceptual features that can be extracted."""
+    COLOR = auto()
+    SHAPE = auto()
+    MOTION = auto()
+    SIZE = auto()
+    TEXTURE = auto()
+    SOUND_PITCH = auto()
+    SOUND_VOLUME = auto()
+    SPATIAL_LOCATION = auto()
+
+
+@dataclass
+class PerceivedObject:
+    """A recognized object from perceptual processing."""
+    object_type: str  # "enemy", "npc", "item", "obstacle"
+    features: Dict[PerceptualFeature, Any]
+    location: Tuple[float, float]
+    confidence: float  # How confident in this recognition
+    salience: float  # How attention-grabbing (0-1)
+    timestamp: float
+
+
+@dataclass
+class PerceptualPattern:
+    """A learned perceptual pattern."""
+    pattern_name: str
+    feature_template: Dict[PerceptualFeature, Any]
+    recognition_count: int
+    accuracy: float  # How often correctly recognized
+
+
+class PerceptionSystem:
+    """
+    Sensory processing system implementing brain-like perception.
+
+    Provides:
+    - Feature extraction from raw sensory input
+    - Object recognition via pattern matching
+    - Perceptual binding (features → objects)
+    - Perceptual learning (improve recognition)
+    - Salience computation (what's attention-grabbing)
+    """
+
+    def __init__(self):
+        # Learned perceptual patterns
+        self.patterns: Dict[str, PerceptualPattern] = {}
+
+        # Currently perceived objects
+        self.perceived_objects: List[PerceivedObject] = []
+        self.max_objects = 20  # Capacity limit
+
+        # Perceptual learning parameters
+        self.pattern_learning_rate = 0.1
+        self.recognition_threshold = 0.6
+
+        # Processing statistics
+        self.total_perceptions = 0
+        self.recognition_successes = 0
+        self.recognition_failures = 0
+
+    def process_perception(self, raw_perception: Dict[str, Any]) -> List[PerceivedObject]:
+        """
+        Process raw sensory input into perceived objects.
+
+        Mimics brain's perceptual pipeline:
+        1. Feature extraction
+        2. Pattern matching
+        3. Object recognition
+        4. Salience computation
+        """
+        self.total_perceptions += 1
+        perceived_objects = []
+
+        # Extract visual features
+        if 'enemies' in raw_perception:
+            for enemy_data in raw_perception.get('enemies', []):
+                obj = self._recognize_object('enemy', enemy_data)
+                if obj:
+                    perceived_objects.append(obj)
+
+        if 'npcs' in raw_perception:
+            for npc_data in raw_perception.get('npcs', []):
+                obj = self._recognize_object('npc', npc_data)
+                if obj:
+                    perceived_objects.append(obj)
+
+        if 'items' in raw_perception:
+            for item_data in raw_perception.get('items', []):
+                obj = self._recognize_object('item', item_data)
+                if obj:
+                    perceived_objects.append(obj)
+
+        # Sort by salience (most salient first)
+        perceived_objects.sort(key=lambda x: x.salience, reverse=True)
+
+        # Update perceived objects (capacity limited)
+        self.perceived_objects = perceived_objects[:self.max_objects]
+
+        return self.perceived_objects
+
+    def _recognize_object(self, object_type: str, data: Dict[str, Any]) -> Optional[PerceivedObject]:
+        """Recognize an object via pattern matching."""
+        # Extract features
+        features = self._extract_features(data)
+
+        # Compute salience (how attention-grabbing)
+        salience = self._compute_salience(object_type, features, data)
+
+        # Pattern matching for recognition
+        pattern_name = f"{object_type}_{data.get('subtype', 'generic')}"
+        confidence = self._match_pattern(pattern_name, features)
+
+        # Learn/update pattern
+        self._learn_pattern(pattern_name, features, success=confidence > self.recognition_threshold)
+
+        # Create perceived object
+        obj = PerceivedObject(
+            object_type=object_type,
+            features=features,
+            location=data.get('position', (0, 0)),
+            confidence=confidence,
+            salience=salience,
+            timestamp=time.time()
+        )
+
+        return obj
+
+    def _extract_features(self, data: Dict[str, Any]) -> Dict[PerceptualFeature, Any]:
+        """Extract perceptual features from raw data."""
+        features = {}
+
+        # Visual features
+        if 'color' in data:
+            features[PerceptualFeature.COLOR] = data['color']
+        if 'size' in data:
+            features[PerceptualFeature.SIZE] = data['size']
+        if 'shape' in data:
+            features[PerceptualFeature.SHAPE] = data['shape']
+        if 'velocity' in data:
+            features[PerceptualFeature.MOTION] = data['velocity']
+
+        # Spatial features
+        if 'position' in data:
+            features[PerceptualFeature.SPATIAL_LOCATION] = data['position']
+
+        # Auditory features
+        if 'sound_level' in data:
+            features[PerceptualFeature.SOUND_VOLUME] = data['sound_level']
+
+        return features
+
+    def _compute_salience(self, object_type: str, features: Dict, data: Dict) -> float:
+        """Compute how attention-grabbing this object is."""
+        salience = 0.5  # Base salience
+
+        # Enemies are highly salient
+        if object_type == 'enemy':
+            salience += 0.4
+
+        # Motion increases salience
+        if PerceptualFeature.MOTION in features:
+            motion = features[PerceptualFeature.MOTION]
+            if motion > 0:
+                salience += 0.2
+
+        # Proximity increases salience
+        if 'distance' in data:
+            distance = data['distance']
+            if distance < 10:
+                salience += 0.3
+            elif distance < 20:
+                salience += 0.1
+
+        # Threat level increases salience
+        if 'threat_level' in data:
+            salience += data['threat_level'] * 0.3
+
+        return min(1.0, salience)
+
+    def _match_pattern(self, pattern_name: str, features: Dict) -> float:
+        """Match features against learned pattern."""
+        if pattern_name not in self.patterns:
+            # Unknown pattern - low confidence
+            return 0.3
+
+        pattern = self.patterns[pattern_name]
+
+        # Compute similarity between features and pattern template
+        similarity = 0.0
+        feature_count = 0
+
+        for feature_type, expected_value in pattern.feature_template.items():
+            if feature_type in features:
+                actual_value = features[feature_type]
+                # Simple similarity (could be more sophisticated)
+                if actual_value == expected_value:
+                    similarity += 1.0
+                else:
+                    similarity += 0.3  # Partial match
+                feature_count += 1
+
+        if feature_count > 0:
+            confidence = similarity / feature_count
+        else:
+            confidence = 0.3
+
+        # Weight by pattern accuracy
+        confidence *= pattern.accuracy
+
+        return confidence
+
+    def _learn_pattern(self, pattern_name: str, features: Dict, success: bool):
+        """Learn or update a perceptual pattern."""
+        if pattern_name not in self.patterns:
+            # Create new pattern
+            self.patterns[pattern_name] = PerceptualPattern(
+                pattern_name=pattern_name,
+                feature_template=features.copy(),
+                recognition_count=1,
+                accuracy=1.0 if success else 0.5
+            )
+        else:
+            # Update existing pattern
+            pattern = self.patterns[pattern_name]
+            pattern.recognition_count += 1
+
+            # Update accuracy
+            if success:
+                pattern.accuracy = pattern.accuracy + (1.0 - pattern.accuracy) * self.pattern_learning_rate
+                self.recognition_successes += 1
+            else:
+                pattern.accuracy = pattern.accuracy * (1.0 - self.pattern_learning_rate)
+                self.recognition_failures += 1
+
+            # Update feature template (slow adaptation)
+            for feature_type, value in features.items():
+                if feature_type not in pattern.feature_template:
+                    pattern.feature_template[feature_type] = value
+
+    def get_most_salient_object(self) -> Optional[PerceivedObject]:
+        """Get the most attention-grabbing perceived object."""
+        if not self.perceived_objects:
+            return None
+        return self.perceived_objects[0]  # Already sorted by salience
+
+    def get_objects_by_type(self, object_type: str) -> List[PerceivedObject]:
+        """Get all perceived objects of a specific type."""
+        return [obj for obj in self.perceived_objects if obj.object_type == object_type]
+
+    def get_recognition_accuracy(self) -> float:
+        """Get overall pattern recognition accuracy."""
+        total = self.recognition_successes + self.recognition_failures
+        if total == 0:
+            return 0.5
+        return self.recognition_successes / total
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'pattern_count': len(self.patterns),
+            'total_perceptions': self.total_perceptions,
+            'recognition_accuracy': self.get_recognition_accuracy(),
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        self.total_perceptions = state.get('total_perceptions', 0)
+
+        logger.info(f"Perception System restored: {state.get('pattern_count', 0)} patterns learned, "
+                   f"accuracy={state.get('recognition_accuracy', 0.5):.2%}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ATTENTION SYSTEM - Selective, Divided, Sustained Attention
+# ═══════════════════════════════════════════════════════════════════════════════
+# Implements attentional processes based on cognitive neuroscience:
+# - Selective attention (filter irrelevant stimuli)
+# - Divided attention (multitasking with costs)
+# - Sustained attention (vigilance over time)
+# - Attentional capture (automatic orienting)
+# - Attention switching costs
+#
+# Missing piece: Agent processes all inputs equally without attentional filtering
+# or capacity limits. No modeling of attention as a limited resource.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class AttentionMode(Enum):
+    """Current attentional focus mode."""
+    FOCUSED = auto()     # Narrow focus on single target
+    DIVIDED = auto()     # Attempting to attend to multiple targets
+    DIFFUSE = auto()     # Broad, unfocused scanning
+    CAPTURED = auto()    # Attention automatically captured by salient stimulus
+
+
+@dataclass
+class AttentionalFocus:
+    """What attention is currently focused on."""
+    target: str  # What we're attending to
+    focus_strength: float  # How strongly focused (0-1)
+    duration: float  # How long focused (seconds)
+    mode: AttentionMode
+
+
+class AttentionSystem:
+    """
+    Attentional control system implementing capacity limits and filtering.
+
+    Provides:
+    - Selective attention (focus on relevant, filter irrelevant)
+    - Divided attention (multitask with performance costs)
+    - Sustained attention (vigilance decrement over time)
+    - Attentional capture (automatic orienting to salient stimuli)
+    - Attention switching costs
+    """
+
+    def __init__(self):
+        # Current attentional state
+        self.current_focus = AttentionalFocus(
+            target="environment",
+            focus_strength=0.5,
+            duration=0.0,
+            mode=AttentionMode.DIFFUSE
+        )
+
+        # Attention capacity (limited resource)
+        self.total_capacity = 1.0
+        self.available_capacity = 1.0
+
+        # Attention allocation
+        self.attention_allocations: Dict[str, float] = {}  # target -> capacity
+
+        # Sustained attention
+        self.vigilance_level = 1.0  # Decreases over time
+        self.vigilance_decay_rate = 0.01  # Per second
+        self.time_on_task = 0.0
+
+        # Attentional capture
+        self.capture_threshold = 0.7  # Salience needed to capture attention
+        self.capture_resistant = False  # If True, resist capture
+
+        # Performance metrics
+        self.attention_switches = 0
+        self.divided_attention_attempts = 0
+
+    def allocate_attention(self, targets: Dict[str, float]):
+        """
+        Allocate limited attentional capacity across targets.
+
+        targets: Dict mapping target name to desired attention (0-1)
+
+        Returns actual allocations after capacity constraints applied.
+        """
+        # Normalize demands to total capacity
+        total_demand = sum(targets.values())
+
+        if total_demand <= self.total_capacity:
+            # Sufficient capacity - allocate as requested
+            self.attention_allocations = targets.copy()
+            self.current_focus.mode = AttentionMode.FOCUSED if len(targets) == 1 else AttentionMode.DIVIDED
+        else:
+            # Insufficient capacity - need to allocate proportionally
+            scale_factor = self.total_capacity / total_demand
+            self.attention_allocations = {
+                target: demand * scale_factor
+                for target, demand in targets.items()
+            }
+            self.current_focus.mode = AttentionMode.DIVIDED
+            self.divided_attention_attempts += 1
+
+        # Update available capacity
+        self.available_capacity = self.total_capacity - sum(self.attention_allocations.values())
+
+        return self.attention_allocations
+
+    def focus_on(self, target: str, strength: float = 1.0):
+        """Focus attention on a single target."""
+        # Check if switching targets
+        if target != self.current_focus.target:
+            self.attention_switches += 1
+            self.current_focus.duration = 0.0  # Reset duration
+
+        self.current_focus = AttentionalFocus(
+            target=target,
+            focus_strength=min(1.0, strength),
+            duration=0.0,
+            mode=AttentionMode.FOCUSED
+        )
+
+        # Allocate full capacity to target
+        self.allocate_attention({target: 1.0})
+
+    def check_attentional_capture(self, stimuli_salience: Dict[str, float]) -> Optional[str]:
+        """
+        Check if a salient stimulus captures attention automatically.
+
+        Returns captured stimulus if any, None otherwise.
+        """
+        if self.capture_resistant:
+            return None
+
+        # Find most salient stimulus
+        if not stimuli_salience:
+            return None
+
+        max_salience_stimulus = max(stimuli_salience.items(), key=lambda x: x[1])
+        stimulus, salience = max_salience_stimulus
+
+        # Check if salient enough to capture
+        if salience > self.capture_threshold:
+            # Attention captured!
+            self.current_focus = AttentionalFocus(
+                target=stimulus,
+                focus_strength=salience,
+                duration=0.0,
+                mode=AttentionMode.CAPTURED
+            )
+            logger.debug(f"Attention captured by: {stimulus} (salience: {salience:.2f})")
+            return stimulus
+
+        return None
+
+    def update_vigilance(self, delta_time: float):
+        """Update sustained attention / vigilance over time."""
+        self.time_on_task += delta_time
+
+        # Vigilance decrement (decreases with time on task)
+        self.vigilance_level -= self.vigilance_decay_rate * delta_time
+
+        # Floor at 0.3 (minimum vigilance)
+        self.vigilance_level = max(0.3, self.vigilance_level)
+
+        # Update focus duration
+        self.current_focus.duration += delta_time
+
+    def restore_vigilance(self, amount: float = 0.5):
+        """Restore vigilance (e.g., after rest or task switch)."""
+        self.vigilance_level = min(1.0, self.vigilance_level + amount)
+        self.time_on_task = 0.0
+
+    def get_divided_attention_cost(self, num_targets: int) -> float:
+        """
+        Get performance cost for divided attention.
+
+        Returns penalty (0-1) where higher = worse performance.
+        """
+        if num_targets <= 1:
+            return 0.0
+
+        # Cost increases with number of targets
+        # 2 targets = 0.2 cost, 3 = 0.4, 4+ = 0.6+
+        cost = min(0.8, (num_targets - 1) * 0.2)
+
+        return cost
+
+    def filter_by_attention(self, stimuli: Dict[str, float]) -> Dict[str, float]:
+        """
+        Apply attentional filter to stimuli.
+
+        Stimuli receiving attention are enhanced, others suppressed.
+        """
+        filtered = {}
+
+        for stimulus, value in stimuli.items():
+            if stimulus in self.attention_allocations:
+                # Attended stimulus - enhanced
+                attention = self.attention_allocations[stimulus]
+                filtered[stimulus] = value * (1.0 + attention * 0.5)
+            else:
+                # Unattended stimulus - suppressed
+                filtered[stimulus] = value * 0.3
+
+        return filtered
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'vigilance_level': self.vigilance_level,
+            'time_on_task': self.time_on_task,
+            'attention_switches': self.attention_switches,
+            'divided_attention_attempts': self.divided_attention_attempts,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        self.vigilance_level = state.get('vigilance_level', 1.0)
+        self.time_on_task = state.get('time_on_task', 0.0)
+        self.attention_switches = state.get('attention_switches', 0)
+        self.divided_attention_attempts = state.get('divided_attention_attempts', 0)
+
+        logger.info(f"Attention System restored: vigilance={self.vigilance_level:.2f}, "
+                   f"{self.attention_switches} switches, "
+                   f"{self.divided_attention_attempts} divided attention attempts")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REASONING SYSTEM - Deductive, Inductive, Causal, Analogical Reasoning
+# ═══════════════════════════════════════════════════════════════════════════════
+# Implements reasoning processes based on cognitive science:
+# - Deductive reasoning (logical inference from premises)
+# - Inductive reasoning (generalization from examples)
+# - Causal reasoning (cause-effect relationships)
+# - Analogical reasoning (structure mapping)
+#
+# Missing piece: Agent makes decisions but doesn't explicitly reason about
+# logical implications, causal relationships, or analogies.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class CausalRelation:
+    """A learned cause-effect relationship."""
+    cause: str
+    effect: str
+    strength: float  # 0-1, how reliably cause → effect
+    observations: int  # How many times observed
+
+
+@dataclass
+class Analogy:
+    """An analogical mapping between situations."""
+    source_situation: str
+    target_situation: str
+    structural_similarity: float  # How similar the structure
+    confidence: float
+    creation_time: float
+
+
+class ReasoningSystem:
+    """
+    Reasoning system implementing logical and causal inference.
+
+    Provides:
+    - Deductive reasoning (if-then rules)
+    - Inductive reasoning (pattern generalization)
+    - Causal reasoning (cause-effect learning)
+    - Analogical reasoning (structure mapping)
+    """
+
+    def __init__(self):
+        # Causal knowledge
+        self.causal_relations: List[CausalRelation] = []
+        self.max_causal_relations = 100
+
+        # Analogies
+        self.analogies: List[Analogy] = []
+        self.max_analogies = 50
+
+        # Deductive rules (if-then)
+        self.deductive_rules: Dict[str, List[str]] = {}  # premise -> [conclusions]
+
+        # Inductive generalizations
+        self.generalizations: Dict[str, int] = {}  # pattern -> observation_count
+
+        # Reasoning statistics
+        self.inferences_made = 0
+        self.causal_predictions = 0
+        self.analogies_used = 0
+
+    def learn_causal_relation(self, cause: str, effect: str, occurred: bool):
+        """
+        Learn or update a causal relationship.
+
+        cause: The potential cause event
+        effect: The observed effect
+        occurred: Whether effect actually occurred after cause
+        """
+        # Find existing relation
+        existing = None
+        for rel in self.causal_relations:
+            if rel.cause == cause and rel.effect == effect:
+                existing = rel
+                break
+
+        if existing:
+            # Update existing relation
+            existing.observations += 1
+            if occurred:
+                # Strengthen relation
+                existing.strength = existing.strength + (1.0 - existing.strength) * 0.2
+            else:
+                # Weaken relation
+                existing.strength = existing.strength * 0.8
+        else:
+            # Create new relation
+            new_rel = CausalRelation(
+                cause=cause,
+                effect=effect,
+                strength=0.7 if occurred else 0.3,
+                observations=1
+            )
+            self.causal_relations.append(new_rel)
+
+            if len(self.causal_relations) > self.max_causal_relations:
+                # Remove weakest relation
+                self.causal_relations.sort(key=lambda x: x.strength)
+                self.causal_relations.pop(0)
+
+    def predict_effect(self, cause: str) -> Optional[Tuple[str, float]]:
+        """
+        Causal reasoning: predict effect given cause.
+
+        Returns (effect, confidence) or None.
+        """
+        # Find strongest causal relation for this cause
+        relevant = [r for r in self.causal_relations if r.cause == cause]
+
+        if not relevant:
+            return None
+
+        strongest = max(relevant, key=lambda r: r.strength)
+        self.causal_predictions += 1
+
+        return (strongest.effect, strongest.strength)
+
+    def induce_generalization(self, pattern: str):
+        """
+        Inductive reasoning: generalize from observed pattern.
+
+        Counts observations of pattern to build confidence.
+        """
+        if pattern in self.generalizations:
+            self.generalizations[pattern] += 1
+        else:
+            self.generalizations[pattern] = 1
+
+    def get_generalization_confidence(self, pattern: str) -> float:
+        """Get confidence in a generalization (based on observation count)."""
+        count = self.generalizations.get(pattern, 0)
+
+        # Confidence saturates at ~10 observations
+        confidence = 1.0 - math.exp(-count / 10.0)
+
+        return confidence
+
+    def create_analogy(self, source: str, target: str, similarity: float):
+        """
+        Analogical reasoning: map structure from source to target.
+
+        source: Known situation
+        target: New situation
+        similarity: Structural similarity (0-1)
+        """
+        analogy = Analogy(
+            source_situation=source,
+            target_situation=target,
+            structural_similarity=similarity,
+            confidence=similarity,
+            creation_time=time.time()
+        )
+
+        self.analogies.append(analogy)
+
+        if len(self.analogies) > self.max_analogies:
+            # Remove oldest low-confidence analogy
+            self.analogies.sort(key=lambda a: (a.creation_time, -a.confidence))
+            self.analogies.pop(0)
+
+        logger.debug(f"Created analogy: {source} → {target} (similarity: {similarity:.2f})")
+
+    def retrieve_analogy(self, target: str) -> Optional[Analogy]:
+        """Retrieve best analogy for a target situation."""
+        relevant = [a for a in self.analogies if a.target_situation == target]
+
+        if not relevant:
+            return None
+
+        # Return most confident analogy
+        best = max(relevant, key=lambda a: a.confidence)
+        self.analogies_used += 1
+
+        return best
+
+    def deduce(self, premise: str) -> List[str]:
+        """
+        Deductive reasoning: derive conclusions from premise.
+
+        Returns list of valid conclusions.
+        """
+        conclusions = self.deductive_rules.get(premise, [])
+        self.inferences_made += len(conclusions)
+        return conclusions
+
+    def add_deductive_rule(self, premise: str, conclusion: str):
+        """Add a deductive rule (if premise then conclusion)."""
+        if premise not in self.deductive_rules:
+            self.deductive_rules[premise] = []
+
+        if conclusion not in self.deductive_rules[premise]:
+            self.deductive_rules[premise].append(conclusion)
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'causal_relation_count': len(self.causal_relations),
+            'analogy_count': len(self.analogies),
+            'generalization_count': len(self.generalizations),
+            'inferences_made': self.inferences_made,
+            'causal_predictions': self.causal_predictions,
+            'analogies_used': self.analogies_used,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        self.inferences_made = state.get('inferences_made', 0)
+        self.causal_predictions = state.get('causal_predictions', 0)
+        self.analogies_used = state.get('analogies_used', 0)
+
+        logger.info(f"Reasoning System restored: {state.get('causal_relation_count', 0)} causal relations, "
+                   f"{state.get('analogy_count', 0)} analogies, "
+                   f"{self.inferences_made} inferences made")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MOTOR CONTROL SYSTEM - Action Planning, Execution, Sequences
+# ═══════════════════════════════════════════════════════════════════════════════
+# Implements motor control based on neuroscience:
+# - Action planning (select and sequence motor programs)
+# - Motor execution with reaction times
+# - Action sequences and motor programs
+# - Motor learning (speed/accuracy tradeoff)
+#
+# Missing piece: Agent outputs actions but doesn't model motor planning,
+# execution delays (reaction time), or motor sequence learning.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class MotorProgram:
+    """A learned motor program for an action."""
+    action_name: str
+    base_reaction_time: float  # Milliseconds
+    execution_time: float  # How long action takes
+    accuracy: float  # Execution accuracy (0-1)
+    execution_count: int
+    speed_accuracy_tradeoff: float  # Higher = prioritize speed over accuracy
+
+
+@dataclass
+class ActionSequence:
+    """A sequence of actions executed as a motor program."""
+    sequence_name: str
+    actions: List[str]
+    fluency: float  # How smoothly sequence executes (0-1)
+    execution_count: int
+
+
+class MotorControlSystem:
+    """
+    Motor control system implementing action planning and execution.
+
+    Provides:
+    - Motor program storage and retrieval
+    - Reaction time modeling
+    - Action sequence learning
+    - Speed-accuracy tradeoff
+    - Motor fluency development
+    """
+
+    def __init__(self):
+        # Motor programs (learned action patterns)
+        self.motor_programs: Dict[str, MotorProgram] = {}
+
+        # Action sequences
+        self.action_sequences: Dict[str, ActionSequence] = {}
+
+        # Current action being executed
+        self.current_action = None
+        self.action_start_time = 0.0
+
+        # Motor learning parameters
+        self.motor_learning_rate = 0.05
+        self.base_reaction_time = 250.0  # ms (human average)
+        self.minimum_reaction_time = 150.0  # ms (practiced floor)
+
+        # Speed-accuracy tradeoff
+        self.speed_pressure = 0.5  # 0=accurate, 1=fast
+
+    def prepare_action(self, action: str) -> MotorProgram:
+        """
+        Prepare motor program for action execution.
+
+        Returns motor program with reaction time, execution time, accuracy.
+        """
+        if action not in self.motor_programs:
+            # Create new motor program
+            self.motor_programs[action] = MotorProgram(
+                action_name=action,
+                base_reaction_time=self.base_reaction_time,
+                execution_time=200.0,  # Default 200ms execution
+                accuracy=0.7,  # Start at 70% accuracy
+                execution_count=0,
+                speed_accuracy_tradeoff=self.speed_pressure
+            )
+
+        program = self.motor_programs[action]
+
+        # Apply motor learning (practice reduces RT, increases accuracy)
+        self._apply_motor_learning(program)
+
+        return program
+
+    def _apply_motor_learning(self, program: MotorProgram):
+        """Apply motor learning to improve program with practice."""
+        # Power law of practice: RT decreases, accuracy increases
+        practice_factor = 1.0 / (1.0 + 0.1 * program.execution_count)
+
+        # Reaction time improvement
+        rt_reduction = (program.base_reaction_time - self.minimum_reaction_time) * practice_factor
+        program.base_reaction_time = self.minimum_reaction_time + rt_reduction
+
+        # Accuracy improvement
+        if program.execution_count > 0:
+            accuracy_gain = (1.0 - program.accuracy) * self.motor_learning_rate
+            program.accuracy = min(0.95, program.accuracy + accuracy_gain)
+
+    def execute_action(self, action: str, urgency: float = 0.5) -> Dict[str, Any]:
+        """
+        Execute action with motor control modeling.
+
+        urgency: 0-1, how urgent (affects speed-accuracy tradeoff)
+
+        Returns execution details (reaction_time, execution_time, accuracy, success).
+        """
+        program = self.prepare_action(action)
+        program.execution_count += 1
+
+        # Compute reaction time (affected by urgency, practice, arousal)
+        rt = program.base_reaction_time
+
+        # Urgency reduces RT but increases errors
+        rt_modifier = 1.0 - (urgency * 0.3)  # Up to 30% faster under urgency
+        rt *= rt_modifier
+
+        # Add variability
+        rt *= random.uniform(0.9, 1.1)
+
+        # Compute execution accuracy (affected by speed-accuracy tradeoff)
+        accuracy = program.accuracy
+
+        if urgency > 0.7:
+            # High urgency → reduced accuracy
+            accuracy *= 0.8
+
+        # Determine success based on accuracy
+        success = random.random() < accuracy
+
+        self.current_action = action
+        self.action_start_time = time.time()
+
+        return {
+            'action': action,
+            'reaction_time_ms': rt,
+            'execution_time_ms': program.execution_time,
+            'accuracy': accuracy,
+            'success': success,
+            'execution_count': program.execution_count
+        }
+
+    def learn_action_sequence(self, sequence_name: str, actions: List[str]):
+        """Learn a sequence of actions as a chunked motor program."""
+        if sequence_name not in self.action_sequences:
+            self.action_sequences[sequence_name] = ActionSequence(
+                sequence_name=sequence_name,
+                actions=actions,
+                fluency=0.5,  # Initial fluency
+                execution_count=0
+            )
+        else:
+            sequence = self.action_sequences[sequence_name]
+            sequence.execution_count += 1
+
+            # Improve fluency with practice
+            fluency_gain = (1.0 - sequence.fluency) * 0.1
+            sequence.fluency = min(0.95, sequence.fluency + fluency_gain)
+
+    def get_sequence_execution_time(self, sequence_name: str) -> float:
+        """Get total execution time for an action sequence."""
+        if sequence_name not in self.action_sequences:
+            return 0.0
+
+        sequence = self.action_sequences[sequence_name]
+
+        # Base time = sum of individual actions
+        total_time = 0.0
+        for action in sequence.actions:
+            if action in self.motor_programs:
+                program = self.motor_programs[action]
+                total_time += program.base_reaction_time + program.execution_time
+
+        # Fluency reduces total time (chunking benefit)
+        total_time *= (1.0 - sequence.fluency * 0.3)  # Up to 30% faster when fluent
+
+        return total_time
+
+    def get_average_reaction_time(self) -> float:
+        """Get average reaction time across all learned actions."""
+        if not self.motor_programs:
+            return self.base_reaction_time
+
+        total_rt = sum(p.base_reaction_time for p in self.motor_programs.values())
+        return total_rt / len(self.motor_programs)
+
+    def get_state(self) -> Dict[str, Any]:
+        """Serialize for persistence."""
+        return {
+            'motor_program_count': len(self.motor_programs),
+            'sequence_count': len(self.action_sequences),
+            'average_reaction_time': self.get_average_reaction_time(),
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Restore from persistence."""
+        logger.info(f"Motor Control restored: {state.get('motor_program_count', 0)} motor programs, "
+                   f"{state.get('sequence_count', 0)} sequences, "
+                   f"avg RT={state.get('average_reaction_time', 250):.1f}ms")
 
 
 class AutobiographicalMemory:
