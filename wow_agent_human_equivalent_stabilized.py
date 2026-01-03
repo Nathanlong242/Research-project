@@ -14820,6 +14820,563 @@ Operational Summary:
 
 
 # =============================================================================
+# ENGLISH LANGUAGE SYSTEM - TEXT UNDERSTANDING AND GENERATION
+# =============================================================================
+# Provides natural language processing capabilities for:
+# - Quest text understanding and objective extraction
+# - Chat message parsing and response generation
+# - NPC dialogue comprehension
+# - Combat log interpretation
+# - Item/spell description parsing
+# =============================================================================
+
+class EnglishLanguageSystem:
+    """
+    Natural language processing system for English text understanding.
+    Handles parsing, intent recognition, entity extraction, and generation.
+    """
+
+    # Common WoW-specific vocabulary
+    COMBAT_VERBS = {
+        'kill', 'slay', 'defeat', 'destroy', 'vanquish', 'eliminate',
+        'attack', 'fight', 'battle', 'engage', 'strike', 'hit'
+    }
+
+    COLLECTION_VERBS = {
+        'collect', 'gather', 'obtain', 'acquire', 'retrieve', 'find',
+        'get', 'bring', 'fetch', 'pick', 'loot', 'take'
+    }
+
+    DELIVERY_VERBS = {
+        'deliver', 'bring', 'take', 'give', 'return', 'escort',
+        'speak', 'talk', 'report', 'inform', 'tell'
+    }
+
+    EXPLORATION_VERBS = {
+        'explore', 'discover', 'find', 'locate', 'search', 'scout',
+        'investigate', 'examine', 'check', 'visit', 'go', 'travel'
+    }
+
+    THREAT_WORDS = {
+        'danger', 'warning', 'beware', 'caution', 'threat', 'hostile',
+        'aggressive', 'attack', 'kill', 'die', 'death', 'deadly'
+    }
+
+    POSITIVE_WORDS = {
+        'thank', 'reward', 'gold', 'experience', 'honor', 'reputation',
+        'complete', 'success', 'well done', 'excellent', 'congratulations'
+    }
+
+    NEGATIVE_WORDS = {
+        'fail', 'failed', 'cannot', 'unable', 'insufficient', 'need',
+        'require', 'missing', 'lack', 'error', 'wrong', 'incorrect'
+    }
+
+    # Entity patterns
+    NPC_TITLES = {
+        'innkeeper', 'vendor', 'merchant', 'trainer', 'guard', 'captain',
+        'general', 'commander', 'king', 'queen', 'prince', 'princess',
+        'lord', 'lady', 'elder', 'chief', 'master', 'apprentice'
+    }
+
+    LOCATION_INDICATORS = {
+        'north', 'south', 'east', 'west', 'near', 'by', 'at', 'in',
+        'outside', 'inside', 'behind', 'front', 'cave', 'tower', 'camp',
+        'village', 'city', 'town', 'forest', 'mountain', 'river', 'lake'
+    }
+
+    def __init__(self):
+        self._word_cache = {}
+        self._intent_history = []
+        self._entity_memory = {}
+        self._conversation_context = []
+        self._quest_vocabulary = set()
+        self._learned_patterns = {}
+
+        # Build vocabulary index
+        self._build_vocabulary()
+
+        logger.info("English Language System initialized")
+
+    def _build_vocabulary(self):
+        """Build combined vocabulary for faster lookups."""
+        self._all_verbs = (
+            self.COMBAT_VERBS |
+            self.COLLECTION_VERBS |
+            self.DELIVERY_VERBS |
+            self.EXPLORATION_VERBS
+        )
+
+    def tokenize(self, text: str) -> List[str]:
+        """
+        Tokenize text into words, handling WoW-specific patterns.
+        """
+        if not text:
+            return []
+
+        # Normalize text
+        text = text.lower().strip()
+
+        # Handle common WoW patterns (e.g., "[Item Name]", "<NPC Name>")
+        # Preserve bracketed content as single tokens
+        import re
+
+        # Extract special tokens
+        special_tokens = []
+        bracket_pattern = r'\[([^\]]+)\]'
+        angle_pattern = r'<([^>]+)>'
+
+        for match in re.finditer(bracket_pattern, text):
+            special_tokens.append(('item', match.group(1)))
+        for match in re.finditer(angle_pattern, text):
+            special_tokens.append(('npc', match.group(1)))
+
+        # Remove special patterns for word tokenization
+        clean_text = re.sub(bracket_pattern, ' ', text)
+        clean_text = re.sub(angle_pattern, ' ', clean_text)
+
+        # Basic tokenization
+        words = re.findall(r'\b\w+\b', clean_text)
+
+        return words
+
+    def extract_numbers(self, text: str) -> List[Tuple[int, str]]:
+        """
+        Extract numbers and their context from text.
+        Returns list of (number, context_word) tuples.
+        """
+        import re
+        results = []
+
+        # Pattern: number followed by noun (e.g., "8 wolves", "10 gold")
+        pattern = r'(\d+)\s+(\w+)'
+        for match in re.finditer(pattern, text.lower()):
+            num = int(match.group(1))
+            word = match.group(2)
+            results.append((num, word))
+
+        return results
+
+    def detect_intent(self, text: str) -> Dict[str, Any]:
+        """
+        Detect the primary intent of a text.
+        Returns intent type and confidence.
+        """
+        tokens = self.tokenize(text)
+        token_set = set(tokens)
+
+        intents = {
+            'kill_quest': len(token_set & self.COMBAT_VERBS),
+            'collect_quest': len(token_set & self.COLLECTION_VERBS),
+            'delivery_quest': len(token_set & self.DELIVERY_VERBS),
+            'exploration_quest': len(token_set & self.EXPLORATION_VERBS),
+            'threat_warning': len(token_set & self.THREAT_WORDS),
+            'positive_feedback': len(token_set & self.POSITIVE_WORDS),
+            'negative_feedback': len(token_set & self.NEGATIVE_WORDS),
+        }
+
+        # Find highest scoring intent
+        max_intent = max(intents, key=intents.get)
+        max_score = intents[max_intent]
+
+        # Calculate confidence based on matches
+        total_matches = sum(intents.values())
+        confidence = max_score / max(1, total_matches) if total_matches > 0 else 0.0
+
+        return {
+            'intent': max_intent if max_score > 0 else 'unknown',
+            'confidence': confidence,
+            'scores': intents,
+            'token_count': len(tokens)
+        }
+
+    def extract_entities(self, text: str) -> Dict[str, List[str]]:
+        """
+        Extract named entities from text.
+        Categories: npcs, items, locations, quantities
+        """
+        import re
+
+        entities = {
+            'npcs': [],
+            'items': [],
+            'locations': [],
+            'quantities': [],
+            'targets': []
+        }
+
+        text_lower = text.lower()
+
+        # Extract bracketed items [Item Name]
+        for match in re.finditer(r'\[([^\]]+)\]', text):
+            entities['items'].append(match.group(1))
+
+        # Extract NPC names <NPC Name>
+        for match in re.finditer(r'<([^>]+)>', text):
+            entities['npcs'].append(match.group(1))
+
+        # Extract quantities (number + noun)
+        for num, word in self.extract_numbers(text):
+            entities['quantities'].append({'count': num, 'target': word})
+            entities['targets'].append(word)
+
+        # Extract locations by indicator words
+        tokens = self.tokenize(text)
+        for i, token in enumerate(tokens):
+            if token in self.LOCATION_INDICATORS:
+                # Get next 1-3 words as potential location name
+                location_words = tokens[i:i+4]
+                if len(location_words) > 1:
+                    entities['locations'].append(' '.join(location_words))
+
+        # Extract NPC titles
+        for token in tokens:
+            if token in self.NPC_TITLES:
+                # Look for name before or after title
+                idx = tokens.index(token)
+                if idx > 0:
+                    entities['npcs'].append(f"{tokens[idx-1]} {token}")
+                elif idx < len(tokens) - 1:
+                    entities['npcs'].append(f"{token} {tokens[idx+1]}")
+
+        return entities
+
+    def parse_quest_objective(self, text: str) -> Dict[str, Any]:
+        """
+        Parse quest text to extract structured objective.
+        """
+        intent = self.detect_intent(text)
+        entities = self.extract_entities(text)
+        numbers = self.extract_numbers(text)
+
+        objective = {
+            'type': 'unknown',
+            'target': None,
+            'count': 1,
+            'location': None,
+            'npc': None,
+            'raw_text': text
+        }
+
+        # Determine quest type from intent
+        if intent['intent'] == 'kill_quest':
+            objective['type'] = 'kill'
+            if entities['targets']:
+                objective['target'] = entities['targets'][0]
+            if entities['quantities']:
+                objective['count'] = entities['quantities'][0]['count']
+
+        elif intent['intent'] == 'collect_quest':
+            objective['type'] = 'collect'
+            if entities['items']:
+                objective['target'] = entities['items'][0]
+            elif entities['targets']:
+                objective['target'] = entities['targets'][0]
+            if entities['quantities']:
+                objective['count'] = entities['quantities'][0]['count']
+
+        elif intent['intent'] == 'delivery_quest':
+            objective['type'] = 'deliver'
+            if entities['npcs']:
+                objective['npc'] = entities['npcs'][0]
+            if entities['items']:
+                objective['target'] = entities['items'][0]
+
+        elif intent['intent'] == 'exploration_quest':
+            objective['type'] = 'explore'
+            if entities['locations']:
+                objective['location'] = entities['locations'][0]
+
+        # Fill in location if found
+        if entities['locations'] and not objective['location']:
+            objective['location'] = entities['locations'][0]
+
+        # Fill in NPC if found
+        if entities['npcs'] and not objective['npc']:
+            objective['npc'] = entities['npcs'][0]
+
+        return objective
+
+    def parse_combat_log(self, log_text: str) -> List[Dict[str, Any]]:
+        """
+        Parse combat log text into structured events.
+        """
+        import re
+        events = []
+
+        lines = log_text.strip().split('\n')
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            event = {
+                'raw': line,
+                'type': 'unknown',
+                'source': None,
+                'target': None,
+                'amount': None,
+                'spell': None
+            }
+
+            # Damage patterns
+            damage_match = re.search(
+                r"(.+?)'s (.+?) hits? (.+?) for (\d+)",
+                line, re.IGNORECASE
+            )
+            if damage_match:
+                event['type'] = 'damage'
+                event['source'] = damage_match.group(1)
+                event['spell'] = damage_match.group(2)
+                event['target'] = damage_match.group(3)
+                event['amount'] = int(damage_match.group(4))
+                events.append(event)
+                continue
+
+            # Heal patterns
+            heal_match = re.search(
+                r"(.+?)'s (.+?) heals? (.+?) for (\d+)",
+                line, re.IGNORECASE
+            )
+            if heal_match:
+                event['type'] = 'heal'
+                event['source'] = heal_match.group(1)
+                event['spell'] = heal_match.group(2)
+                event['target'] = heal_match.group(3)
+                event['amount'] = int(heal_match.group(4))
+                events.append(event)
+                continue
+
+            # Death patterns
+            if 'dies' in line.lower() or 'killed' in line.lower():
+                event['type'] = 'death'
+                # Try to extract who died
+                death_match = re.search(r"(.+?) (?:dies|is killed)", line, re.IGNORECASE)
+                if death_match:
+                    event['target'] = death_match.group(1)
+                events.append(event)
+                continue
+
+            # Buff/debuff patterns
+            if 'gains' in line.lower() or 'afflicted' in line.lower():
+                event['type'] = 'buff' if 'gains' in line.lower() else 'debuff'
+                events.append(event)
+
+        return events
+
+    def analyze_sentiment(self, text: str) -> Dict[str, float]:
+        """
+        Analyze emotional sentiment of text.
+        Returns scores for different sentiment dimensions.
+        """
+        tokens = set(self.tokenize(text))
+
+        positive_count = len(tokens & self.POSITIVE_WORDS)
+        negative_count = len(tokens & self.NEGATIVE_WORDS)
+        threat_count = len(tokens & self.THREAT_WORDS)
+
+        total = positive_count + negative_count + threat_count
+        if total == 0:
+            return {
+                'positive': 0.0,
+                'negative': 0.0,
+                'threat': 0.0,
+                'neutral': 1.0
+            }
+
+        return {
+            'positive': positive_count / total,
+            'negative': negative_count / total,
+            'threat': threat_count / total,
+            'neutral': 0.0
+        }
+
+    def generate_response(self, context: str, intent: str = 'greeting') -> str:
+        """
+        Generate appropriate response based on context and intent.
+        """
+        responses = {
+            'greeting': [
+                "Hello!", "Greetings!", "Hi there!", "Well met!",
+                "Hail!", "Good day!"
+            ],
+            'thanks': [
+                "Thank you!", "Thanks!", "Much appreciated!",
+                "You have my gratitude.", "Many thanks!"
+            ],
+            'farewell': [
+                "Goodbye!", "Farewell!", "Safe travels!",
+                "Until next time!", "Take care!"
+            ],
+            'acknowledgment': [
+                "Understood.", "I see.", "Got it.", "Very well.",
+                "Of course.", "Right away."
+            ],
+            'quest_accept': [
+                "I'll handle it.", "Consider it done.",
+                "I accept this task.", "Leave it to me."
+            ],
+            'quest_complete': [
+                "The task is done.", "I have completed the quest.",
+                "It is finished.", "Mission accomplished."
+            ],
+            'help': [
+                "Can you help me?", "I need assistance.",
+                "Could you aid me?", "I require help."
+            ],
+            'trade': [
+                "What do you have for sale?", "Show me your wares.",
+                "I'd like to browse.", "What can I buy?"
+            ],
+            'group': [
+                "Would you like to group?", "Want to team up?",
+                "Looking for group!", "LFG"
+            ]
+        }
+
+        import random
+        if intent in responses:
+            return random.choice(responses[intent])
+        return random.choice(responses['greeting'])
+
+    def understand_npc_dialogue(self, dialogue: str) -> Dict[str, Any]:
+        """
+        Parse and understand NPC dialogue to extract actionable information.
+        """
+        result = {
+            'has_quest': False,
+            'quest_available': False,
+            'quest_complete': False,
+            'is_vendor': False,
+            'is_trainer': False,
+            'sentiment': None,
+            'key_info': [],
+            'objectives': []
+        }
+
+        text_lower = dialogue.lower()
+
+        # Check for quest indicators
+        quest_offer_words = ['task', 'mission', 'quest', 'help me', 'need you to', 'would you']
+        if any(word in text_lower for word in quest_offer_words):
+            result['has_quest'] = True
+            result['quest_available'] = True
+
+        # Check for quest completion
+        complete_words = ['well done', 'thank you', 'excellent', 'reward', 'completed']
+        if any(word in text_lower for word in complete_words):
+            result['quest_complete'] = True
+
+        # Check for vendor/trainer
+        if 'buy' in text_lower or 'sell' in text_lower or 'wares' in text_lower:
+            result['is_vendor'] = True
+        if 'train' in text_lower or 'teach' in text_lower or 'learn' in text_lower:
+            result['is_trainer'] = True
+
+        # Get sentiment
+        result['sentiment'] = self.analyze_sentiment(dialogue)
+
+        # Extract any quest objectives mentioned
+        intent = self.detect_intent(dialogue)
+        if intent['intent'] in ['kill_quest', 'collect_quest', 'delivery_quest', 'exploration_quest']:
+            result['objectives'].append(self.parse_quest_objective(dialogue))
+
+        return result
+
+    def parse_item_tooltip(self, tooltip_text: str) -> Dict[str, Any]:
+        """
+        Parse item tooltip text to extract stats and information.
+        """
+        import re
+
+        item = {
+            'name': None,
+            'quality': 'common',
+            'type': None,
+            'stats': {},
+            'effects': [],
+            'requirements': {},
+            'sell_price': None
+        }
+
+        lines = tooltip_text.strip().split('\n')
+        if not lines:
+            return item
+
+        # First line is usually the name
+        item['name'] = lines[0].strip()
+
+        for line in lines[1:]:
+            line = line.strip().lower()
+
+            # Stat patterns (+X Stat)
+            stat_match = re.search(r'\+(\d+)\s+(\w+)', line)
+            if stat_match:
+                value = int(stat_match.group(1))
+                stat_name = stat_match.group(2)
+                item['stats'][stat_name] = value
+                continue
+
+            # Armor value
+            armor_match = re.search(r'(\d+)\s+armor', line)
+            if armor_match:
+                item['stats']['armor'] = int(armor_match.group(1))
+                continue
+
+            # Damage range
+            damage_match = re.search(r'(\d+)\s*-\s*(\d+)\s+damage', line)
+            if damage_match:
+                item['stats']['min_damage'] = int(damage_match.group(1))
+                item['stats']['max_damage'] = int(damage_match.group(2))
+                continue
+
+            # Level requirement
+            level_match = re.search(r'requires level (\d+)', line)
+            if level_match:
+                item['requirements']['level'] = int(level_match.group(1))
+                continue
+
+            # Sell price
+            price_match = re.search(r'sell price:?\s*(\d+)', line)
+            if price_match:
+                item['sell_price'] = int(price_match.group(1))
+
+            # Item type detection
+            type_keywords = {
+                'sword': 'weapon', 'axe': 'weapon', 'mace': 'weapon',
+                'staff': 'weapon', 'dagger': 'weapon', 'bow': 'weapon',
+                'chest': 'armor', 'legs': 'armor', 'head': 'armor',
+                'feet': 'armor', 'hands': 'armor', 'shoulder': 'armor',
+                'ring': 'accessory', 'necklace': 'accessory', 'trinket': 'accessory',
+                'potion': 'consumable', 'food': 'consumable', 'drink': 'consumable'
+            }
+            for keyword, item_type in type_keywords.items():
+                if keyword in line:
+                    item['type'] = item_type
+                    break
+
+        return item
+
+    def get_state(self) -> Dict[str, Any]:
+        """Get serializable state for persistence."""
+        return {
+            'entity_memory': self._entity_memory,
+            'learned_patterns': self._learned_patterns,
+            'quest_vocabulary': list(self._quest_vocabulary)
+        }
+
+    def load_state(self, state: Dict[str, Any]):
+        """Load state from persistence."""
+        if 'entity_memory' in state:
+            self._entity_memory = state['entity_memory']
+        if 'learned_patterns' in state:
+            self._learned_patterns = state['learned_patterns']
+        if 'quest_vocabulary' in state:
+            self._quest_vocabulary = set(state['quest_vocabulary'])
+
+
+# =============================================================================
 # COGNITIVE CORE - MAIN INTEGRATION CLASS
 # =============================================================================
 
@@ -14846,7 +15403,10 @@ class CognitiveCore:
         self.narrative = NarrativeSelfModelSystem()
         self.meta_cognition = MetaCognitionSystem()
         self.decision_synthesis = DecisionSynthesisSystem()
-        
+
+        # English Language Processing System
+        self.language = EnglishLanguageSystem()
+
         # Human-Equivalent Cognitive Systems (Enhanced)
         self.probabilistic_beliefs = ProbabilisticBeliefSystem()
         self.procedural_memory = ProceduralMemorySystem()
